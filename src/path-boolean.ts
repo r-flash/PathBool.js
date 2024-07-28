@@ -95,7 +95,6 @@ type MinorGraphEdge = {
 };
 
 type MinorGraphVertex = {
-    point: Vector;
     outgoingEdges: MinorGraphEdge[];
 };
 
@@ -421,11 +420,8 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
     const newEdges: MinorGraphEdge[] = [];
     const newVertices: MinorGraphVertex[] = [];
 
-    const toMinorVertex = memoizeWeak((majorVertex: MajorGraphVertex) => {
-        const minorVertex: MinorGraphVertex = {
-            point: majorVertex.point,
-            outgoingEdges: [],
-        };
+    const toMinorVertex = memoizeWeak((_majorVertex: MajorGraphVertex) => {
+        const minorVertex: MinorGraphVertex = { outgoingEdges: [] };
         newVertices.push(minorVertex);
         return minorVertex;
     }) as (majorVertex: MajorGraphVertex) => MinorGraphVertex;
