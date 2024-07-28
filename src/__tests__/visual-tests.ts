@@ -10,8 +10,10 @@ import { globSync } from "glob";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import * as PathBool from "../path-boolean";
-import { pathFromPathData, pathToPathData } from "../path-data";
+
+
+import * as PathBool from "../index";
+
 
 const TOLERANCE = 80;
 
@@ -47,8 +49,8 @@ test.each(folders)("$name $opName", async ({ dir, opName, op }) => {
     const $ = cheerio.load(originalCode, { xml: true });
     const $a = $(`#a`);
     const $b = $(`#b`);
-    const a = pathFromPathData($a.attr("d")!);
-    const b = pathFromPathData($b.attr("d")!);
+    const a = PathBool.pathFromPathData($a.attr("d")!);
+    const b = PathBool.pathFromPathData($b.attr("d")!);
     const aFillRule =
         fillRules[$a.css("fill-rule") ?? "nonzero"] ??
         PathBool.FillRule.NonZero;
@@ -59,7 +61,7 @@ test.each(folders)("$name $opName", async ({ dir, opName, op }) => {
     const result = PathBool.pathBoolean(a, aFillRule, b, bFillRule, op)!;
     for (const path of result) {
         $a.clone()
-            .attr("d", pathToPathData(path, 1e-4))
+            .attr("d", PathBool.pathToPathData(path, 1e-4))
             .removeAttr("id")
             .insertBefore($a);
     }
