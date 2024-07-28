@@ -20,8 +20,8 @@ export function* pathFromCommands(
     let lastPoint: Vector | null = null;
     let lastControlPoint: Vector | null = null;
 
-    function badString(): never {
-        throw new Error("Bad SVG path data string.");
+    function badSequence(): never {
+        throw new Error("Bad SVG path data sequence.");
     }
 
     for (const cmd of toAbsoluteCommands(commands)) {
@@ -31,20 +31,20 @@ export function* pathFromCommands(
                 lastControlPoint = null;
                 break;
             case "L":
-                if (!lastPoint) badString();
+                if (!lastPoint) badSequence();
                 yield ["L", lastPoint, cmd[1]];
                 lastPoint = cmd[1];
                 lastControlPoint = null;
                 break;
             case "C":
-                if (!lastPoint) badString();
+                if (!lastPoint) badSequence();
                 yield ["C", lastPoint, cmd[1], cmd[2], cmd[3]];
                 lastPoint = cmd[3];
                 lastControlPoint = cmd[2];
                 break;
             case "S":
-                if (!lastPoint) badString();
-                if (!lastControlPoint) badString(); // TODO: really?
+                if (!lastPoint) badSequence();
+                if (!lastControlPoint) badSequence(); // TODO: really?
                 yield [
                     "C",
                     lastPoint,
@@ -56,14 +56,14 @@ export function* pathFromCommands(
                 lastControlPoint = cmd[1];
                 break;
             case "Q":
-                if (!lastPoint) badString();
+                if (!lastPoint) badSequence();
                 yield ["Q", lastPoint, cmd[1], cmd[2]];
                 lastPoint = cmd[2];
                 lastControlPoint = cmd[1];
                 break;
             case "T":
-                if (!lastPoint) badString();
-                if (!lastControlPoint) badString(); // TODO: really?
+                if (!lastPoint) badSequence();
+                if (!lastControlPoint) badSequence(); // TODO: really?
                 lastControlPoint = reflectControlPoint(
                     lastPoint,
                     lastControlPoint,
@@ -72,7 +72,7 @@ export function* pathFromCommands(
                 lastPoint = cmd[1];
                 break;
             case "A":
-                if (!lastPoint) badString();
+                if (!lastPoint) badSequence();
                 yield [
                     "A",
                     lastPoint,
@@ -88,8 +88,8 @@ export function* pathFromCommands(
                 break;
             case "Z":
             case "z":
-                if (!lastPoint) badString();
-                if (!firstPoint) badString(); // TODO: really?
+                if (!lastPoint) badSequence();
+                if (!firstPoint) badSequence(); // TODO: really?
                 yield ["L", lastPoint, firstPoint];
                 lastPoint = firstPoint;
                 lastControlPoint = null;
