@@ -10,6 +10,14 @@ please, help me test it and provide reduced examples of failure cases.
 - Expand documentation.
 - Comment the code thoroughly.
 
+## Building
+
+```shell
+npm run build
+# or with asserts:
+npm run build-dev
+```
+
 ## Usage
 
 ```ts
