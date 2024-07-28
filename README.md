@@ -9,6 +9,7 @@ please, help me test it and provide reduced examples of failure cases.
 - Publish on NPM.
 - Expand documentation.
 - Comment the code thoroughly.
+- Support [shape builder](https://media.inkscape.org/media/news/uploads/1-3-shape-builder-ssr_gy8C0ba.webp) use-case.
 
 ## Building
 
