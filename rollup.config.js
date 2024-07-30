@@ -1,10 +1,11 @@
 import { nodeResolve } from "@rollup/plugin-node-resolve";
 import strip from "@rollup/plugin-strip";
+import terser from "@rollup/plugin-terser";
 import typescript from "@rollup/plugin-typescript";
 
 const production = process.env.NODE_ENV === "production";
 
-function getPlugins(shouldStrip) {
+function getPlugins(shouldMinify, shouldStrip) {
     return [
         nodeResolve(),
         typescript(),
@@ -14,15 +15,32 @@ function getPlugins(shouldStrip) {
                 debugger: false,
                 functions: ["assert*"],
             }),
+        shouldMinify &&
+            terser({
+                ecma: 2020,
+                module: true,
+            }),
     ].filter(Boolean);
 }
 
-export default {
-    input: "src/index.ts",
-    output: {
-        file: "dist/path-bool.js",
-        format: "es",
-        sourcemap: true,
+export default [
+    {
+        input: "src/index.ts",
+        output: {
+            file: "dist/path-bool.js",
+            format: "es",
+            sourcemap: true,
+        },
+        plugins: getPlugins(false, production),
     },
-    plugins: getPlugins(production),
-};
+    {
+        input: "src/index.ts",
+        output: {
+            file: "dist/path-bool.umd.js",
+            format: "umd",
+            sourcemap: true,
+            name: "PathBool",
+        },
+        plugins: getPlugins(production, production),
+    },
+];
