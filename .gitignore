@@ -1,5 +1,10 @@
 /node_modules/
-/dist/
+/dist/*
 /src/__fixtures__/visual-tests/*/test-results/
 /.idea/
 /coverage/
+
+!/dist/path-bool.js
+!/dist/path-bool.js.map
+!/dist/path-bool.umd.js
+!/dist/path-bool.umd.js.map
