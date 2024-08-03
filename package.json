@@ -17,6 +17,9 @@
   "type": "module",
   "main": "./dist/path-bool.js",
   "types": "./dist/types/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
   "repository": {
     "url": "https://github.com/r-flash/PathBool.js",
     "type": "git"
