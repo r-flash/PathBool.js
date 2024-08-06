@@ -20,6 +20,7 @@
   "files": [
     "dist/**/*"
   ],
+  "homepage": "https://r-flash.github.io/PathBool.js/",
   "repository": {
     "url": "https://github.com/r-flash/PathBool.js",
     "type": "git"
