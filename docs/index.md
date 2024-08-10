@@ -1,5 +1,9 @@
 # PathBool.js documentation
 
+## Demos
+
+- [basic](./demo.html)
+
 ## Installation
 
 You can use npm or any compatible package manager:

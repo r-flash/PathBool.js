@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PathBool.js demo</title>
+    <style>
+        body {
+            background: #eee;
+            color: #333;
+            font-family: sans-serif;
+        }
+
+        .container {
+            max-width: 40em;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 50fr 50fr;
+            gap: 0 1em;
+        }
+
+        h1 {
+            grid-column: span 2;
+        }
+
+        .input-container {
+            margin-bottom: .5em;
+        }
+
+        .input-container.full-width {
+            grid-column: span 2;
+            margin-left: 25%;
+            margin-right: 25%;
+        }
+
+        .input-container label {
+            display: block;
+        }
+
+        .input-container input,
+        .input-container select {
+            width: 100%;
+            font-size: inherit;
+            font-family: inherit;
+        }
+
+        svg {
+            grid-column: span 2;
+            width: 100%;
+            height: auto;
+            margin-top: 2em;
+        }
+
+        #pathA,
+        #pathB {
+            fill: none;
+            stroke: #333;
+            stroke-width: 0.25;
+            stroke-dasharray: 1;
+        }
+
+        #result {
+            fill: #4cd5ff;
+            stroke: #00609c;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>PathBool.js demo</h1>
+    <div class="input-container">
+        <label for="pathAData">path A data:</label>
+        <input id="pathAData"
+               value="M 9.89,45.71 46.83,18.88 1.17,18.88 38.11,45.71 24,2.29 Z" />
+    </div>
+    <div class="input-container">
+        <label for="pathBData">path B data:</label>
+        <input id="pathBData"
+               value="M 24 1 A 23 23 0 0 0 1 24 A 23 23 0 0 0 24 47 A 23 23 0 0 0 47 24 A 23 23 0 0 0 24 1 z M 24 11.515625 A 12.484624 12.484624 0 0 1 36.484375 24 A 12.484624 12.484624 0 0 1 24 36.484375 A 12.484624 12.484624 0 0 1 11.515625 24 A 12.484624 12.484624 0 0 1 24 11.515625 z" />
+    </div>
+    <div class="input-container">
+        <label for="pathAFillRule">path A fill-rule:</label>
+        <select id="pathAFillRule">
+            <option value="nonzero" selected>nonzero</option>
+            <option value="evenodd">evenodd</option>
+        </select>
+    </div>
+    <div class="input-container">
+        <label for="pathBFillRule">path B fill-rule:</label>
+        <select id="pathBFillRule">
+            <option value="nonzero" selected>nonzero</option>
+            <option value="evenodd">evenodd</option>
+        </select>
+    </div>
+    <div class="input-container full-width">
+        <label for="operation">operation:</label>
+        <select id="operation">
+            <option value="union" selected>union</option>
+            <option value="difference">difference</option>
+            <option value="intersection">intersection</option>
+            <option value="exclusion">exclusion</option>
+            <option value="division">division</option>
+            <option value="fracture">fracture</option>
+        </select>
+    </div>
+    <svg viewBox="-1 -1 50 50">
+        <g id="result"></g>
+        <path id="pathA" d="" />
+        <path id="pathB" d="" />
+    </svg>
+</div>
+<script type="module">
+    import * as PathBool from "./js/path-bool.js";
+
+    const fillRules = {
+        nonzero: PathBool.FillRule.NonZero,
+        evenodd: PathBool.FillRule.EvenOdd
+    };
+
+    const operations = {
+        union: PathBool.PathBooleanOperation.Union,
+        difference: PathBool.PathBooleanOperation.Difference,
+        intersection: PathBool.PathBooleanOperation.Intersection,
+        exclusion: PathBool.PathBooleanOperation.Exclusion,
+        division: PathBool.PathBooleanOperation.Division,
+        fracture: PathBool.PathBooleanOperation.Fracture
+    };
+
+    const pathADataInput = document.getElementById("pathAData");
+    const pathAFillRuleInput = document.getElementById("pathAFillRule");
+    const pathBDataInput = document.getElementById("pathBData");
+    const pathBFillRuleInput = document.getElementById("pathBFillRule");
+    const operationInput = document.getElementById("operation");
+    const pathAEl = document.getElementById("pathA");
+    const pathBEl = document.getElementById("pathB");
+    const resultEl = document.getElementById("result");
+
+    function update() {
+        pathAEl.setAttribute("d", pathADataInput.value);
+        pathBEl.setAttribute("d", pathBDataInput.value);
+
+        const pathA = PathBool.pathFromPathData(pathADataInput.value);
+        const pathAFillRule = fillRules[pathAFillRuleInput.value];
+        const pathB = PathBool.pathFromPathData(pathBDataInput.value);
+        const pathBFillRule = fillRules[pathBFillRuleInput.value];
+        const operation = operations[operationInput.value];
+
+        const result = PathBool.pathBoolean(pathA, pathAFillRule, pathB, pathBFillRule, operation);
+
+        resultEl.innerHTML = result
+            .map(p => `<path d="${PathBool.pathToPathData(p)}" />`)
+            .join("\n");
+    }
+
+    update();
+
+    pathADataInput.addEventListener("change", update);
+    pathAFillRuleInput.addEventListener("change", update);
+    pathBDataInput.addEventListener("change", update);
+    pathBFillRuleInput.addEventListener("change", update);
+    operationInput.addEventListener("change", update);
+</script>
+</body>
+</html>

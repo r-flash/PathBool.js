@@ -36,6 +36,15 @@ export default [
     {
         input: "src/index.ts",
         output: {
+            file: "docs/js/path-bool.js",
+            format: "es",
+            sourcemap: true,
+        },
+        plugins: getPlugins(false, true),
+    },
+    {
+        input: "src/index.ts",
+        output: {
             file: "dist/path-bool.umd.js",
             format: "umd",
             sourcemap: true,
