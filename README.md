@@ -4,6 +4,10 @@ A low-level library for performing boolean operations on SVG paths.
 The project is still in early stages of development;
 please, help me test it and provide reduced examples of failure cases.
 
+## Demos
+
+- [basic](https://r-flash.github.io/PathBool.js/demo.html)
+
 ## TODO
 
 - Comment the code thoroughly.
