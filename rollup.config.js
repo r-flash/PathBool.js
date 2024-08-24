@@ -34,6 +34,15 @@ export default [
         plugins: getPlugins(false, production),
     },
     {
+        input: "src/index.core.ts",
+        output: {
+            file: "dist/path-bool.core.js",
+            format: "es",
+            sourcemap: true,
+        },
+        plugins: getPlugins(false, true),
+    },
+    {
         input: "src/index.ts",
         output: {
             file: "docs/js/path-bool.js",
@@ -51,5 +60,15 @@ export default [
             name: "PathBool",
         },
         plugins: getPlugins(production, production),
+    },
+    {
+        input: "src/index.core.ts",
+        output: {
+            file: "dist/path-bool.core.umd.js",
+            format: "umd",
+            sourcemap: true,
+            name: "PathBool",
+        },
+        plugins: getPlugins(true, true),
     },
 ];

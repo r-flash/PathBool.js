@@ -18,6 +18,9 @@ from [dist/path-bool.js](https://github.com/r-flash/PathBool.js/blob/master/dist
 or load the UMD build using a `<script src="...">`,
 in which case the library will be exposed under the global variable `PathBool`.
 
+There are also "core" builds available
+which don't include the string path data parser.
+
 ## A quick look at the API
 
 ```ts
