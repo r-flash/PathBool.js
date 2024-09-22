@@ -618,7 +618,7 @@ function getNextEdge(edge: MinorGraphEdge) {
 
 const faceToPolygon = memoizeWeak((face: DualGraphVertex) =>
     face.incidentEdges.flatMap((edge): Vector[] => {
-        const CNT = 3;
+        const CNT = 64;
 
         const points: Vector[] = [];
 
@@ -1120,7 +1120,7 @@ function dumpFaces(
 function majorGraphToDot({ vertices, edges }: MajorGraph) {
     const toNumber = createObjectCounter();
     return `digraph {
-${vertices.map((v) => `  ${toNumber(v)} [label="${v.point.join(", ")}"]`).join("\n")}
+${vertices.map((v) => `  ${toNumber(v)} [pos="${v.point.map((v) => v / 10).join(",")}!"]`).join("\n")}
 ${edges.map((edge) => "  " + edge.incidentVertices.map(toNumber).join(" -> ")).join("\n")}
 }
 `;
