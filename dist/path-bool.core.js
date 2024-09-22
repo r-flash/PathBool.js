@@ -1777,7 +1777,7 @@ function getNextEdge(edge) {
     return outgoingEdges[(index + 1) % outgoingEdges.length];
 }
 const faceToPolygon = memoizeWeak((face) => face.incidentEdges.flatMap((edge) => {
-    const CNT = 3;
+    const CNT = 64;
     const points = [];
     for (const seg of edge.segments) {
         for (let i = 0; i < CNT; i++) {
