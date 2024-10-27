@@ -1,8 +1,9 @@
 /node_modules/
-/dist/*
+/dist/
 /src/__fixtures__/visual-tests/*/test-results/
 /.idea/
 /coverage/
+/docs/js/dist/types/
 
 !/dist/path-bool.js
 !/dist/path-bool.js.map
