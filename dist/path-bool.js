@@ -1590,6 +1590,7 @@ function findVertices(edges, boundingBox) {
                     }
                     break;
                 case "A":
+                    // TODO: explain
                     if (edge.seg[5] === false) {
                         return [];
                     }
@@ -1597,10 +1598,23 @@ function findVertices(edges, boundingBox) {
             }
         }
         const vertexPairId = `${getVertexId(startVertex)}:${getVertexId(endVertex)}`;
-        // TODO: check other direction
         if (hasOwn(vertexPairIdToEdges, vertexPairId)) {
             const existingEdge = vertexPairIdToEdges[vertexPairId].find((other) => segmentsEqual(other[0].seg, edge.seg, EPS.point));
             if (existingEdge) {
+                existingEdge[1].parent |= edge.parent;
+                existingEdge[2].parent |= edge.parent;
+                return [];
+            }
+        }
+        const vertexPairIdInv = `${getVertexId(endVertex)}:${getVertexId(startVertex)}`;
+        if (hasOwn(vertexPairIdToEdges, vertexPairIdInv)) {
+            const reversedSeg = reversePathSegment(edge.seg);
+            const existingEdge = vertexPairIdToEdges[vertexPairIdInv].find((other) => segmentsEqual(other[0].seg, reversedSeg, EPS.point));
+            if (existingEdge) {
+                if (existingEdge[0].parent === edge.parent) {
+                    // discard "there and back" pairs
+                    return [];
+                }
                 existingEdge[1].parent |= edge.parent;
                 existingEdge[2].parent |= edge.parent;
                 return [];
