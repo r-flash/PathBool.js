@@ -9,19 +9,30 @@ import { Vector } from "./primitives/Vector";
 import { isBoolean, isNumber, isString } from "./util/generic";
 import { map } from "./util/iterators";
 
+
 const eof = Symbol();
 
 export function* commandsFromPathData(d: string): Iterable<PathCommand> {
-    const reFloat = /\s*,?\s*(-?\d*(?:\d\.|\.\d|\d)\d*(?:[eE][+\-]?\d+)?)/y;
-    const reCmd = /\s*([MLCSQTAZHVmlhvcsqtaz])/y;
-    const reBool = /\s*,?\s*([01])/y;
+    const reFloat = /(-?\d*(?:\d\.|\.\d|\d)\d*(?:[eE][+\-]?\d+)?)/y;
+    const reCmd = /([MLCSQTAZHVmlhvcsqtaz])/y;
+    const reBool = /([01])/y;
+    const reWS = /\s*,?\s*/y;
 
     let i = 0;
+
+    function skipWS() {
+        reWS.lastIndex = i;
+        if (reWS.exec(d) !== null) {
+            i = reWS.lastIndex;
+        }
+    }
 
     let lastCmd = "M";
 
     function getCmd() {
-        if (i >= d.length - 1) return eof;
+        skipWS();
+
+        if (i > d.length - 1) return eof;
 
         reCmd.lastIndex = i;
         const match = reCmd.exec(d);
@@ -43,6 +54,8 @@ export function* commandsFromPathData(d: string): Iterable<PathCommand> {
     }
 
     function getFloat() {
+        skipWS();
+
         reFloat.lastIndex = i;
         const match = reFloat.exec(d);
 
@@ -57,6 +70,8 @@ export function* commandsFromPathData(d: string): Iterable<PathCommand> {
     }
 
     function getBool() {
+        skipWS();
+
         reBool.lastIndex = i;
         const match = reBool.exec(d);
 
