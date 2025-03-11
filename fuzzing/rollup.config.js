@@ -9,5 +9,8 @@ export default {
         format: "commonjs",
         sourcemap: true,
     },
-    plugins: [nodeResolve(), typescript()],
+    plugins: [
+        nodeResolve(),
+        typescript({ compilerOptions: { declarationDir: "fuzzing/build" } }),
+    ],
 };
