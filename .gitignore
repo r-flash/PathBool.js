@@ -3,7 +3,7 @@
 /src/__fixtures__/visual-tests/*/test-results/
 /.idea/
 /coverage/
-/docs/js/dist/types/
+/docs/js/types/
 /.nyc_output/
 /fuzzing/build/
 /fuzzing/corpus/

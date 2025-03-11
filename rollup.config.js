@@ -5,10 +5,10 @@ import typescript from "@rollup/plugin-typescript";
 
 const production = process.env.NODE_ENV === "production";
 
-function getPlugins(shouldMinify, shouldStrip) {
+function getPlugins(shouldMinify, shouldStrip, declarationDir = "dist/types") {
     return [
         nodeResolve(),
-        typescript(),
+        typescript({ compilerOptions: { declarationDir } }),
         shouldStrip &&
             strip({
                 include: "**/*.ts",
@@ -49,7 +49,7 @@ export default [
             format: "es",
             sourcemap: true,
         },
-        plugins: getPlugins(false, true),
+        plugins: getPlugins(false, true, "docs/js/types"),
     },
     {
         input: "src/index.ts",

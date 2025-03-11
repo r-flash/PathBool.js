@@ -1,6 +1,6 @@
 {
   "name": "path-bool",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "license": "MIT",
   "author": {
     "name": "Adam Platkevič",
@@ -29,19 +29,19 @@
     "@gitlab-org/jsfuzz": "^1.2.4",
     "@jest/globals": "^29.7.0",
     "@resvg/resvg-js": "^2.6.2",
-    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-strip": "^3.0.4",
     "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^11.1.6",
-    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
-    "cheerio": "^1.0.0-rc.12",
-    "glob": "^11.0.0",
-    "globals": "^15.9.0",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "cheerio": "^1.0.0",
+    "glob": "^11.0.1",
+    "globals": "^16.0.0",
     "jest": "^29.7.0",
-    "prettier": "3.3.3",
-    "rollup": "^4.20.0",
-    "ts-jest": "^29.2.4",
-    "tslib": "^2.6.3"
+    "prettier": "3.5.3",
+    "rollup": "^4.35.0",
+    "ts-jest": "^29.2.6",
+    "tslib": "^2.8.1"
   },
   "scripts": {
     "build": "NODE_ENV=production rollup -c",

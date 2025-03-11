@@ -2499,13 +2499,22 @@ function* pathToCommands(segments, eps = 1e-4) {
  */
 const eof = Symbol();
 function* commandsFromPathData(d) {
-    const reFloat = /\s*,?\s*(-?\d*(?:\d\.|\.\d|\d)\d*(?:[eE][+\-]?\d+)?)/y;
-    const reCmd = /\s*([MLCSQTAZHVmlhvcsqtaz])/y;
-    const reBool = /\s*,?\s*([01])/y;
+    const reFloat = /(-?\d*(?:\d\.|\.\d|\d)\d*(?:[eE][+\-]?\d+)?)/y;
+    const reCmd = /([MLCSQTAZHVmlhvcsqtaz])/y;
+    const reBool = /([01])/y;
+    const reWS = /\s*,?\s*/y;
     let i = 0;
+    function skipWS() {
+        reWS.lastIndex = i;
+        if (reWS.exec(d) !== null) {
+            i = reWS.lastIndex;
+        }
+    }
     let lastCmd = "M";
+    let lastIndexOfZ = -1;
     function getCmd() {
-        if (i >= d.length - 1)
+        skipWS();
+        if (i > d.length - 1)
             return eof;
         reCmd.lastIndex = i;
         const match = reCmd.exec(d);
@@ -2516,6 +2525,13 @@ function* commandsFromPathData(d) {
                     return "L";
                 case "m":
                     return "l";
+                case "Z":
+                case "z":
+                    if (i === lastIndexOfZ) {
+                        throw new Error(`Invalid path data. Invalid syntax at index ${i}.`);
+                    }
+                    lastIndexOfZ = i;
+                    return lastCmd;
                 default:
                     return lastCmd;
             }
@@ -2524,6 +2540,7 @@ function* commandsFromPathData(d) {
         return match[1];
     }
     function getFloat() {
+        skipWS();
         reFloat.lastIndex = i;
         const match = reFloat.exec(d);
         if (!match) {
@@ -2533,6 +2550,7 @@ function* commandsFromPathData(d) {
         return Number(match[1]);
     }
     function getBool() {
+        skipWS();
         reBool.lastIndex = i;
         const match = reBool.exec(d);
         if (!match) {
