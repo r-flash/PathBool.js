@@ -7,6 +7,7 @@ import { expect, test } from "@jest/globals";
 import { Resvg } from "@resvg/resvg-js";
 import * as cheerio from "cheerio";
 import { globSync } from "glob";
+import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
@@ -107,4 +108,10 @@ test.each(folders)("$name $opName", async ({ dir, opName, op }) => {
 
     const $gt = cheerio.load(groundTruthCode);
     expect(result.length).toStrictEqual($gt("path").length);
+
+    const fuzzTestingStr = $a.attr("d") + "\n" + $b.attr("d");
+    const hash = crypto.createHash("sha256");
+    hash.update(fuzzTestingStr);
+    const digest = hash.digest("hex");
+    await fs.writeFile(`fuzzing/corpus/test-${digest}`, fuzzTestingStr);
 });

@@ -54,7 +54,7 @@ export default [
     {
         input: "src/index.ts",
         output: {
-            file: "dist/path-bool.umd.js",
+            file: "dist/path-bool.umd.cjs",
             format: "umd",
             sourcemap: true,
             name: "PathBool",
@@ -64,7 +64,7 @@ export default [
     {
         input: "src/index.core.ts",
         output: {
-            file: "dist/path-bool.core.umd.js",
+            file: "dist/path-bool.core.umd.cjs",
             format: "umd",
             sourcemap: true,
             name: "PathBool",

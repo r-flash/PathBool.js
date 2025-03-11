@@ -4,12 +4,15 @@
 /.idea/
 /coverage/
 /docs/js/dist/types/
+/.nyc_output/
+/fuzzing/build/
+/fuzzing/corpus/
 
 !/dist/path-bool.js
 !/dist/path-bool.js.map
-!/dist/path-bool.umd.js
-!/dist/path-bool.umd.js.map
+!/dist/path-bool.umd.cjs
+!/dist/path-bool.umd.cjs.map
 !/dist/path-bool.core.js
 !/dist/path-bool.core.js.map
-!/dist/path-bool.core.umd.js
-!/dist/path-bool.core.umd.js.map
+!/dist/path-bool.core.umd.cjs
+!/dist/path-bool.core.umd.cjs.map

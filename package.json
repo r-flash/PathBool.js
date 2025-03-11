@@ -26,6 +26,7 @@
     "type": "git"
   },
   "devDependencies": {
+    "@gitlab-org/jsfuzz": "^1.2.4",
     "@jest/globals": "^29.7.0",
     "@resvg/resvg-js": "^2.6.2",
     "@rollup/plugin-node-resolve": "^15.2.3",
@@ -47,7 +48,8 @@
     "build-dev": "NODE_ENV=development rollup -c",
     "watch": "NODE_ENV=development rollup -c -w",
     "test": "jest",
-    "pretty": "prettier --write ./src"
+    "pretty": "prettier --write ./src",
+    "fuzz": "rollup -c fuzzing/rollup.config.js && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus"
   },
   "dependencies": {
     "gl-matrix": "^3.4.3"
