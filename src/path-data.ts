@@ -28,6 +28,7 @@ export function* commandsFromPathData(d: string): Iterable<PathCommand> {
     }
 
     let lastCmd = "M";
+    let lastIndexOfZ = -1;
 
     function getCmd() {
         skipWS();
@@ -44,6 +45,15 @@ export function* commandsFromPathData(d: string): Iterable<PathCommand> {
                     return "L";
                 case "m":
                     return "l";
+                case "Z":
+                case "z":
+                    if (i === lastIndexOfZ) {
+                        throw new Error(
+                            `Invalid path data. Invalid syntax at index ${i}.`,
+                        );
+                    }
+                    lastIndexOfZ = i;
+                    return lastCmd;
                 default:
                     return lastCmd;
             }
