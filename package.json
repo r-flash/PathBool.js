@@ -46,10 +46,11 @@
   "scripts": {
     "build": "NODE_ENV=production rollup -c",
     "build-dev": "NODE_ENV=development rollup -c",
+    "build-fuzz": "rollup -c fuzzing/rollup.config.js",
     "watch": "NODE_ENV=development rollup -c -w",
     "test": "jest",
     "pretty": "prettier --write ./src",
-    "fuzz": "rollup -c fuzzing/rollup.config.js && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus"
+    "fuzz": "npm run build-fuzz && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus"
   },
   "dependencies": {
     "gl-matrix": "^3.4.3"

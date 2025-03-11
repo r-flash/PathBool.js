@@ -169,6 +169,13 @@ export function pathSegmentIntersection(
 
     const params: [number, number][] = [];
 
+    function isLinear(seg: IntersectionSegment) {
+        return (
+            boundingBoxMaxExtent(seg.boundingBox) <= eps.linear ||
+            seg.endParam - seg.startParam < eps.param
+        );
+    }
+
     while (pairs.length) {
         const nextPairs: [IntersectionSegment, IntersectionSegment][] = [];
 
@@ -178,10 +185,8 @@ export function pathSegmentIntersection(
                 continue; // TODO: what to do?
             }
 
-            const isLinear0 =
-                boundingBoxMaxExtent(seg0.boundingBox) <= eps.linear;
-            const isLinear1 =
-                boundingBoxMaxExtent(seg1.boundingBox) <= eps.linear;
+            const isLinear0 = isLinear(seg0);
+            const isLinear1 = isLinear(seg1);
 
             if (isLinear0 && isLinear1) {
                 const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
