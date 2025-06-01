@@ -73,6 +73,8 @@ type MajorGraphEdgeStage2 = MajorGraphEdgeStage1 & {
 type MajorGraphEdge = MajorGraphEdgeStage2 & {
     incidentVertices: [MajorGraphVertex, MajorGraphVertex];
     directionFlag: boolean;
+    directionFlagA: boolean;
+    directionFlagB: boolean;
     twin: MajorGraphEdge | null;
 };
 
@@ -91,6 +93,8 @@ type MinorGraphEdge = {
     parent: number;
     incidentVertices: [MinorGraphVertex, MinorGraphVertex];
     directionFlag: boolean;
+    directionFlagA: boolean;
+    directionFlagB: boolean;
     twin: MinorGraphEdge | null;
 };
 
@@ -102,6 +106,8 @@ type MinorGraphCycle = {
     segments: PathSegment[];
     parent: number;
     directionFlag: boolean;
+    directionFlagA: boolean;
+    directionFlagB: boolean;
 };
 
 type MinorGraph = {
@@ -115,6 +121,8 @@ type DualGraphHalfEdge = {
     parent: number;
     incidentVertex: DualGraphVertex;
     directionFlag: boolean;
+    directionFlagA: boolean;
+    directionFlagB: boolean;
     twin: DualGraphHalfEdge | null;
 };
 
@@ -391,7 +399,11 @@ function findVertices(
                 }
 
                 existingEdge[1].parent |= edge.parent;
+                existingEdge[1].directionFlagA = edge.parent === 1;
+                existingEdge[1].directionFlagB = edge.parent === 2;
                 existingEdge[2].parent |= edge.parent;
+                existingEdge[2].directionFlagA = edge.parent === 1;
+                existingEdge[2].directionFlagB = edge.parent === 2;
                 return [];
             }
         }
@@ -400,6 +412,8 @@ function findVertices(
             ...edge,
             incidentVertices: [startVertex, endVertex],
             directionFlag: false,
+            directionFlagA: false,
+            directionFlagB: false,
             twin: null,
         };
 
@@ -407,6 +421,8 @@ function findVertices(
             ...edge,
             incidentVertices: [endVertex, startVertex],
             directionFlag: true,
+            directionFlagA: edge.parent === 1,
+            directionFlagB: edge.parent === 2,
             twin: fwdEdge,
         };
 
@@ -460,6 +476,8 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
             while (
                 edge.parent === startEdge.parent &&
                 edge.directionFlag === startEdge.directionFlag &&
+                edge.directionFlagA === startEdge.directionFlagA &&
+                edge.directionFlagB === startEdge.directionFlagB &&
                 getOrder(edge.incidentVertices[1]) === 2
             ) {
                 segments.push(edge.seg);
@@ -483,6 +501,8 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
                 parent: startEdge.parent,
                 incidentVertices: [startVertex, endVertex],
                 directionFlag: startEdge.directionFlag,
+                directionFlagA: startEdge.directionFlagA,
+                directionFlagB: startEdge.directionFlagB,
                 twin: twin,
             };
             if (twin) {
@@ -503,6 +523,8 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
             segments: [],
             parent: edge.parent,
             directionFlag: edge.directionFlag,
+            directionFlagA: edge.directionFlagA,
+            directionFlagB: edge.directionFlagB,
         };
         do {
             cycle.segments.push(edge.seg);
@@ -728,6 +750,8 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
                 parent: edge.parent,
                 incidentVertex: face,
                 directionFlag: edge.directionFlag,
+                directionFlagA: edge.directionFlagA,
+                directionFlagB: edge.directionFlagB,
                 twin,
             };
             if (twin) {
@@ -736,7 +760,7 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
             minorToDualEdge.set(edge, newEdge);
             face.incidentEdges.push(newEdge);
             edge = getNextEdge(edge);
-        } while (edge.incidentVertices[0] !== startEdge.incidentVertices[0]);
+        } while (edge !== startEdge);
         newVertices.push(face);
     }
 
@@ -751,6 +775,8 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
             parent: cycle.parent,
             incidentVertex: innerFace,
             directionFlag: cycle.directionFlag,
+            directionFlagA: cycle.directionFlagA,
+            directionFlagB: cycle.directionFlagB,
             twin: null,
         };
 
@@ -764,6 +790,8 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
             parent: cycle.parent,
             incidentVertex: outerFace,
             directionFlag: !cycle.directionFlag,
+            directionFlagA: !cycle.directionFlagA,
+            directionFlagB: !cycle.directionFlagB,
             twin: innerHalfEdge,
         };
 
@@ -986,11 +1014,11 @@ function flagFaces(
                 assertDefined(twin, "Edge doesn't have a twin.");
                 let nextACount = aRunningCount;
                 if (edge.parent & 1) {
-                    nextACount += edge.directionFlag ? -1 : 1;
+                    nextACount += edge.directionFlagA ? -1 : 1;
                 }
                 let nextBCount = bRunningCount;
                 if (edge.parent & 2) {
-                    nextBCount += edge.directionFlag ? -1 : 1;
+                    nextBCount += edge.directionFlagB ? -1 : 1;
                 }
                 visitFace(twin.incidentVertex, nextACount, nextBCount);
             }

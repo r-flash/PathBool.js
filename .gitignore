@@ -1,5 +1,5 @@
 /node_modules/
-/dist/
+/dist/types/
 /src/__fixtures__/visual-tests/*/test-results/
 /.idea/
 /coverage/

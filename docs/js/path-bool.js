@@ -1317,6 +1317,10 @@ function pathSegmentIntersection(seg0, seg1, endpoints, eps) {
         ],
     ];
     const params = [];
+    function isLinear(seg) {
+        return (boundingBoxMaxExtent(seg.boundingBox) <= eps.linear ||
+            seg.endParam - seg.startParam < eps.param);
+    }
     while (pairs.length) {
         const nextPairs = [];
         for (const [seg0, seg1] of pairs) {
@@ -1324,8 +1328,8 @@ function pathSegmentIntersection(seg0, seg1, endpoints, eps) {
                 // TODO: move this outside of this loop?
                 continue; // TODO: what to do?
             }
-            const isLinear0 = boundingBoxMaxExtent(seg0.boundingBox) <= eps.linear;
-            const isLinear1 = boundingBoxMaxExtent(seg1.boundingBox) <= eps.linear;
+            const isLinear0 = isLinear(seg0);
+            const isLinear1 = isLinear(seg1);
             if (isLinear0 && isLinear1) {
                 const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
                 const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
@@ -1616,7 +1620,11 @@ function findVertices(edges, boundingBox) {
                     return [];
                 }
                 existingEdge[1].parent |= edge.parent;
+                existingEdge[1].directionFlagA = edge.parent === 1;
+                existingEdge[1].directionFlagB = edge.parent === 2;
                 existingEdge[2].parent |= edge.parent;
+                existingEdge[2].directionFlagA = edge.parent === 1;
+                existingEdge[2].directionFlagB = edge.parent === 2;
                 return [];
             }
         }
@@ -1624,12 +1632,16 @@ function findVertices(edges, boundingBox) {
             ...edge,
             incidentVertices: [startVertex, endVertex],
             directionFlag: false,
+            directionFlagA: false,
+            directionFlagB: false,
             twin: null,
         };
         const bwdEdge = {
             ...edge,
             incidentVertices: [endVertex, startVertex],
             directionFlag: true,
+            directionFlagA: edge.parent === 1,
+            directionFlagB: edge.parent === 2,
             twin: fwdEdge,
         };
         fwdEdge.twin = bwdEdge;
@@ -1672,6 +1684,8 @@ function computeMinor({ vertices }) {
             let edge = startEdge;
             while (edge.parent === startEdge.parent &&
                 edge.directionFlag === startEdge.directionFlag &&
+                edge.directionFlagA === startEdge.directionFlagA &&
+                edge.directionFlagB === startEdge.directionFlagB &&
                 getOrder(edge.incidentVertices[1]) === 2) {
                 segments.push(edge.seg);
                 visited.add(edge.incidentVertices[1]);
@@ -1688,6 +1702,8 @@ function computeMinor({ vertices }) {
                 parent: startEdge.parent,
                 incidentVertices: [startVertex, endVertex],
                 directionFlag: startEdge.directionFlag,
+                directionFlagA: startEdge.directionFlagA,
+                directionFlagB: startEdge.directionFlagB,
                 twin: twin,
             };
             if (twin) {
@@ -1708,6 +1724,8 @@ function computeMinor({ vertices }) {
             segments: [],
             parent: edge.parent,
             directionFlag: edge.directionFlag,
+            directionFlagA: edge.directionFlagA,
+            directionFlagB: edge.directionFlagB,
         };
         do {
             cycle.segments.push(edge.seg);
@@ -1877,6 +1895,8 @@ function computeDual({ edges, cycles }) {
                 parent: edge.parent,
                 incidentVertex: face,
                 directionFlag: edge.directionFlag,
+                directionFlagA: edge.directionFlagA,
+                directionFlagB: edge.directionFlagB,
                 twin,
             };
             if (twin) {
@@ -1885,7 +1905,7 @@ function computeDual({ edges, cycles }) {
             minorToDualEdge.set(edge, newEdge);
             face.incidentEdges.push(newEdge);
             edge = getNextEdge(edge);
-        } while (edge.incidentVertices[0] !== startEdge.incidentVertices[0]);
+        } while (edge !== startEdge);
         newVertices.push(face);
     }
     for (const cycle of cycles) {
@@ -1898,6 +1918,8 @@ function computeDual({ edges, cycles }) {
             parent: cycle.parent,
             incidentVertex: innerFace,
             directionFlag: cycle.directionFlag,
+            directionFlagA: cycle.directionFlagA,
+            directionFlagB: cycle.directionFlagB,
             twin: null,
         };
         const outerFace = {
@@ -1909,6 +1931,8 @@ function computeDual({ edges, cycles }) {
             parent: cycle.parent,
             incidentVertex: outerFace,
             directionFlag: !cycle.directionFlag,
+            directionFlagA: !cycle.directionFlagA,
+            directionFlagB: !cycle.directionFlagB,
             twin: innerHalfEdge,
         };
         innerHalfEdge.twin = outerHalfEdge;
@@ -2082,11 +2106,11 @@ function flagFaces(nestingTrees, aFillRule, bFillRule) {
                 const twin = edge.twin;
                 let nextACount = aRunningCount;
                 if (edge.parent & 1) {
-                    nextACount += edge.directionFlag ? -1 : 1;
+                    nextACount += edge.directionFlagA ? -1 : 1;
                 }
                 let nextBCount = bRunningCount;
                 if (edge.parent & 2) {
-                    nextBCount += edge.directionFlag ? -1 : 1;
+                    nextBCount += edge.directionFlagB ? -1 : 1;
                 }
                 visitFace(twin.incidentVertex, nextACount, nextBCount);
             }
