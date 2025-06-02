@@ -111,16 +111,18 @@ export function segmentsEqual(
                 vectorsEqual(seg0[2], seg1[2] as Vector, pointEpsilon) &&
                 vectorsEqual(seg0[3], seg1[3] as Vector, pointEpsilon)
             );
-        case "A":
+        case "A": {
             return (
                 vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
                 Math.abs(seg0[2] - (seg1[2] as number)) < pointEpsilon &&
                 Math.abs(seg0[3] - (seg1[3] as number)) < pointEpsilon &&
-                Math.abs(seg0[4] - (seg1[4] as number)) < pointEpsilon && // TODO: Phi can be anything if rx = ry. Also, handle rotations by Pi/2.
+                (Math.abs(seg0[2] - seg0[3]) < pointEpsilon ||
+                    Math.abs(seg0[4] - (seg1[4] as number)) < pointEpsilon) && // TODO: Handle rotations by Pi/2.
                 seg0[5] === seg1[5] &&
                 seg0[6] === seg1[6] &&
                 vectorsEqual(seg0[7], seg1[7] as Vector, pointEpsilon)
             );
+        }
     }
 }
 
