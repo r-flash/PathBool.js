@@ -1277,14 +1277,16 @@ function segmentsEqual(seg0, seg1, pointEpsilon) {
             return (vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
                 vectorsEqual(seg0[2], seg1[2], pointEpsilon) &&
                 vectorsEqual(seg0[3], seg1[3], pointEpsilon));
-        case "A":
+        case "A": {
             return (vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
                 Math.abs(seg0[2] - seg1[2]) < pointEpsilon &&
                 Math.abs(seg0[3] - seg1[3]) < pointEpsilon &&
-                Math.abs(seg0[4] - seg1[4]) < pointEpsilon && // TODO: Phi can be anything if rx = ry. Also, handle rotations by Pi/2.
+                (Math.abs(seg0[2] - seg0[3]) < pointEpsilon ||
+                    Math.abs(seg0[4] - seg1[4]) < pointEpsilon) && // TODO: Handle rotations by Pi/2.
                 seg0[5] === seg1[5] &&
                 seg0[6] === seg1[6] &&
                 vectorsEqual(seg0[7], seg1[7], pointEpsilon));
+        }
     }
 }
 function pathSegmentIntersection(seg0, seg1, endpoints, eps) {
