@@ -3,6 +3,8 @@
  *
  * SPDX-License-Identifier: MIT
  */
+import { vec2 } from "gl-matrix";
+
 import { Epsilons } from "../Epsilons";
 import {
     AABB,
@@ -63,13 +65,14 @@ function pathSegmentToLineSegment(seg: PathSegment): [Vector, Vector] {
 function intersectionSegmentsOverlap(
     { seg: seg0, boundingBox: boundingBox0 }: IntersectionSegment,
     { seg: seg1, boundingBox: boundingBox1 }: IntersectionSegment,
+    eps: Epsilons,
 ) {
     if (seg0[0] === "L") {
         if (seg1[0] === "L") {
             return lineSegmentsIntersect(
                 [seg0[1], seg0[2]],
                 [seg1[1], seg1[2]],
-                1e-6, // TODO: configurable
+                eps,
             );
         } else {
             return lineSegmentAABBIntersect([seg0[1], seg0[2]], boundingBox1);
@@ -126,6 +129,59 @@ export function segmentsEqual(
     }
 }
 
+function lineSegmentsCollinear(
+    a: [Vector, Vector],
+    b: [Vector, Vector],
+    eps: number,
+): boolean {
+    const da = vec2.sub([0, 0], a[1], a[0]);
+    const db = vec2.sub([0, 0], b[1], b[0]);
+    vec2.normalize(da, da);
+    vec2.normalize(db, db);
+    const dot = Math.abs(vec2.dot(da, db));
+    return Math.abs(dot - 1) < eps;
+}
+
+function collinearLineSegmentIntersection(
+    a: [Vector, Vector],
+    b: [Vector, Vector],
+): [number, number][] {
+    const da = vec2.sub([0, 0], a[1], a[0]);
+    const db = vec2.sub([0, 0], b[1], b[0]);
+
+    // Divide by len^2, i.e., normalize and pre-divide by len.
+    vec2.scale(da, da, 1 / vec2.sqrLen(da));
+    vec2.scale(db, db, 1 / vec2.sqrLen(db));
+
+    const pairs: [number, number][] = [];
+
+    const a0b0 = vec2.sub([0, 0], b[0], a[0]);
+    const s0 = vec2.dot(a0b0, da);
+    if (s0 >= 0 && s0 <= 1) {
+        pairs.push([s0, 0]);
+    }
+
+    const a0b1 = vec2.sub([0, 0], b[1], a[0]);
+    const s1 = vec2.dot(a0b1, da);
+    if (s1 >= 0 && s1 <= 1) {
+        pairs.push([s1, 1]);
+    }
+
+    const b0a0 = vec2.scale(a0b0, a0b0, -1);
+    const t0 = vec2.dot(b0a0, db);
+    if (t0 >= 0 && t0 <= 1) {
+        pairs.push([0, t0]);
+    }
+
+    const b0a1 = vec2.sub([0, 0], a[1], b[0]);
+    const t1 = vec2.dot(b0a1, db);
+    if (t1 >= 0 && t1 <= 1) {
+        pairs.push([1, t1]);
+    }
+
+    return pairs;
+}
+
 export function pathSegmentIntersection(
     seg0: PathSegment,
     seg1: PathSegment,
@@ -133,11 +189,14 @@ export function pathSegmentIntersection(
     eps: Epsilons,
 ): [number, number][] {
     if (seg0[0] === "L" && seg1[0] === "L") {
-        const st = lineSegmentIntersection(
-            [seg0[1], seg0[2]],
-            [seg1[1], seg1[2]],
-            eps.param,
-        );
+        const segLine0: [Vector, Vector] = [seg0[1], seg0[2]];
+        const segLine1: [Vector, Vector] = [seg1[1], seg1[2]];
+
+        if (lineSegmentsCollinear(segLine0, segLine1, eps.collinear)) {
+            return collinearLineSegmentIntersection(segLine0, segLine1);
+        }
+
+        const st = lineSegmentIntersection(segLine0, segLine1, eps);
         if (st) {
             if (
                 !endpoints &&
@@ -147,6 +206,8 @@ export function pathSegmentIntersection(
                 return [];
             }
             return [st];
+        } else {
+            return [];
         }
     }
 
@@ -196,7 +257,7 @@ export function pathSegmentIntersection(
                 const st = lineSegmentIntersection(
                     lineSegment0,
                     lineSegment1,
-                    eps.param,
+                    eps,
                 );
                 if (st) {
                     params.push([
@@ -214,7 +275,7 @@ export function pathSegmentIntersection(
 
                 for (const seg0 of subdivided0) {
                     for (const seg1 of subdivided1) {
-                        if (intersectionSegmentsOverlap(seg0, seg1)) {
+                        if (intersectionSegmentsOverlap(seg0, seg1, eps)) {
                             nextPairs.push([seg0, seg1]);
                         }
                     }

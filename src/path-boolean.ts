@@ -45,6 +45,7 @@ const EPS: Epsilons = {
     point: 1e-6,
     linear: 1e-4,
     param: 1e-8,
+    collinear: Number.MIN_VALUE * 64,
 };
 
 export enum PathBooleanOperation {
@@ -233,27 +234,10 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
         const candidates = edgeTree.find(edge.boundingBox);
         for (const j of candidates) {
             const candidate = edges[j];
-            const includeEndpoints =
-                edge.parent !== candidate.parent ||
-                !(
-                    // TODO: this is not correct
-                    (
-                        vectorsEqual(
-                            getEndPoint(candidate.seg),
-                            getStartPoint(edge.seg),
-                            EPS.point,
-                        ) ||
-                        vectorsEqual(
-                            getStartPoint(candidate.seg),
-                            getEndPoint(edge.seg),
-                            EPS.point,
-                        )
-                    )
-                );
             const intersection = pathSegmentIntersection(
                 edge.seg,
                 candidate.seg,
-                includeEndpoints,
+                true,
                 EPS,
             );
             for (const [t0, t1] of intersection) {

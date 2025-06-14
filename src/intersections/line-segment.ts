@@ -3,16 +3,15 @@
  *
  * SPDX-License-Identifier: MIT
  */
+import { Epsilons } from "../Epsilons";
 import { Vector } from "../primitives/Vector";
 
 type LineSegment = [Vector, Vector];
 
-const COLLINEAR_EPS = Number.MIN_VALUE * 64;
-
 export function lineSegmentIntersection(
     [[x1, y1], [x2, y2]]: LineSegment,
     [[x3, y3], [x4, y4]]: LineSegment,
-    eps: number,
+    eps: Epsilons,
 ): [number, number] | null {
     // https://en.wikipedia.org/wiki/Intersection_(geometry)#Two_line_segments
 
@@ -25,12 +24,17 @@ export function lineSegmentIntersection(
 
     const denom = a1 * b2 - a2 * b1;
 
-    if (Math.abs(denom) < COLLINEAR_EPS) return null;
+    if (Math.abs(denom) < eps.collinear) return null;
 
     const s = (c1 * b2 - c2 * b1) / denom;
     const t = (a1 * c2 - a2 * c1) / denom;
 
-    if (-eps <= s && s <= 1 + eps && -eps <= t && t <= 1 + eps) {
+    if (
+        -eps.param <= s &&
+        s <= 1 + eps.param &&
+        -eps.param <= t &&
+        t <= 1 + eps.param
+    ) {
         return [s, t];
     }
 
@@ -40,7 +44,7 @@ export function lineSegmentIntersection(
 export function lineSegmentsIntersect(
     seg1: LineSegment,
     seg2: LineSegment,
-    eps: number,
+    eps: Epsilons,
 ) {
     return !!lineSegmentIntersection(seg1, seg2, eps);
 }

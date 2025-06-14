@@ -606,6 +606,40 @@ function length(a) {
   return Math.hypot(x, y);
 }
 /**
+ * Calculates the squared length of a vec2
+ *
+ * @param {ReadonlyVec2} a vector to calculate squared length of
+ * @returns {Number} squared length of a
+ */
+
+function squaredLength(a) {
+  var x = a[0],
+      y = a[1];
+  return x * x + y * y;
+}
+/**
+ * Normalize a vec2
+ *
+ * @param {vec2} out the receiving vector
+ * @param {ReadonlyVec2} a vector to normalize
+ * @returns {vec2} out
+ */
+
+function normalize(out, a) {
+  var x = a[0],
+      y = a[1];
+  var len = x * x + y * y;
+
+  if (len > 0) {
+    //TODO: evaluate use of glm_invsqrt here?
+    len = 1 / Math.sqrt(len);
+  }
+
+  out[0] = a[0] * len;
+  out[1] = a[1] * len;
+  return out;
+}
+/**
  * Calculates the dot product of two vec2's
  *
  * @param {ReadonlyVec2} a the first operand
@@ -697,6 +731,12 @@ var len = length;
  */
 
 var sub = subtract;
+/**
+ * Alias for {@link vec2.squaredLength}
+ * @function
+ */
+
+var sqrLen = squaredLength;
 /**
  * Perform some operation over an array of vec2s.
  *
@@ -1189,7 +1229,6 @@ function splitSegmentAt(seg, t) {
     }
 }
 
-const COLLINEAR_EPS = Number.MIN_VALUE * 64;
 function lineSegmentIntersection([[x1, y1], [x2, y2]], [[x3, y3], [x4, y4]], eps) {
     // https://en.wikipedia.org/wiki/Intersection_(geometry)#Two_line_segments
     const a1 = x2 - x1;
@@ -1199,11 +1238,14 @@ function lineSegmentIntersection([[x1, y1], [x2, y2]], [[x3, y3], [x4, y4]], eps
     const b2 = y3 - y4;
     const c2 = y3 - y1;
     const denom = a1 * b2 - a2 * b1;
-    if (Math.abs(denom) < COLLINEAR_EPS)
+    if (Math.abs(denom) < eps.collinear)
         return null;
     const s = (c1 * b2 - c2 * b1) / denom;
     const t = (a1 * c2 - a2 * c1) / denom;
-    if (-eps <= s && s <= 1 + eps && -eps <= t && t <= 1 + eps) {
+    if (-eps.param <= s &&
+        s <= 1 + eps.param &&
+        -eps.param <= t &&
+        t <= 1 + eps.param) {
         return [s, t];
     }
     return null;
@@ -1212,6 +1254,11 @@ function lineSegmentsIntersect(seg1, seg2, eps) {
     return !!lineSegmentIntersection(seg1, seg2, eps);
 }
 
+/*
+ * SPDX-FileCopyrightText: 2024 Adam Platkevič <rflashster@gmail.com>
+ *
+ * SPDX-License-Identifier: MIT
+ */
 function subdivideIntersectionSegment(intSeg) {
     const [seg0, seg1] = splitSegmentAt(intSeg.seg, 0.5);
     const midParam = (intSeg.startParam + intSeg.endParam) / 2;
@@ -1242,10 +1289,10 @@ function pathSegmentToLineSegment(seg) {
             return [seg[1], seg[7]];
     }
 }
-function intersectionSegmentsOverlap({ seg: seg0, boundingBox: boundingBox0 }, { seg: seg1, boundingBox: boundingBox1 }) {
+function intersectionSegmentsOverlap({ seg: seg0, boundingBox: boundingBox0 }, { seg: seg1, boundingBox: boundingBox1 }, eps) {
     if (seg0[0] === "L") {
         if (seg1[0] === "L") {
-            return lineSegmentsIntersect([seg0[1], seg0[2]], [seg1[1], seg1[2]], 1e-6);
+            return lineSegmentsIntersect([seg0[1], seg0[2]], [seg1[1], seg1[2]], eps);
         }
         else {
             return lineSegmentAABBIntersect([seg0[1], seg0[2]], boundingBox1);
@@ -1289,16 +1336,57 @@ function segmentsEqual(seg0, seg1, pointEpsilon) {
         }
     }
 }
+function lineSegmentsCollinear(a, b, eps) {
+    const da = sub([0, 0], a[1], a[0]);
+    const db = sub([0, 0], b[1], b[0]);
+    normalize(da, da);
+    normalize(db, db);
+    const dot$1 = Math.abs(dot(da, db));
+    return Math.abs(dot$1 - 1) < eps;
+}
+function collinearLineSegmentIntersection(a, b) {
+    const da = sub([0, 0], a[1], a[0]);
+    const db = sub([0, 0], b[1], b[0]);
+    // Divide by len^2, i.e., normalize and pre-divide by len.
+    scale(da, da, 1 / sqrLen(da));
+    scale(db, db, 1 / sqrLen(db));
+    const pairs = [];
+    const a0b0 = sub([0, 0], b[0], a[0]);
+    const s0 = dot(a0b0, da);
+    if (s0 >= 0 && s0 <= 1) {
+        pairs.push([s0, 0]);
+    }
+    const a0b1 = sub([0, 0], b[1], a[0]);
+    const s1 = dot(a0b1, da);
+    if (s1 >= 0 && s1 <= 1) {
+        pairs.push([s1, 1]);
+    }
+    const b0a0 = scale(a0b0, a0b0, -1);
+    const t0 = dot(b0a0, db);
+    if (t0 >= 0 && t0 <= 1) {
+        pairs.push([0, t0]);
+    }
+    const b0a1 = sub([0, 0], a[1], b[0]);
+    const t1 = dot(b0a1, db);
+    if (t1 >= 0 && t1 <= 1) {
+        pairs.push([1, t1]);
+    }
+    return pairs;
+}
 function pathSegmentIntersection(seg0, seg1, endpoints, eps) {
     if (seg0[0] === "L" && seg1[0] === "L") {
-        const st = lineSegmentIntersection([seg0[1], seg0[2]], [seg1[1], seg1[2]], eps.param);
+        const segLine0 = [seg0[1], seg0[2]];
+        const segLine1 = [seg1[1], seg1[2]];
+        if (lineSegmentsCollinear(segLine0, segLine1, eps.collinear)) {
+            const intersection = collinearLineSegmentIntersection(segLine0, segLine1);
+            return intersection;
+        }
+        const st = lineSegmentIntersection(segLine0, segLine1, eps);
         if (st) {
-            if (!endpoints &&
-                (st[0] < eps.param || st[0] > 1 - eps.param) &&
-                (st[1] < eps.param || st[1] > 1 - eps.param)) {
-                return [];
-            }
             return [st];
+        }
+        else {
+            return [];
         }
     }
     // https://math.stackexchange.com/questions/20321/how-can-i-tell-when-two-cubic-b%C3%A9zier-curves-intersect
@@ -1335,7 +1423,7 @@ function pathSegmentIntersection(seg0, seg1, endpoints, eps) {
             if (isLinear0 && isLinear1) {
                 const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
                 const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
-                const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps.param);
+                const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps);
                 if (st) {
                     params.push([
                         lerp(seg0.startParam, seg0.endParam, st[0]),
@@ -1352,7 +1440,7 @@ function pathSegmentIntersection(seg0, seg1, endpoints, eps) {
                     : subdivideIntersectionSegment(seg1);
                 for (const seg0 of subdivided0) {
                     for (const seg1 of subdivided1) {
-                        if (intersectionSegmentsOverlap(seg0, seg1)) {
+                        if (intersectionSegmentsOverlap(seg0, seg1, eps)) {
                             nextPairs.push([seg0, seg1]);
                         }
                     }
@@ -1360,10 +1448,6 @@ function pathSegmentIntersection(seg0, seg1, endpoints, eps) {
             }
         }
         pairs = nextPairs;
-    }
-    if (!endpoints) {
-        return params.filter(([s, t]) => (s > eps.param && s < 1 - eps.param) ||
-            (t > eps.param && t < 1 - eps.param));
     }
     return params;
 }
@@ -1406,6 +1490,7 @@ const EPS = {
     point: 1e-6,
     linear: 1e-4,
     param: 1e-8,
+    collinear: Number.MIN_VALUE * 64,
 };
 var PathBooleanOperation;
 (function (PathBooleanOperation) {
@@ -1492,12 +1577,7 @@ function splitAtIntersections(edges) {
         const candidates = edgeTree.find(edge.boundingBox);
         for (const j of candidates) {
             const candidate = edges[j];
-            const includeEndpoints = edge.parent !== candidate.parent ||
-                !(
-                // TODO: this is not correct
-                (vectorsEqual(getEndPoint(candidate.seg), getStartPoint(edge.seg), EPS.point) ||
-                    vectorsEqual(getStartPoint(candidate.seg), getEndPoint(edge.seg), EPS.point)));
-            const intersection = pathSegmentIntersection(edge.seg, candidate.seg, includeEndpoints, EPS);
+            const intersection = pathSegmentIntersection(edge.seg, candidate.seg, true, EPS);
             for (const [t0, t1] of intersection) {
                 addSplit(i, t0);
                 addSplit(j, t1);

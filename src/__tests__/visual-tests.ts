@@ -86,9 +86,12 @@ test.each(folders)("$name $opName", async ({ dir, opName, op }) => {
     const width = oursRender.width;
 
     const oursPngPath = path.join(dir, "test-results", `${opName}-ours.png`);
-    await fs.writeFile(oursPngPath, oursRender.asPng());
+    await fs.writeFile(oursPngPath, new Uint8Array(oursRender.asPng()));
     const groundTruthPngPath = path.join(dir, "test-results", `${opName}.png`);
-    await fs.writeFile(groundTruthPngPath, groundTruthRender.asPng());
+    await fs.writeFile(
+        groundTruthPngPath,
+        new Uint8Array(groundTruthRender.asPng()),
+    );
 
     const oursPixels = new Uint8Array(oursRender.pixels);
     const groundTruthPixels = new Uint8Array(groundTruthRender.pixels);
