@@ -12,15 +12,6 @@ export type AABB = {
     left: number;
 };
 
-export function boundingBoxContainsPoint(boundingBox: AABB, point: Vector) {
-    return (
-        point[0] >= boundingBox.left &&
-        point[0] <= boundingBox.right &&
-        point[1] >= boundingBox.top &&
-        point[1] <= boundingBox.bottom
-    );
-}
-
 export function boundingBoxesOverlap(a: AABB, b: AABB) {
     return (
         a.left <= b.right &&

@@ -142,20 +142,6 @@ function expandBoundingBox(boundingBox, padding) {
  * SPDX-License-Identifier: MIT
  */
 class QuadTree {
-    static fromPairs(pairs, depth, innerNodeCapacity = 8) {
-        if (pairs.length === 0) {
-            throw new Error("QuadTree.fromPairs: at least one pair needed.");
-        }
-        let boundingBox = pairs[0][0];
-        for (let i = 1; i < pairs.length; i++) {
-            boundingBox = mergeBoundingBoxes(boundingBox, pairs[i][0]);
-        }
-        const tree = new QuadTree(boundingBox, depth, innerNodeCapacity);
-        for (const [key, value] of pairs) {
-            tree.insert(key, value);
-        }
-        return tree;
-    }
     constructor(boundingBox, depth, innerNodeCapacity = 16) {
         this.boundingBox = boundingBox;
         this.depth = depth;
@@ -1373,21 +1359,15 @@ function collinearLineSegmentIntersection(a, b) {
     }
     return pairs;
 }
-function pathSegmentIntersection(seg0, seg1, endpoints, eps) {
+function pathSegmentIntersection(seg0, seg1, eps) {
     if (seg0[0] === "L" && seg1[0] === "L") {
         const segLine0 = [seg0[1], seg0[2]];
         const segLine1 = [seg1[1], seg1[2]];
         if (lineSegmentsCollinear(segLine0, segLine1, eps.collinear)) {
-            const intersection = collinearLineSegmentIntersection(segLine0, segLine1);
-            return intersection;
+            return collinearLineSegmentIntersection(segLine0, segLine1);
         }
         const st = lineSegmentIntersection(segLine0, segLine1, eps);
-        if (st) {
-            return [st];
-        }
-        else {
-            return [];
-        }
+        return st ? [st] : [];
     }
     // https://math.stackexchange.com/questions/20321/how-can-i-tell-when-two-cubic-b%C3%A9zier-curves-intersect
     let pairs = [
@@ -1577,7 +1557,7 @@ function splitAtIntersections(edges) {
         const candidates = edgeTree.find(edge.boundingBox);
         for (const j of candidates) {
             const candidate = edges[j];
-            const intersection = pathSegmentIntersection(edge.seg, candidate.seg, true, EPS);
+            const intersection = pathSegmentIntersection(edge.seg, candidate.seg, EPS);
             for (const [t0, t1] of intersection) {
                 addSplit(i, t0);
                 addSplit(j, t1);

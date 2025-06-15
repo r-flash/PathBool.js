@@ -237,7 +237,6 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
             const intersection = pathSegmentIntersection(
                 edge.seg,
                 candidate.seg,
-                true,
                 EPS,
             );
             for (const [t0, t1] of intersection) {

@@ -14,29 +14,6 @@ import { Vector } from "./primitives/Vector";
 type LineSegment = [Vector, Vector];
 
 export class QuadTree<T> {
-    static fromPairs<T>(
-        pairs: [AABB, T][],
-        depth: number,
-        innerNodeCapacity: number = 8,
-    ): QuadTree<T> {
-        if (pairs.length === 0) {
-            throw new Error("QuadTree.fromPairs: at least one pair needed.");
-        }
-
-        let boundingBox = pairs[0][0];
-        for (let i = 1; i < pairs.length; i++) {
-            boundingBox = mergeBoundingBoxes(boundingBox, pairs[i][0]);
-        }
-
-        const tree = new QuadTree<T>(boundingBox, depth, innerNodeCapacity);
-
-        for (const [key, value] of pairs) {
-            tree.insert(key, value);
-        }
-
-        return tree;
-    }
-
     protected subtrees:
         | [QuadTree<T>, QuadTree<T>, QuadTree<T>, QuadTree<T>]
         | null = null;

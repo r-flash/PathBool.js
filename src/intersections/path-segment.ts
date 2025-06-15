@@ -185,7 +185,6 @@ function collinearLineSegmentIntersection(
 export function pathSegmentIntersection(
     seg0: PathSegment,
     seg1: PathSegment,
-    endpoints: boolean,
     eps: Epsilons,
 ): [number, number][] {
     if (seg0[0] === "L" && seg1[0] === "L") {
@@ -197,18 +196,8 @@ export function pathSegmentIntersection(
         }
 
         const st = lineSegmentIntersection(segLine0, segLine1, eps);
-        if (st) {
-            if (
-                !endpoints &&
-                (st[0] < eps.param || st[0] > 1 - eps.param) &&
-                (st[1] < eps.param || st[1] > 1 - eps.param)
-            ) {
-                return [];
-            }
-            return [st];
-        } else {
-            return [];
-        }
+
+        return st ? [st] : [];
     }
 
     // https://math.stackexchange.com/questions/20321/how-can-i-tell-when-two-cubic-b%C3%A9zier-curves-intersect
@@ -284,14 +273,6 @@ export function pathSegmentIntersection(
         }
 
         pairs = nextPairs;
-    }
-
-    if (!endpoints) {
-        return params.filter(
-            ([s, t]) =>
-                (s > eps.param && s < 1 - eps.param) ||
-                (t > eps.param && t < 1 - eps.param),
-        );
     }
 
     return params;
