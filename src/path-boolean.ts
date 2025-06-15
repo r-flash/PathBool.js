@@ -349,7 +349,7 @@ function findVertices(
                     }
                     break;
                 case "A":
-                    // TODO: explain
+                    // Check large-arc-flag
                     if (edge.seg[5] === false) {
                         return [];
                     }
