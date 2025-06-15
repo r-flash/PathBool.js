@@ -1330,35 +1330,43 @@ function lineSegmentsCollinear(a, b, eps) {
     const dot$1 = Math.abs(dot(da, db));
     return Math.abs(dot$1 - 1) < eps;
 }
-function collinearLineSegmentIntersection(a, b) {
-    const da = sub([0, 0], a[1], a[0]);
-    const db = sub([0, 0], b[1], b[0]);
-    // Divide by len^2, i.e., normalize and pre-divide by len.
-    scale(da, da, 1 / sqrLen(da));
-    scale(db, db, 1 / sqrLen(db));
-    const pairs = [];
-    const a0b0 = sub([0, 0], b[0], a[0]);
-    const s0 = dot(a0b0, da);
-    if (s0 >= 0 && s0 <= 1) {
-        pairs.push([s0, 0]);
-    }
-    const a0b1 = sub([0, 0], b[1], a[0]);
-    const s1 = dot(a0b1, da);
-    if (s1 >= 0 && s1 <= 1) {
-        pairs.push([s1, 1]);
-    }
-    const b0a0 = scale(a0b0, a0b0, -1);
-    const t0 = dot(b0a0, db);
-    if (t0 >= 0 && t0 <= 1) {
-        pairs.push([0, t0]);
-    }
-    const b0a1 = sub([0, 0], a[1], b[0]);
-    const t1 = dot(b0a1, db);
-    if (t1 >= 0 && t1 <= 1) {
-        pairs.push([1, t1]);
-    }
-    return pairs;
-}
+const collinearLineSegmentIntersection = (() => {
+    const da = createVector();
+    const db = createVector();
+    const a0b0 = createVector();
+    const a0b1 = createVector();
+    const b0a0 = createVector();
+    const b0a1 = createVector();
+    return function collinearLineSegmentIntersection(a, b) {
+        sub(da, a[1], a[0]);
+        sub(db, b[1], b[0]);
+        // Divide by len^2, i.e., normalize and pre-divide by len.
+        scale(da, da, 1 / sqrLen(da));
+        scale(db, db, 1 / sqrLen(db));
+        const pairs = [];
+        sub(a0b0, b[0], a[0]);
+        const s0 = dot(a0b0, da);
+        if (s0 >= 0 && s0 <= 1) {
+            pairs.push([s0, 0]);
+        }
+        sub(a0b1, b[1], a[0]);
+        const s1 = dot(a0b1, da);
+        if (s1 >= 0 && s1 <= 1) {
+            pairs.push([s1, 1]);
+        }
+        sub(b0a0, a[0], b[0]);
+        const t0 = dot(b0a0, db);
+        if (t0 >= 0 && t0 <= 1) {
+            pairs.push([0, t0]);
+        }
+        sub(b0a1, a[1], b[0]);
+        const t1 = dot(b0a1, db);
+        if (t1 >= 0 && t1 <= 1) {
+            pairs.push([1, t1]);
+        }
+        return pairs;
+    };
+})();
 function pathSegmentIntersection(seg0, seg1, eps) {
     if (seg0[0] === "L" && seg1[0] === "L") {
         const segLine0 = [seg0[1], seg0[2]];

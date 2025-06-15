@@ -16,7 +16,7 @@ import {
     pathSegmentBoundingBox,
     splitSegmentAt,
 } from "../primitives/PathSegment";
-import { Vector, vectorsEqual } from "../primitives/Vector";
+import { createVector, Vector, vectorsEqual } from "../primitives/Vector";
 import { lerp } from "../util/math";
 import { lineSegmentIntersection, lineSegmentsIntersect } from "./line-segment";
 import { lineSegmentAABBIntersect } from "./line-segment-AABB";
@@ -142,45 +142,54 @@ function lineSegmentsCollinear(
     return Math.abs(dot - 1) < eps;
 }
 
-function collinearLineSegmentIntersection(
-    a: [Vector, Vector],
-    b: [Vector, Vector],
-): [number, number][] {
-    const da = vec2.sub([0, 0], a[1], a[0]);
-    const db = vec2.sub([0, 0], b[1], b[0]);
+const collinearLineSegmentIntersection = (() => {
+    const da = createVector();
+    const db = createVector();
+    const a0b0 = createVector();
+    const a0b1 = createVector();
+    const b0a0 = createVector();
+    const b0a1 = createVector();
 
-    // Divide by len^2, i.e., normalize and pre-divide by len.
-    vec2.scale(da, da, 1 / vec2.sqrLen(da));
-    vec2.scale(db, db, 1 / vec2.sqrLen(db));
+    return function collinearLineSegmentIntersection(
+        a: [Vector, Vector],
+        b: [Vector, Vector],
+    ): [number, number][] {
+        vec2.sub(da, a[1], a[0]);
+        vec2.sub(db, b[1], b[0]);
 
-    const pairs: [number, number][] = [];
+        // Divide by len^2, i.e., normalize and pre-divide by len.
+        vec2.scale(da, da, 1 / vec2.sqrLen(da));
+        vec2.scale(db, db, 1 / vec2.sqrLen(db));
 
-    const a0b0 = vec2.sub([0, 0], b[0], a[0]);
-    const s0 = vec2.dot(a0b0, da);
-    if (s0 >= 0 && s0 <= 1) {
-        pairs.push([s0, 0]);
-    }
+        const pairs: [number, number][] = [];
 
-    const a0b1 = vec2.sub([0, 0], b[1], a[0]);
-    const s1 = vec2.dot(a0b1, da);
-    if (s1 >= 0 && s1 <= 1) {
-        pairs.push([s1, 1]);
-    }
+        vec2.sub(a0b0, b[0], a[0]);
+        const s0 = vec2.dot(a0b0, da);
+        if (s0 >= 0 && s0 <= 1) {
+            pairs.push([s0, 0]);
+        }
 
-    const b0a0 = vec2.scale(a0b0, a0b0, -1);
-    const t0 = vec2.dot(b0a0, db);
-    if (t0 >= 0 && t0 <= 1) {
-        pairs.push([0, t0]);
-    }
+        vec2.sub(a0b1, b[1], a[0]);
+        const s1 = vec2.dot(a0b1, da);
+        if (s1 >= 0 && s1 <= 1) {
+            pairs.push([s1, 1]);
+        }
 
-    const b0a1 = vec2.sub([0, 0], a[1], b[0]);
-    const t1 = vec2.dot(b0a1, db);
-    if (t1 >= 0 && t1 <= 1) {
-        pairs.push([1, t1]);
-    }
+        vec2.sub(b0a0, a[0], b[0]);
+        const t0 = vec2.dot(b0a0, db);
+        if (t0 >= 0 && t0 <= 1) {
+            pairs.push([0, t0]);
+        }
 
-    return pairs;
-}
+        vec2.sub(b0a1, a[1], b[0]);
+        const t1 = vec2.dot(b0a1, db);
+        if (t1 >= 0 && t1 <= 1) {
+            pairs.push([1, t1]);
+        }
+
+        return pairs;
+    };
+})();
 
 export function pathSegmentIntersection(
     seg0: PathSegment,
