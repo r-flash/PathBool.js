@@ -1293,32 +1293,32 @@ function intersectionSegmentsOverlap({ seg: seg0, boundingBox: boundingBox0 }, {
         }
     }
 }
-function segmentsEqual(seg0, seg1, pointEpsilon) {
+function segmentsEqual(seg0, seg1, eps) {
     const type = seg0[0];
     if (seg1[0] !== type)
         return false;
     switch (type) {
         case "L":
-            return (vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
-                vectorsEqual(seg0[2], seg1[2], pointEpsilon));
+            return (vectorsEqual(seg0[1], seg1[1], eps) &&
+                vectorsEqual(seg0[2], seg1[2], eps));
         case "C":
-            return (vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
-                vectorsEqual(seg0[2], seg1[2], pointEpsilon) &&
-                vectorsEqual(seg0[3], seg1[3], pointEpsilon) &&
-                vectorsEqual(seg0[4], seg1[4], pointEpsilon));
+            return (vectorsEqual(seg0[1], seg1[1], eps) &&
+                vectorsEqual(seg0[2], seg1[2], eps) &&
+                vectorsEqual(seg0[3], seg1[3], eps) &&
+                vectorsEqual(seg0[4], seg1[4], eps));
         case "Q":
-            return (vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
-                vectorsEqual(seg0[2], seg1[2], pointEpsilon) &&
-                vectorsEqual(seg0[3], seg1[3], pointEpsilon));
+            return (vectorsEqual(seg0[1], seg1[1], eps) &&
+                vectorsEqual(seg0[2], seg1[2], eps) &&
+                vectorsEqual(seg0[3], seg1[3], eps));
         case "A": {
-            return (vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
-                Math.abs(seg0[2] - seg1[2]) < pointEpsilon &&
-                Math.abs(seg0[3] - seg1[3]) < pointEpsilon &&
-                (Math.abs(seg0[2] - seg0[3]) < pointEpsilon ||
-                    Math.abs(seg0[4] - seg1[4]) < pointEpsilon) && // TODO: Handle rotations by Pi/2.
+            return (vectorsEqual(seg0[1], seg1[1], eps) &&
+                Math.abs(seg0[2] - seg1[2]) < eps &&
+                Math.abs(seg0[3] - seg1[3]) < eps &&
+                (Math.abs(seg0[2] - seg0[3]) < eps ||
+                    Math.abs(seg0[4] - seg1[4]) < eps) && // TODO: Handle rotations by Pi/2.
                 seg0[5] === seg1[5] &&
                 seg0[6] === seg1[6] &&
-                vectorsEqual(seg0[7], seg1[7], pointEpsilon));
+                vectorsEqual(seg0[7], seg1[7], eps));
         }
     }
 }
@@ -1656,7 +1656,7 @@ function findVertices(edges, boundingBox) {
                     }
                     break;
                 case "A":
-                    // TODO: explain
+                    // Check large-arc-flag
                     if (edge.seg[5] === false) {
                         return [];
                     }

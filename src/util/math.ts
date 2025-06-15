@@ -21,10 +21,6 @@ export function lerp(a: number, b: number, t: number) {
     return a + (b - a) * t;
 }
 
-export function rad2deg(rad: number) {
-    return (rad / Math.PI) * 180;
-}
-
 export function deg2rad(deg: number) {
     return (deg / 180) * Math.PI;
 }
