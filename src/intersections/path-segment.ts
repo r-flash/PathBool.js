@@ -89,7 +89,7 @@ function intersectionSegmentsOverlap(
 export function segmentsEqual(
     seg0: PathSegment,
     seg1: PathSegment,
-    pointEpsilon: number,
+    eps: number,
 ): boolean {
     const type = seg0[0];
 
@@ -98,32 +98,32 @@ export function segmentsEqual(
     switch (type) {
         case "L":
             return (
-                vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
-                vectorsEqual(seg0[2], seg1[2] as Vector, pointEpsilon)
+                vectorsEqual(seg0[1], seg1[1], eps) &&
+                vectorsEqual(seg0[2], seg1[2] as Vector, eps)
             );
         case "C":
             return (
-                vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
-                vectorsEqual(seg0[2], seg1[2] as Vector, pointEpsilon) &&
-                vectorsEqual(seg0[3], seg1[3] as Vector, pointEpsilon) &&
-                vectorsEqual(seg0[4], seg1[4] as Vector, pointEpsilon)
+                vectorsEqual(seg0[1], seg1[1], eps) &&
+                vectorsEqual(seg0[2], seg1[2] as Vector, eps) &&
+                vectorsEqual(seg0[3], seg1[3] as Vector, eps) &&
+                vectorsEqual(seg0[4], seg1[4] as Vector, eps)
             );
         case "Q":
             return (
-                vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
-                vectorsEqual(seg0[2], seg1[2] as Vector, pointEpsilon) &&
-                vectorsEqual(seg0[3], seg1[3] as Vector, pointEpsilon)
+                vectorsEqual(seg0[1], seg1[1], eps) &&
+                vectorsEqual(seg0[2], seg1[2] as Vector, eps) &&
+                vectorsEqual(seg0[3], seg1[3] as Vector, eps)
             );
         case "A": {
             return (
-                vectorsEqual(seg0[1], seg1[1], pointEpsilon) &&
-                Math.abs(seg0[2] - (seg1[2] as number)) < pointEpsilon &&
-                Math.abs(seg0[3] - (seg1[3] as number)) < pointEpsilon &&
-                (Math.abs(seg0[2] - seg0[3]) < pointEpsilon ||
-                    Math.abs(seg0[4] - (seg1[4] as number)) < pointEpsilon) && // TODO: Handle rotations by Pi/2.
+                vectorsEqual(seg0[1], seg1[1], eps) &&
+                Math.abs(seg0[2] - (seg1[2] as number)) < eps &&
+                Math.abs(seg0[3] - (seg1[3] as number)) < eps &&
+                (Math.abs(seg0[2] - seg0[3]) < eps ||
+                    Math.abs(seg0[4] - (seg1[4] as number)) < eps) && // TODO: Handle rotations by Pi/2.
                 seg0[5] === seg1[5] &&
                 seg0[6] === seg1[6] &&
-                vectorsEqual(seg0[7], seg1[7] as Vector, pointEpsilon)
+                vectorsEqual(seg0[7], seg1[7] as Vector, eps)
             );
         }
     }
