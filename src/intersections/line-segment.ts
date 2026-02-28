@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-import { Epsilons } from "../Epsilons";
+import { Epsilons } from "../config";
 import { Vector } from "../primitives/Vector";
 
 type LineSegment = [Vector, Vector];

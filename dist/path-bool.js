@@ -211,7 +211,33 @@ class QuadTree {
     }
 }
 
-const EPS$1 = 1e-12;
+/*
+ * SPDX-FileCopyrightText: 2026 Adam Platkevič <rflashster@gmail.com>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+const DEV_ASSERTS_ENV = process.env.PATH_BOOL_DEV_ASSERTS;
+DEV_ASSERTS_ENV === "1"
+    ? true
+    : DEV_ASSERTS_ENV === "0"
+        ? false
+        : process.env.NODE_ENV !== "production";
+// Caps for subdivision/refinement to avoid hangs on adversarial inputs
+const MAX_SUBDIVISION_ITERS = 128;
+const MAX_SUBSEGMENTS_PER_ORIG_SEGMENT = 1024;
+const MAX_INTERSECTION_PAIRS = 20000;
+const MAX_TANGENT_SAMPLE_ITERS = 6;
+// Numerical precision
+const NEARLY_LINEAR_EPS = 1e-10;
+const TANGENT_MIN_LEN_SQ = 1e-16;
+const EPS$1 = {
+    point: 1e-6,
+    linear: 1e-4,
+    param: 1e-8,
+    collinear: Number.MIN_VALUE * 64,
+};
+
+const EPS = 1e-12;
 function pathCubicSegmentSelfIntersection(seg) {
     // https://math.stackexchange.com/questions/3931865/self-intersection-of-a-cubic-bezier-interpretation-of-the-solution
     const A = seg[1];
@@ -238,7 +264,7 @@ function pathCubicSegmentSelfIntersection(seg) {
         return null;
     const t1 = (N / M + Math.sqrt(K)) / 2;
     const t2 = (N / M - Math.sqrt(K)) / 2;
-    if (EPS$1 <= t1 && t1 <= 1 - EPS$1 && EPS$1 <= t2 && t2 <= 1 - EPS$1) {
+    if (EPS <= t1 && t1 <= 1 - EPS && EPS <= t2 && t2 <= 1 - EPS) {
         return [t1, t2];
     }
     return null;
@@ -248,18 +274,8 @@ function pathCubicSegmentSelfIntersection(seg) {
  * Common utilities
  * @module glMatrix
  */
-// Configuration Constants
-var ARRAY_TYPE = typeof Float32Array !== 'undefined' ? Float32Array : Array;
-if (!Math.hypot) Math.hypot = function () {
-  var y = 0,
-      i = arguments.length;
 
-  while (i--) {
-    y += arguments[i] * arguments[i];
-  }
-
-  return Math.sqrt(y);
-};
+var ARRAY_TYPE = typeof Float32Array !== "undefined" ? Float32Array : Array;
 
 /**
  * 2x2 Matrix
@@ -271,19 +287,17 @@ if (!Math.hypot) Math.hypot = function () {
  *
  * @returns {mat2} a new 2x2 matrix
  */
-
 function create$2() {
   var out = new ARRAY_TYPE(4);
-
   if (ARRAY_TYPE != Float32Array) {
     out[1] = 0;
     out[2] = 0;
   }
-
   out[0] = 1;
   out[3] = 1;
   return out;
 }
+
 /**
  * Transpose the values of a mat2
  *
@@ -291,7 +305,6 @@ function create$2() {
  * @param {ReadonlyMat2} a the source matrix
  * @returns {mat2} out
  */
-
 function transpose(out, a) {
   // If we are transposing ourselves we can skip a few steps but have to cache
   // some values
@@ -305,9 +318,9 @@ function transpose(out, a) {
     out[2] = a[1];
     out[3] = a[3];
   }
-
   return out;
 }
+
 /**
  * Creates a matrix from a given angle
  * This is equivalent to (but much faster than):
@@ -319,7 +332,6 @@ function transpose(out, a) {
  * @param {Number} rad the angle to rotate the matrix by
  * @returns {mat2} out
  */
-
 function fromRotation$1(out, rad) {
   var s = Math.sin(rad);
   var c = Math.cos(rad);
@@ -354,21 +366,19 @@ function fromRotation$1(out, rad) {
  *
  * @returns {mat2d} a new 2x3 matrix
  */
-
 function create$1() {
   var out = new ARRAY_TYPE(6);
-
   if (ARRAY_TYPE != Float32Array) {
     out[1] = 0;
     out[2] = 0;
     out[4] = 0;
     out[5] = 0;
   }
-
   out[0] = 1;
   out[3] = 1;
   return out;
 }
+
 /**
  * Multiplies two mat2d's
  *
@@ -377,20 +387,19 @@ function create$1() {
  * @param {ReadonlyMat2d} b the second operand
  * @returns {mat2d} out
  */
-
 function multiply(out, a, b) {
   var a0 = a[0],
-      a1 = a[1],
-      a2 = a[2],
-      a3 = a[3],
-      a4 = a[4],
-      a5 = a[5];
+    a1 = a[1],
+    a2 = a[2],
+    a3 = a[3],
+    a4 = a[4],
+    a5 = a[5];
   var b0 = b[0],
-      b1 = b[1],
-      b2 = b[2],
-      b3 = b[3],
-      b4 = b[4],
-      b5 = b[5];
+    b1 = b[1],
+    b2 = b[2],
+    b3 = b[3],
+    b4 = b[4],
+    b5 = b[5];
   out[0] = a0 * b0 + a2 * b1;
   out[1] = a1 * b0 + a3 * b1;
   out[2] = a0 * b2 + a2 * b3;
@@ -399,6 +408,7 @@ function multiply(out, a, b) {
   out[5] = a1 * b4 + a3 * b5 + a5;
   return out;
 }
+
 /**
  * Rotates a mat2d by the given angle
  *
@@ -407,14 +417,13 @@ function multiply(out, a, b) {
  * @param {Number} rad the angle to rotate the matrix by
  * @returns {mat2d} out
  */
-
 function rotate$1(out, a, rad) {
   var a0 = a[0],
-      a1 = a[1],
-      a2 = a[2],
-      a3 = a[3],
-      a4 = a[4],
-      a5 = a[5];
+    a1 = a[1],
+    a2 = a[2],
+    a3 = a[3],
+    a4 = a[4],
+    a5 = a[5];
   var s = Math.sin(rad);
   var c = Math.cos(rad);
   out[0] = a0 * c + a2 * s;
@@ -425,6 +434,7 @@ function rotate$1(out, a, rad) {
   out[5] = a5;
   return out;
 }
+
 /**
  * Scales the mat2d by the dimensions in the given vec2
  *
@@ -433,16 +443,15 @@ function rotate$1(out, a, rad) {
  * @param {ReadonlyVec2} v the vec2 to scale the matrix by
  * @returns {mat2d} out
  **/
-
 function scale$1(out, a, v) {
   var a0 = a[0],
-      a1 = a[1],
-      a2 = a[2],
-      a3 = a[3],
-      a4 = a[4],
-      a5 = a[5];
+    a1 = a[1],
+    a2 = a[2],
+    a3 = a[3],
+    a4 = a[4],
+    a5 = a[5];
   var v0 = v[0],
-      v1 = v[1];
+    v1 = v[1];
   out[0] = a0 * v0;
   out[1] = a1 * v0;
   out[2] = a2 * v1;
@@ -451,6 +460,7 @@ function scale$1(out, a, v) {
   out[5] = a5;
   return out;
 }
+
 /**
  * Creates a matrix from a given angle
  * This is equivalent to (but much faster than):
@@ -462,10 +472,9 @@ function scale$1(out, a, v) {
  * @param {Number} rad the angle to rotate the matrix by
  * @returns {mat2d} out
  */
-
 function fromRotation(out, rad) {
   var s = Math.sin(rad),
-      c = Math.cos(rad);
+    c = Math.cos(rad);
   out[0] = c;
   out[1] = s;
   out[2] = -s;
@@ -474,6 +483,7 @@ function fromRotation(out, rad) {
   out[5] = 0;
   return out;
 }
+
 /**
  * Creates a matrix from a vector translation
  * This is equivalent to (but much faster than):
@@ -485,7 +495,6 @@ function fromRotation(out, rad) {
  * @param {ReadonlyVec2} v Translation vector
  * @returns {mat2d} out
  */
-
 function fromTranslation(out, v) {
   out[0] = 1;
   out[1] = 0;
@@ -495,11 +504,11 @@ function fromTranslation(out, v) {
   out[5] = v[1];
   return out;
 }
+
 /**
  * Alias for {@link mat2d.multiply}
  * @function
  */
-
 var mul = multiply;
 
 /**
@@ -512,17 +521,15 @@ var mul = multiply;
  *
  * @returns {vec2} a new 2D vector
  */
-
 function create() {
   var out = new ARRAY_TYPE(2);
-
   if (ARRAY_TYPE != Float32Array) {
     out[0] = 0;
     out[1] = 0;
   }
-
   return out;
 }
+
 /**
  * Set the components of a vec2 to the given values
  *
@@ -531,12 +538,12 @@ function create() {
  * @param {Number} y Y component
  * @returns {vec2} out
  */
-
 function set(out, x, y) {
   out[0] = x;
   out[1] = y;
   return out;
 }
+
 /**
  * Adds two vec2's
  *
@@ -545,12 +552,12 @@ function set(out, x, y) {
  * @param {ReadonlyVec2} b the second operand
  * @returns {vec2} out
  */
-
 function add(out, a, b) {
   out[0] = a[0] + b[0];
   out[1] = a[1] + b[1];
   return out;
 }
+
 /**
  * Subtracts vector b from vector a
  *
@@ -559,12 +566,12 @@ function add(out, a, b) {
  * @param {ReadonlyVec2} b the second operand
  * @returns {vec2} out
  */
-
 function subtract(out, a, b) {
   out[0] = a[0] - b[0];
   out[1] = a[1] - b[1];
   return out;
 }
+
 /**
  * Scales a vec2 by a scalar number
  *
@@ -573,36 +580,36 @@ function subtract(out, a, b) {
  * @param {Number} b amount to scale the vector by
  * @returns {vec2} out
  */
-
 function scale(out, a, b) {
   out[0] = a[0] * b;
   out[1] = a[1] * b;
   return out;
 }
+
 /**
  * Calculates the length of a vec2
  *
  * @param {ReadonlyVec2} a vector to calculate length of
  * @returns {Number} length of a
  */
-
 function length(a) {
   var x = a[0],
-      y = a[1];
-  return Math.hypot(x, y);
+    y = a[1];
+  return Math.sqrt(x * x + y * y);
 }
+
 /**
  * Calculates the squared length of a vec2
  *
  * @param {ReadonlyVec2} a vector to calculate squared length of
  * @returns {Number} squared length of a
  */
-
 function squaredLength(a) {
   var x = a[0],
-      y = a[1];
+    y = a[1];
   return x * x + y * y;
 }
+
 /**
  * Normalize a vec2
  *
@@ -610,21 +617,19 @@ function squaredLength(a) {
  * @param {ReadonlyVec2} a vector to normalize
  * @returns {vec2} out
  */
-
 function normalize(out, a) {
   var x = a[0],
-      y = a[1];
+    y = a[1];
   var len = x * x + y * y;
-
   if (len > 0) {
     //TODO: evaluate use of glm_invsqrt here?
     len = 1 / Math.sqrt(len);
   }
-
   out[0] = a[0] * len;
   out[1] = a[1] * len;
   return out;
 }
+
 /**
  * Calculates the dot product of two vec2's
  *
@@ -632,10 +637,10 @@ function normalize(out, a) {
  * @param {ReadonlyVec2} b the second operand
  * @returns {Number} dot product of a and b
  */
-
 function dot(a, b) {
   return a[0] * b[0] + a[1] * b[1];
 }
+
 /**
  * Performs a linear interpolation between two vec2's
  *
@@ -645,14 +650,14 @@ function dot(a, b) {
  * @param {Number} t interpolation amount, in the range [0-1], between the two inputs
  * @returns {vec2} out
  */
-
 function lerp$1(out, a, b, t) {
   var ax = a[0],
-      ay = a[1];
+    ay = a[1];
   out[0] = ax + t * (b[0] - ax);
   out[1] = ay + t * (b[1] - ay);
   return out;
 }
+
 /**
  * Transforms the vec2 with a mat2
  *
@@ -661,14 +666,14 @@ function lerp$1(out, a, b, t) {
  * @param {ReadonlyMat2} m matrix to transform with
  * @returns {vec2} out
  */
-
 function transformMat2(out, a, m) {
   var x = a[0],
-      y = a[1];
+    y = a[1];
   out[0] = m[0] * x + m[2] * y;
   out[1] = m[1] * x + m[3] * y;
   return out;
 }
+
 /**
  * Transforms the vec2 with a mat2d
  *
@@ -677,14 +682,14 @@ function transformMat2(out, a, m) {
  * @param {ReadonlyMat2d} m matrix to transform with
  * @returns {vec2} out
  */
-
 function transformMat2d(out, a, m) {
   var x = a[0],
-      y = a[1];
+    y = a[1];
   out[0] = m[0] * x + m[2] * y + m[4];
   out[1] = m[1] * x + m[3] * y + m[5];
   return out;
 }
+
 /**
  * Rotate a 2D vector
  * @param {vec2} out The receiving vec2
@@ -693,36 +698,37 @@ function transformMat2d(out, a, m) {
  * @param {Number} rad The angle of rotation in radians
  * @returns {vec2} out
  */
-
 function rotate(out, a, b, rad) {
   //Translate point to the origin
   var p0 = a[0] - b[0],
-      p1 = a[1] - b[1],
-      sinC = Math.sin(rad),
-      cosC = Math.cos(rad); //perform rotation and translate to correct position
+    p1 = a[1] - b[1],
+    sinC = Math.sin(rad),
+    cosC = Math.cos(rad);
 
+  //perform rotation and translate to correct position
   out[0] = p0 * cosC - p1 * sinC + b[0];
   out[1] = p0 * sinC + p1 * cosC + b[1];
   return out;
 }
+
 /**
  * Alias for {@link vec2.length}
  * @function
  */
-
 var len = length;
+
 /**
  * Alias for {@link vec2.subtract}
  * @function
  */
-
 var sub = subtract;
+
 /**
  * Alias for {@link vec2.squaredLength}
  * @function
  */
-
 var sqrLen = squaredLength;
+
 /**
  * Perform some operation over an array of vec2s.
  *
@@ -735,26 +741,21 @@ var sqrLen = squaredLength;
  * @returns {Array} a
  * @function
  */
-
 (function () {
   var vec = create();
   return function (a, stride, offset, count, fn, arg) {
     var i, l;
-
     if (!stride) {
       stride = 2;
     }
-
     if (!offset) {
       offset = 0;
     }
-
     if (count) {
       l = Math.min(count * stride + offset, a.length);
     } else {
       l = a.length;
     }
-
     for (i = offset; i < l; i += stride) {
       vec[0] = a[i];
       vec[1] = a[i + 1];
@@ -762,7 +763,6 @@ var sqrLen = squaredLength;
       a[i] = vec[0];
       a[i + 1] = vec[1];
     }
-
     return a;
   };
 })();
@@ -811,6 +811,58 @@ function vectorsEqual(a, b, eps = 0) {
  *
  * SPDX-License-Identifier: MIT
  */
+function isFiniteNumber(value) {
+    return Number.isFinite(value);
+}
+function isFiniteVector([x, y]) {
+    return Number.isFinite(x) && Number.isFinite(y);
+}
+function normalizeArcRotationDegrees(phi) {
+    if (!Number.isFinite(phi))
+        return 0;
+    let normalized = ((phi % 360) + 360) % 360;
+    if (normalized > 180)
+        normalized -= 360;
+    return normalized;
+}
+function pointLineDistance(p, a, b, eps) {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq <= eps * eps) {
+        const px = p[0] - a[0];
+        const py = p[1] - a[1];
+        return Math.hypot(px, py);
+    }
+    const cross = Math.abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx);
+    return cross / Math.sqrt(lenSq);
+}
+function isNearlyLinearSegment(seg, eps = NEARLY_LINEAR_EPS) {
+    const a = seg[1];
+    const b = getEndPoint(seg);
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    if (dx * dx + dy * dy <= eps * eps)
+        return true;
+    switch (seg[0]) {
+        case "L":
+            return true;
+        case "Q":
+            return pointLineDistance(seg[2], a, b, eps) <= eps;
+        case "C":
+            return (pointLineDistance(seg[2], a, b, eps) <= eps &&
+                pointLineDistance(seg[3], a, b, eps) <= eps);
+        case "A":
+            return (!Number.isFinite(seg[2]) ||
+                !Number.isFinite(seg[3]) ||
+                Math.abs(seg[2]) <= eps ||
+                Math.abs(seg[3]) <= eps);
+    }
+}
+function normalizeArcSegment(seg) {
+    const phi = normalizeArcRotationDegrees(seg[4]);
+    return ["A", seg[1], seg[2], seg[3], phi, seg[5], seg[6], seg[7]];
+}
 function getStartPoint(seg) {
     return seg[1];
 }
@@ -853,8 +905,15 @@ const arcSegmentToCenter = (() => {
     const addend = createVector();
     const cxy = createVector();
     return function arcSegmentToCenter([_A, xy1, rx, ry, phi, fA, fS, xy2,]) {
+        if (!isFiniteVector(xy1) || !isFiniteVector(xy2)) {
+            return null;
+        }
+        phi = normalizeArcRotationDegrees(phi);
         // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
-        if (rx === 0 || ry === 0) {
+        if (!isFiniteNumber(rx) ||
+            !isFiniteNumber(ry) ||
+            Math.abs(rx) <= NEARLY_LINEAR_EPS ||
+            Math.abs(ry) <= NEARLY_LINEAR_EPS) {
             return null;
         }
         // https://svgwg.org/svg2-draft/implnote.html#ArcConversionEndpointToCenter
@@ -879,8 +938,12 @@ const arcSegmentToCenter = (() => {
             ry2 *= lambdaAbs;
         }
         const sign = fA === fS ? -1 : 1;
-        const multiplier = Math.sqrt((rx2 * ry2 - rx2 * y1Prime2 - ry2 * x1Prime2) /
-            (rx2 * y1Prime2 + ry2 * x1Prime2));
+        const denom = rx2 * y1Prime2 + ry2 * x1Prime2;
+        if (denom === 0)
+            return null;
+        const numer = rx2 * ry2 - rx2 * y1Prime2 - ry2 * x1Prime2;
+        const ratio = Math.max(0, numer / denom);
+        const multiplier = Math.sqrt(ratio);
         const cxPrime = sign * multiplier * ((rx * xy1Prime[1]) / ry);
         const cyPrime = sign * multiplier * ((-ry * xy1Prime[0]) / rx);
         transpose(rotationMatrix, rotationMatrix);
@@ -939,6 +1002,10 @@ const samplePathSegmentAt = (() => {
     const p123 = createVector();
     const p = createVector();
     return function samplePathSegmentAt(seg, t) {
+        if (isNearlyLinearSegment(seg)) {
+            lerp$1(p, seg[1], getEndPoint(seg), t);
+            return [p[0], p[1]];
+        }
         switch (seg[0]) {
             case "L":
                 lerp$1(p, seg[1], seg[2], t);
@@ -974,11 +1041,62 @@ const samplePathSegmentAt = (() => {
         return [p[0], p[1]];
     };
 })();
+function pathSegmentTangentAt(seg, t) {
+    if (isNearlyLinearSegment(seg)) {
+        const start = seg[1];
+        const end = getEndPoint(seg);
+        return [end[0] - start[0], end[1] - start[1]];
+    }
+    switch (seg[0]) {
+        case "L":
+            return [seg[2][0] - seg[1][0], seg[2][1] - seg[1][1]];
+        case "Q": {
+            const p0 = seg[1];
+            const p1 = seg[2];
+            const p2 = seg[3];
+            const ax = p1[0] - p0[0];
+            const ay = p1[1] - p0[1];
+            const bx = p2[0] - p1[0];
+            const by = p2[1] - p1[1];
+            return [2 * ((1 - t) * ax + t * bx), 2 * ((1 - t) * ay + t * by)];
+        }
+        case "C": {
+            const p0 = seg[1];
+            const p1 = seg[2];
+            const p2 = seg[3];
+            const p3 = seg[4];
+            const ax = p1[0] - p0[0];
+            const ay = p1[1] - p0[1];
+            const bx = p2[0] - p1[0];
+            const by = p2[1] - p1[1];
+            const cx = p3[0] - p2[0];
+            const cy = p3[1] - p2[1];
+            const u = 1 - t;
+            return [
+                3 * (u * u * ax + 2 * u * t * bx + t * t * cx),
+                3 * (u * u * ay + 2 * u * t * by + t * t * cy),
+            ];
+        }
+        case "A": {
+            const centerParametrization = arcSegmentToCenter(normalizeArcSegment(seg));
+            if (!centerParametrization) {
+                return [seg[7][0] - seg[1][0], seg[7][1] - seg[1][1]];
+            }
+            const { deltaTheta, phi, theta1, rx, ry } = centerParametrization;
+            const theta = theta1 + t * deltaTheta;
+            const cosPhi = Math.cos(deg2rad(phi));
+            const sinPhi = Math.sin(deg2rad(phi));
+            const dx = -rx * Math.sin(theta) * deltaTheta;
+            const dy = ry * Math.cos(theta) * deltaTheta;
+            return [cosPhi * dx - sinPhi * dy, sinPhi * dx + cosPhi * dy];
+        }
+    }
+}
 const arcSegmentToCubics = (() => {
     const fromUnit = create$1();
     const matrix = create$1();
     return function arcSegmentToCubics(arc, maxDeltaTheta = Math.PI / 2) {
-        const centerParametrization = arcSegmentToCenter(arc);
+        const centerParametrization = arcSegmentToCenter(normalizeArcSegment(arc));
         if (!centerParametrization) {
             // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
             // "If rx = 0 or ry = 0, then treat this as a straight line from (x1, y1) to (x2, y2) and stop."
@@ -1073,6 +1191,16 @@ function inInterval(x, x0, x1) {
     return 0 <= mapped && mapped <= 1;
 }
 function pathSegmentBoundingBox(seg) {
+    if (isNearlyLinearSegment(seg)) {
+        const start = seg[1];
+        const end = getEndPoint(seg);
+        return {
+            top: Math.min(start[1], end[1]),
+            right: Math.max(start[0], end[0]),
+            bottom: Math.max(start[1], end[1]),
+            left: Math.min(start[0], end[0]),
+        };
+    }
     switch (seg[0]) {
         case "L":
             return {
@@ -1092,7 +1220,7 @@ function pathSegmentBoundingBox(seg) {
             return { top, right, bottom, left };
         }
         case "A": {
-            const centerParametrization = arcSegmentToCenter(seg);
+            const centerParametrization = arcSegmentToCenter(normalizeArcSegment(seg));
             if (!centerParametrization) {
                 return extendBoundingBox(boundingBoxAroundPoint(seg[1], 0), seg[7]);
             }
@@ -1184,7 +1312,7 @@ function splitQuadraticSegmentAt(seg, t) {
     ];
 }
 function splitArcSegmentAt(seg, t) {
-    const centerParametrization = arcSegmentToCenter(seg);
+    const centerParametrization = arcSegmentToCenter(normalizeArcSegment(seg));
     if (!centerParametrization) {
         // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
         return splitLinearSegmentAt(["L", seg[1], seg[7]], t);
@@ -1203,6 +1331,9 @@ function splitArcSegmentAt(seg, t) {
     ];
 }
 function splitSegmentAt(seg, t) {
+    if (isNearlyLinearSegment(seg)) {
+        return splitLinearSegmentAt(["L", seg[1], getEndPoint(seg)], t);
+    }
     switch (seg[0]) {
         case "L":
             return splitLinearSegmentAt(seg, t);
@@ -1395,12 +1526,32 @@ function pathSegmentIntersection(seg0, seg1, eps) {
         ],
     ];
     const params = [];
+    function pushLineSegmentIntersection(seg0, seg1) {
+        const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
+        const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
+        const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps);
+        if (st) {
+            params.push([
+                lerp(seg0.startParam, seg0.endParam, st[0]),
+                lerp(seg1.startParam, seg1.endParam, st[1]),
+            ]);
+        }
+    }
     function isLinear(seg) {
-        return (boundingBoxMaxExtent(seg.boundingBox) <= eps.linear ||
+        return (isNearlyLinearSegment(seg.seg, NEARLY_LINEAR_EPS) ||
+            boundingBoxMaxExtent(seg.boundingBox) <= eps.linear ||
             seg.endParam - seg.startParam < eps.param);
     }
+    let iterations = 0;
     while (pairs.length) {
+        if (iterations++ > MAX_SUBDIVISION_ITERS) {
+            for (const [seg0, seg1] of pairs) {
+                pushLineSegmentIntersection(seg0, seg1);
+            }
+            break;
+        }
         const nextPairs = [];
+        let capHit = false;
         for (const [seg0, seg1] of pairs) {
             if (segmentsEqual(seg0.seg, seg1.seg, eps.point)) {
                 // TODO: move this outside of this loop?
@@ -1409,15 +1560,7 @@ function pathSegmentIntersection(seg0, seg1, eps) {
             const isLinear0 = isLinear(seg0);
             const isLinear1 = isLinear(seg1);
             if (isLinear0 && isLinear1) {
-                const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
-                const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
-                const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps);
-                if (st) {
-                    params.push([
-                        lerp(seg0.startParam, seg0.endParam, st[0]),
-                        lerp(seg1.startParam, seg1.endParam, st[1]),
-                    ]);
-                }
+                pushLineSegmentIntersection(seg0, seg1);
             }
             else {
                 const subdivided0 = isLinear0
@@ -1430,10 +1573,26 @@ function pathSegmentIntersection(seg0, seg1, eps) {
                     for (const seg1 of subdivided1) {
                         if (intersectionSegmentsOverlap(seg0, seg1, eps)) {
                             nextPairs.push([seg0, seg1]);
+                            if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
+                                capHit = true;
+                                break;
+                            }
                         }
+                    }
+                    if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
+                        break;
                     }
                 }
             }
+            if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
+                break;
+            }
+        }
+        if (capHit) {
+            for (const [seg0, seg1] of pairs) {
+                pushLineSegmentIntersection(seg0, seg1);
+            }
+            break;
         }
         pairs = nextPairs;
     }
@@ -1481,14 +1640,13 @@ function* map(iter, fn) {
     }
 }
 
+/*
+ * SPDX-FileCopyrightText: 2024 Adam Platkevič <rflashster@gmail.com>
+ *
+ * SPDX-License-Identifier: MIT
+ */
 const INTERSECTION_TREE_DEPTH = 8;
 const POINT_TREE_DEPTH = 8;
-const EPS = {
-    point: 1e-6,
-    linear: 1e-4,
-    param: 1e-8,
-    collinear: Number.MIN_VALUE * 64,
-};
 var PathBooleanOperation;
 (function (PathBooleanOperation) {
     PathBooleanOperation[PathBooleanOperation["Union"] = 0] = "Union";
@@ -1525,7 +1683,7 @@ function splitAtSelfIntersections(edges) {
             intersection.reverse();
         }
         const [t1, t2] = intersection;
-        if (Math.abs(t1 - t2) < EPS.param) {
+        if (Math.abs(t1 - t2) < EPS$1.param) {
             const [seg1, seg2] = splitCubicSegmentAt(edge.seg, t1);
             edges[i] = {
                 seg: seg1,
@@ -1569,22 +1727,30 @@ function splitAtIntersections(edges) {
             splitsPerEdge[i] = [];
         splitsPerEdge[i].push(t);
     }
+    let pairChecks = 0;
     for (let i = 0; i < withBoundingBox.length; i++) {
         const edge = withBoundingBox[i];
         const candidates = edgeTree.find(edge.boundingBox);
         for (const j of candidates) {
+            if (pairChecks >= MAX_INTERSECTION_PAIRS) {
+                break;
+            }
             const candidate = edges[j];
-            const intersection = pathSegmentIntersection(edge.seg, candidate.seg, EPS);
+            const intersection = pathSegmentIntersection(edge.seg, candidate.seg, EPS$1);
             for (const [t0, t1] of intersection) {
                 addSplit(i, t0);
                 addSplit(j, t1);
             }
+            pairChecks++;
         }
         /*
          Insert the edge to the tree here, after checking intersections.
          That way, each pair is only tested once.
         */
         edgeTree.insert(edge.boundingBox, i);
+        if (pairChecks >= MAX_INTERSECTION_PAIRS) {
+            break;
+        }
     }
     const newEdges = [];
     for (let i = 0; i < withBoundingBox.length; i++) {
@@ -1595,17 +1761,20 @@ function splitAtIntersections(edges) {
         }
         const splits = splitsPerEdge[i];
         splits.sort();
+        if (splits.length + 1 > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
+            splits.length = Math.max(0, MAX_SUBSEGMENTS_PER_ORIG_SEGMENT - 1);
+        }
         let tmpSeg = edge.seg;
         let prevT = 0;
         for (let j = 0; j < splits.length; j++) {
             const t = splits[j];
-            if (t > 1 - EPS.param)
+            if (t > 1 - EPS$1.param)
                 break; // skip splits near end
             const tt = (t - prevT) / (1 - prevT);
             prevT = t;
-            if (tt < EPS.param)
+            if (tt < EPS$1.param)
                 continue; // skip splits near start
-            if (tt > 1 - EPS.param)
+            if (tt > 1 - EPS$1.param)
                 continue; // skip splits near end
             const [seg1, seg2] = splitSegmentAt(tmpSeg, tt);
             newEdges.push({
@@ -1627,7 +1796,7 @@ function findVertices(edges, boundingBox) {
     const vertexTree = new QuadTree(boundingBox, POINT_TREE_DEPTH);
     const newVertices = [];
     function getVertex(point) {
-        const box = boundingBoxAroundPoint(point, EPS.point);
+        const box = boundingBoxAroundPoint(point, EPS$1.point);
         const existingVertices = vertexTree.find(box);
         if (existingVertices.size) {
             return firstElementOfSet(existingVertices);
@@ -1645,21 +1814,21 @@ function findVertices(edges, boundingBox) {
     const getVertexId = createObjectCounter();
     const vertexPairIdToEdges = {};
     const newEdges = edges.flatMap((edge) => {
-        const startVertex = getVertex(getStartPoint(edge.seg));
-        const endVertex = getVertex(getEndPoint(edge.seg));
-        // discard zero-length segments
-        if (startVertex === endVertex) {
+        const startPoint = getStartPoint(edge.seg);
+        const endPoint = getEndPoint(edge.seg);
+        // discard zero-length segments before creating vertices
+        if (vectorsEqual(startPoint, endPoint, EPS$1.point)) {
             switch (edge.seg[0]) {
                 case "L":
                     return [];
                 case "C":
-                    if (vectorsEqual(edge.seg[1], edge.seg[2], EPS.point) &&
-                        vectorsEqual(edge.seg[3], edge.seg[4], EPS.point)) {
+                    if (vectorsEqual(edge.seg[1], edge.seg[2], EPS$1.point) &&
+                        vectorsEqual(edge.seg[3], edge.seg[4], EPS$1.point)) {
                         return [];
                     }
                     break;
                 case "Q":
-                    if (vectorsEqual(edge.seg[1], edge.seg[2], EPS.point)) {
+                    if (vectorsEqual(edge.seg[1], edge.seg[2], EPS$1.point)) {
                         return [];
                     }
                     break;
@@ -1671,9 +1840,11 @@ function findVertices(edges, boundingBox) {
                     break;
             }
         }
+        const startVertex = getVertex(startPoint);
+        const endVertex = getVertex(endPoint);
         const vertexPairId = `${getVertexId(startVertex)}:${getVertexId(endVertex)}`;
         if (hasOwn(vertexPairIdToEdges, vertexPairId)) {
-            const existingEdge = vertexPairIdToEdges[vertexPairId].find((other) => segmentsEqual(other[0].seg, edge.seg, EPS.point));
+            const existingEdge = vertexPairIdToEdges[vertexPairId].find((other) => segmentsEqual(other[0].seg, edge.seg, EPS$1.point));
             if (existingEdge) {
                 existingEdge[1].parent |= edge.parent;
                 existingEdge[2].parent |= edge.parent;
@@ -1683,7 +1854,7 @@ function findVertices(edges, boundingBox) {
         const vertexPairIdInv = `${getVertexId(endVertex)}:${getVertexId(startVertex)}`;
         if (hasOwn(vertexPairIdToEdges, vertexPairIdInv)) {
             const reversedSeg = reversePathSegment(edge.seg);
-            const existingEdge = vertexPairIdToEdges[vertexPairIdInv].find((other) => segmentsEqual(other[0].seg, reversedSeg, EPS.point));
+            const existingEdge = vertexPairIdToEdges[vertexPairIdInv].find((other) => segmentsEqual(other[0].seg, reversedSeg, EPS$1.point));
             if (existingEdge) {
                 if (existingEdge[0].parent === edge.parent) {
                     // discard "there and back" pairs
@@ -1736,6 +1907,7 @@ function getOrder(vertex) {
 function computeMinor({ vertices }) {
     const newEdges = [];
     const newVertices = [];
+    let nextEdgeId = 0;
     const toMinorVertex = memoizeWeak((_majorVertex) => {
         const minorVertex = { outgoingEdges: [] };
         newVertices.push(minorVertex);
@@ -1775,6 +1947,7 @@ function computeMinor({ vertices }) {
                 directionFlagA: startEdge.directionFlagA,
                 directionFlagB: startEdge.directionFlagB,
                 twin: twin,
+                id: nextEdgeId++,
             };
             if (twin) {
                 twin.twin = newEdge;
@@ -1858,18 +2031,52 @@ function removeDanglingEdges(graph) {
     graph.edges = graph.edges.filter(keepEdge);
 }
 function getIncidenceAngle({ directionFlag, segments }) {
-    let p0;
-    let p1;
     const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
-    if (!directionFlag) {
-        p0 = samplePathSegmentAt(seg, 0);
-        p1 = samplePathSegmentAt(seg, EPS.param);
+    const t0 = directionFlag ? 1 : 0;
+    let dt = EPS$1.param;
+    const p0 = samplePathSegmentAt(seg, t0);
+    const t1 = directionFlag ? Math.max(0, t0 - dt) : Math.min(1, t0 + dt);
+    const p1 = samplePathSegmentAt(seg, t1);
+    let dx = p1[0] - p0[0];
+    let dy = p1[1] - p0[1];
+    let lenSq = dx * dx + dy * dy;
+    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        let tangent = pathSegmentTangentAt(seg, t0);
+        if (directionFlag) {
+            tangent = [-tangent[0], -tangent[1]];
+        }
+        lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
+        if (lenSq >= TANGENT_MIN_LEN_SQ) {
+            return Math.atan2(tangent[1], tangent[0]);
+        }
     }
-    else {
-        p0 = samplePathSegmentAt(seg, 1);
-        p1 = samplePathSegmentAt(seg, 1 - EPS.param);
+    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        dt = EPS$1.param;
+        for (let i = 0; i < MAX_TANGENT_SAMPLE_ITERS; i++) {
+            const tNext = directionFlag
+                ? Math.max(0, t0 - dt)
+                : Math.min(1, t0 + dt);
+            const pNext = samplePathSegmentAt(seg, tNext);
+            dx = pNext[0] - p0[0];
+            dy = pNext[1] - p0[1];
+            lenSq = dx * dx + dy * dy;
+            if (lenSq >= TANGENT_MIN_LEN_SQ) {
+                break;
+            }
+            dt *= 2;
+        }
     }
-    return Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        const start = getStartPoint(seg);
+        const end = getEndPoint(seg);
+        dx = end[0] - start[0];
+        dy = end[1] - start[1];
+        if (directionFlag) {
+            dx = -dx;
+            dy = -dy;
+        }
+    }
+    return Math.atan2(dy, dx);
 }
 function sortOutgoingEdgesByAngle({ vertices }) {
     // TODO: this will hardly be a bottleneck, but profile whether memoization
@@ -2056,10 +2263,21 @@ function pathSegmentHorizontalRayIntersectionCount(origSeg, point) {
         { boundingBox: totalBoundingBox, seg: origSeg },
     ];
     let count = 0;
+    let iterations = 0;
     while (segments.length > 0) {
+        if (iterations++ > MAX_SUBDIVISION_ITERS ||
+            segments.length > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
+            for (const { seg } of segments) {
+                if (lineSegmentIntersectsHorizontalRay(getStartPoint(seg), getEndPoint(seg), point)) {
+                    count++;
+                }
+            }
+            break;
+        }
         const nextSegments = [];
         for (const { boundingBox, seg } of segments) {
-            if (boundingBoxMaxExtent(boundingBox) < EPS.linear) {
+            if (isNearlyLinearSegment(seg) ||
+                boundingBoxMaxExtent(boundingBox) < EPS$1.linear) {
                 if (lineSegmentIntersectsHorizontalRay(getStartPoint(seg), getEndPoint(seg), point)) {
                     count++;
                 }
@@ -2086,9 +2304,16 @@ function pathSegmentHorizontalRayIntersectionCount(origSeg, point) {
     }
     return count;
 }
+function getComponentInteriorPoint(component) {
+    for (const face of component.vertices) {
+        if (face === component.outerFace)
+            continue;
+        return computeWinding(face).point;
+    }
+}
 function testInclusion(a, b) {
     // TODO: Intersection counting will fail if a curve touches the horizontal line but doesn't go through.
-    const testedPoint = getStartPoint(a.edges[0].segments[0]);
+    const testedPoint = getComponentInteriorPoint(a);
     for (const face of b.vertices) {
         if (face === b.outerFace)
             continue;

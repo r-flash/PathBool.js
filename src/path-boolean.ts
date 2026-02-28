@@ -3,7 +3,6 @@
  *
  * SPDX-License-Identifier: MIT
  */
-import { Epsilons } from "./Epsilons";
 import { QuadTree } from "./QuadTree";
 import {
     assertCondition,
@@ -11,6 +10,15 @@ import {
     assertEqual,
     assertUnreachable,
 } from "./assert";
+import {
+    DEV_ASSERTS,
+    EPS,
+    MAX_INTERSECTION_PAIRS,
+    MAX_SUBDIVISION_ITERS,
+    MAX_SUBSEGMENTS_PER_ORIG_SEGMENT,
+    MAX_TANGENT_SAMPLE_ITERS,
+    TANGENT_MIN_LEN_SQ,
+} from "./config";
 import { pathCubicSegmentSelfIntersection } from "./intersections/path-cubic-segment-self-intersection";
 import {
     pathSegmentIntersection,
@@ -27,7 +35,9 @@ import {
     getEndPoint,
     getStartPoint,
     PathSegment,
+    isNearlyLinearSegment,
     pathSegmentBoundingBox,
+    pathSegmentTangentAt,
     reversePathSegment,
     samplePathSegmentAt,
     splitCubicSegmentAt,
@@ -40,13 +50,6 @@ import { linMap } from "./util/math";
 
 const INTERSECTION_TREE_DEPTH = 8;
 const POINT_TREE_DEPTH = 8;
-
-const EPS: Epsilons = {
-    point: 1e-6,
-    linear: 1e-4,
-    param: 1e-8,
-    collinear: Number.MIN_VALUE * 64,
-};
 
 export enum PathBooleanOperation {
     Union,
@@ -97,6 +100,7 @@ type MinorGraphEdge = {
     directionFlagA: boolean;
     directionFlagB: boolean;
     twin: MinorGraphEdge | null;
+    id: number;
 };
 
 type MinorGraphVertex = {
@@ -142,6 +146,81 @@ type NestingTree = {
     component: DualGraphComponent;
     outgoingEdges: Map<DualGraphVertex, NestingTree[]>;
 };
+
+function assertMajorGraphInvariants(graph: MajorGraph) {
+    if (!DEV_ASSERTS) return;
+    for (const vertex of graph.vertices) {
+        assertCondition(
+            vertex.outgoingEdges.length > 0,
+            "Vertex has no outgoing edges.",
+        );
+    }
+    for (const edge of graph.edges) {
+        assertDefined(edge.twin, "Edge doesn't have a twin.");
+        assertCondition(
+            edge.twin.twin === edge,
+            "Edge twin relationship is broken.",
+        );
+        const [v0, v1] = edge.incidentVertices;
+        assertCondition(
+            v0.outgoingEdges.includes(edge),
+            "Edge missing from incident vertex outgoing edges.",
+        );
+        assertCondition(
+            v1.outgoingEdges.includes(edge.twin),
+            "Twin edge missing from incident vertex outgoing edges.",
+        );
+    }
+}
+
+function assertMinorGraphInvariants(graph: MinorGraph) {
+    if (!DEV_ASSERTS) return;
+    for (const vertex of graph.vertices) {
+        assertCondition(
+            vertex.outgoingEdges.length > 0,
+            "Minor vertex has no outgoing edges.",
+        );
+    }
+    for (const edge of graph.edges) {
+        assertDefined(edge.twin, "Minor edge doesn't have a twin.");
+        assertCondition(
+            edge.twin.twin === edge,
+            "Minor edge twin relationship is broken.",
+        );
+        const [v0, v1] = edge.incidentVertices;
+        assertCondition(
+            v0.outgoingEdges.includes(edge),
+            "Minor edge missing from incident vertex outgoing edges.",
+        );
+        assertCondition(
+            v1.outgoingEdges.includes(edge.twin),
+            "Minor twin edge missing from incident vertex outgoing edges.",
+        );
+    }
+}
+
+function assertDualGraphInvariants(components: DualGraphComponent[]) {
+    if (!DEV_ASSERTS) return;
+    for (const component of components) {
+        for (const vertex of component.vertices) {
+            assertCondition(
+                vertex.incidentEdges.length > 0,
+                "Dual graph vertex has no incident edges.",
+            );
+        }
+        for (const edge of component.edges) {
+            assertDefined(edge.twin, "Dual edge doesn't have a twin.");
+            assertCondition(
+                edge.twin.twin === edge,
+                "Dual edge twin relationship is broken.",
+            );
+            assertCondition(
+                edge.incidentVertex.incidentEdges.includes(edge),
+                "Dual edge missing from incident vertex edges.",
+            );
+        }
+    }
+}
 
 function firstElementOfSet<T>(set: Set<T>): T {
     return set.values().next().value;
@@ -229,10 +308,14 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
         splitsPerEdge[i].push(t);
     }
 
+    let pairChecks = 0;
     for (let i = 0; i < withBoundingBox.length; i++) {
         const edge = withBoundingBox[i];
         const candidates = edgeTree.find(edge.boundingBox);
         for (const j of candidates) {
+            if (pairChecks >= MAX_INTERSECTION_PAIRS) {
+                break;
+            }
             const candidate = edges[j];
             const intersection = pathSegmentIntersection(
                 edge.seg,
@@ -243,6 +326,7 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
                 addSplit(i, t0);
                 addSplit(j, t1);
             }
+            pairChecks++;
         }
 
         /*
@@ -250,6 +334,9 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
          That way, each pair is only tested once.
         */
         edgeTree.insert(edge.boundingBox, i);
+        if (pairChecks >= MAX_INTERSECTION_PAIRS) {
+            break;
+        }
     }
 
     const newEdges: MajorGraphEdgeStage2[] = [];
@@ -262,6 +349,9 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
         }
         const splits = splitsPerEdge[i];
         splits.sort();
+        if (splits.length + 1 > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
+            splits.length = Math.max(0, MAX_SUBSEGMENTS_PER_ORIG_SEGMENT - 1);
+        }
         let tmpSeg = edge.seg;
         let prevT = 0;
         for (let j = 0; j < splits.length; j++) {
@@ -327,11 +417,11 @@ function findVertices(
     > = {};
 
     const newEdges = edges.flatMap((edge) => {
-        const startVertex = getVertex(getStartPoint(edge.seg));
-        const endVertex = getVertex(getEndPoint(edge.seg));
+        const startPoint = getStartPoint(edge.seg);
+        const endPoint = getEndPoint(edge.seg);
 
-        // discard zero-length segments
-        if (startVertex === endVertex) {
+        // discard zero-length segments before creating vertices
+        if (vectorsEqual(startPoint, endPoint, EPS.point)) {
             switch (edge.seg[0]) {
                 case "L":
                     return [];
@@ -356,6 +446,9 @@ function findVertices(
                     break;
             }
         }
+
+        const startVertex = getVertex(startPoint);
+        const endVertex = getVertex(endPoint);
 
         const vertexPairId = `${getVertexId(startVertex)}:${getVertexId(endVertex)}`;
         if (hasOwn(vertexPairIdToEdges, vertexPairId)) {
@@ -436,6 +529,7 @@ function getOrder(vertex: MajorGraphVertex | MinorGraphVertex) {
 function computeMinor({ vertices }: MajorGraph): MinorGraph {
     const newEdges: MinorGraphEdge[] = [];
     const newVertices: MinorGraphVertex[] = [];
+    let nextEdgeId = 0;
 
     const toMinorVertex = memoizeWeak((_majorVertex: MajorGraphVertex) => {
         const minorVertex: MinorGraphVertex = { outgoingEdges: [] };
@@ -487,6 +581,7 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
                 directionFlagA: startEdge.directionFlagA,
                 directionFlagB: startEdge.directionFlagB,
                 twin: twin,
+                id: nextEdgeId++,
             };
             if (twin) {
                 twin.twin = newEdge;
@@ -603,20 +698,57 @@ function removeDanglingEdges(graph: MinorGraph) {
 }
 
 function getIncidenceAngle({ directionFlag, segments }: MinorGraphEdge) {
-    let p0: Vector;
-    let p1: Vector;
-
     const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
 
-    if (!directionFlag) {
-        p0 = samplePathSegmentAt(seg, 0);
-        p1 = samplePathSegmentAt(seg, EPS.param);
-    } else {
-        p0 = samplePathSegmentAt(seg, 1);
-        p1 = samplePathSegmentAt(seg, 1 - EPS.param);
+    const t0 = directionFlag ? 1 : 0;
+    let dt = EPS.param;
+    const p0 = samplePathSegmentAt(seg, t0);
+    const t1 = directionFlag ? Math.max(0, t0 - dt) : Math.min(1, t0 + dt);
+    const p1 = samplePathSegmentAt(seg, t1);
+    let dx = p1[0] - p0[0];
+    let dy = p1[1] - p0[1];
+    let lenSq = dx * dx + dy * dy;
+
+    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        let tangent = pathSegmentTangentAt(seg, t0);
+        if (directionFlag) {
+            tangent = [-tangent[0], -tangent[1]];
+        }
+        lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
+        if (lenSq >= TANGENT_MIN_LEN_SQ) {
+            return Math.atan2(tangent[1], tangent[0]);
+        }
     }
 
-    return Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        dt = EPS.param;
+        for (let i = 0; i < MAX_TANGENT_SAMPLE_ITERS; i++) {
+            const tNext = directionFlag
+                ? Math.max(0, t0 - dt)
+                : Math.min(1, t0 + dt);
+            const pNext = samplePathSegmentAt(seg, tNext);
+            dx = pNext[0] - p0[0];
+            dy = pNext[1] - p0[1];
+            lenSq = dx * dx + dy * dy;
+            if (lenSq >= TANGENT_MIN_LEN_SQ) {
+                break;
+            }
+            dt *= 2;
+        }
+    }
+
+    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        const start = getStartPoint(seg);
+        const end = getEndPoint(seg);
+        dx = end[0] - start[0];
+        dy = end[1] - start[1];
+        if (directionFlag) {
+            dx = -dx;
+            dy = -dy;
+        }
+    }
+
+    return Math.atan2(dy, dx);
 }
 
 function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
@@ -636,6 +768,7 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
 function getNextEdge(edge: MinorGraphEdge) {
     const { outgoingEdges } = edge.incidentVertices[1];
     const index = outgoingEdges.findIndex((other) => other.twin === edge);
+    assertCondition(index >= 0, "Twin edge not found in outgoing edges.");
     return outgoingEdges[(index + 1) % outgoingEdges.length];
 }
 
@@ -854,10 +987,31 @@ function pathSegmentHorizontalRayIntersectionCount(
         { boundingBox: totalBoundingBox, seg: origSeg },
     ];
     let count = 0;
+    let iterations = 0;
     while (segments.length > 0) {
+        if (
+            iterations++ > MAX_SUBDIVISION_ITERS ||
+            segments.length > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT
+        ) {
+            for (const { seg } of segments) {
+                if (
+                    lineSegmentIntersectsHorizontalRay(
+                        getStartPoint(seg),
+                        getEndPoint(seg),
+                        point,
+                    )
+                ) {
+                    count++;
+                }
+            }
+            break;
+        }
         const nextSegments: IntersectionSegment[] = [];
         for (const { boundingBox, seg } of segments) {
-            if (boundingBoxMaxExtent(boundingBox) < EPS.linear) {
+            if (
+                isNearlyLinearSegment(seg) ||
+                boundingBoxMaxExtent(boundingBox) < EPS.linear
+            ) {
                 if (
                     lineSegmentIntersectsHorizontalRay(
                         getStartPoint(seg),
@@ -890,9 +1044,17 @@ function pathSegmentHorizontalRayIntersectionCount(
     return count;
 }
 
+function getComponentInteriorPoint(component: DualGraphComponent): Vector {
+    for (const face of component.vertices) {
+        if (face === component.outerFace) continue;
+        return computeWinding(face).point;
+    }
+    assertUnreachable("No inner face found.");
+}
+
 function testInclusion(a: DualGraphComponent, b: DualGraphComponent) {
     // TODO: Intersection counting will fail if a curve touches the horizontal line but doesn't go through.
-    const testedPoint = getStartPoint(a.edges[0].segments[0]);
+    const testedPoint = getComponentInteriorPoint(a);
     for (const face of b.vertices) {
         if (face === b.outerFace) continue;
         let count = 0;
@@ -1224,6 +1386,7 @@ export function pathBoolean(
     }
 
     const majorGraph = findVertices(splitEdges, totalBoundingBox);
+    assertMajorGraphInvariants(majorGraph);
     // console.log(majorGraphToDot(majorGraph));
 
     const minorGraph = computeMinor(majorGraph);
@@ -1231,11 +1394,13 @@ export function pathBoolean(
     // console.dir(minorGraph.cycles, { depth: 4 });
 
     removeDanglingEdges(minorGraph);
+    assertMinorGraphInvariants(minorGraph);
     // console.log(minorGraphToDot(minorGraph.edges));
 
     sortOutgoingEdgesByAngle(minorGraph);
 
     const dualGraphComponents = computeDual(minorGraph);
+    assertDualGraphInvariants(dualGraphComponents);
     // console.log(dualGraphToDot(dualGraphComponents));
 
     const nestingTrees = computeNestingTree(dualGraphComponents);
@@ -1257,3 +1422,9 @@ export function pathBoolean(
         }
     }
 }
+
+export const __testOnly = {
+    assertMajorGraphInvariants,
+    assertMinorGraphInvariants,
+    assertDualGraphInvariants,
+};

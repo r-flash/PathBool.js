@@ -5,7 +5,12 @@
  */
 import { vec2 } from "gl-matrix";
 
-import { Epsilons } from "../Epsilons";
+import { Epsilons } from "../config";
+import {
+    MAX_INTERSECTION_PAIRS,
+    MAX_SUBDIVISION_ITERS,
+    NEARLY_LINEAR_EPS,
+} from "../config";
 import {
     AABB,
     boundingBoxesOverlap,
@@ -14,6 +19,7 @@ import {
 import {
     PathSegment,
     pathSegmentBoundingBox,
+    isNearlyLinearSegment,
     splitSegmentAt,
 } from "../primitives/PathSegment";
 import { createVector, Vector, vectorsEqual } from "../primitives/Vector";
@@ -230,15 +236,39 @@ export function pathSegmentIntersection(
 
     const params: [number, number][] = [];
 
+    function pushLineSegmentIntersection(
+        seg0: IntersectionSegment,
+        seg1: IntersectionSegment,
+    ) {
+        const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
+        const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
+        const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps);
+        if (st) {
+            params.push([
+                lerp(seg0.startParam, seg0.endParam, st[0]),
+                lerp(seg1.startParam, seg1.endParam, st[1]),
+            ]);
+        }
+    }
+
     function isLinear(seg: IntersectionSegment) {
         return (
+            isNearlyLinearSegment(seg.seg, NEARLY_LINEAR_EPS) ||
             boundingBoxMaxExtent(seg.boundingBox) <= eps.linear ||
             seg.endParam - seg.startParam < eps.param
         );
     }
 
+    let iterations = 0;
     while (pairs.length) {
+        if (iterations++ > MAX_SUBDIVISION_ITERS) {
+            for (const [seg0, seg1] of pairs) {
+                pushLineSegmentIntersection(seg0, seg1);
+            }
+            break;
+        }
         const nextPairs: [IntersectionSegment, IntersectionSegment][] = [];
+        let capHit = false;
 
         for (const [seg0, seg1] of pairs) {
             if (segmentsEqual(seg0.seg, seg1.seg, eps.point)) {
@@ -250,19 +280,7 @@ export function pathSegmentIntersection(
             const isLinear1 = isLinear(seg1);
 
             if (isLinear0 && isLinear1) {
-                const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
-                const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
-                const st = lineSegmentIntersection(
-                    lineSegment0,
-                    lineSegment1,
-                    eps,
-                );
-                if (st) {
-                    params.push([
-                        lerp(seg0.startParam, seg0.endParam, st[0]),
-                        lerp(seg1.startParam, seg1.endParam, st[1]),
-                    ]);
-                }
+                pushLineSegmentIntersection(seg0, seg1);
             } else {
                 const subdivided0 = isLinear0
                     ? [seg0]
@@ -275,10 +293,27 @@ export function pathSegmentIntersection(
                     for (const seg1 of subdivided1) {
                         if (intersectionSegmentsOverlap(seg0, seg1, eps)) {
                             nextPairs.push([seg0, seg1]);
+                            if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
+                                capHit = true;
+                                break;
+                            }
                         }
+                    }
+                    if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
+                        break;
                     }
                 }
             }
+            if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
+                break;
+            }
+        }
+
+        if (capHit) {
+            for (const [seg0, seg1] of pairs) {
+                pushLineSegmentIntersection(seg0, seg1);
+            }
+            break;
         }
 
         pairs = nextPairs;

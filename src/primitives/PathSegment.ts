@@ -5,6 +5,7 @@
  */
 import { mat2, mat2d, vec2 } from "gl-matrix";
 
+import { NEARLY_LINEAR_EPS } from "../config";
 import { deg2rad, lerp, TAU, vectorAngle } from "../util/math";
 import {
     AABB,
@@ -46,6 +47,74 @@ type PathArcSegmentCenterParametrization = {
     ry: number;
     phi: number;
 };
+
+function isFiniteNumber(value: number): boolean {
+    return Number.isFinite(value);
+}
+
+function isFiniteVector([x, y]: Vector): boolean {
+    return Number.isFinite(x) && Number.isFinite(y);
+}
+
+function normalizeArcRotationDegrees(phi: number): number {
+    if (!Number.isFinite(phi)) return 0;
+    let normalized = ((phi % 360) + 360) % 360;
+    if (normalized > 180) normalized -= 360;
+    return normalized;
+}
+
+function pointLineDistance(
+    p: Vector,
+    a: Vector,
+    b: Vector,
+    eps: number,
+): number {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq <= eps * eps) {
+        const px = p[0] - a[0];
+        const py = p[1] - a[1];
+        return Math.hypot(px, py);
+    }
+    const cross = Math.abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx);
+    return cross / Math.sqrt(lenSq);
+}
+
+export function isNearlyLinearSegment(
+    seg: PathSegment,
+    eps: number = NEARLY_LINEAR_EPS,
+): boolean {
+    const a = seg[1];
+    const b = getEndPoint(seg);
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    if (dx * dx + dy * dy <= eps * eps) return true;
+
+    switch (seg[0]) {
+        case "L":
+            return true;
+        case "Q":
+            return pointLineDistance(seg[2], a, b, eps) <= eps;
+        case "C":
+            return (
+                pointLineDistance(seg[2], a, b, eps) <= eps &&
+                pointLineDistance(seg[3], a, b, eps) <= eps
+            );
+        case "A":
+            return (
+                !Number.isFinite(seg[2]) ||
+                !Number.isFinite(seg[3]) ||
+                Math.abs(seg[2]) <= eps ||
+                Math.abs(seg[3]) <= eps
+            );
+    }
+}
+
+export function normalizeArcSegment(seg: PathArcSegment): PathArcSegment {
+    const phi = normalizeArcRotationDegrees(seg[4]);
+    return ["A", seg[1], seg[2], seg[3], phi, seg[5], seg[6], seg[7]];
+}
 
 export function getStartPoint(seg: PathSegment): Vector {
     return seg[1];
@@ -102,8 +171,17 @@ export const arcSegmentToCenter = (() => {
         fS,
         xy2,
     ]: PathArcSegment): PathArcSegmentCenterParametrization | null {
+        if (!isFiniteVector(xy1) || !isFiniteVector(xy2)) {
+            return null;
+        }
+        phi = normalizeArcRotationDegrees(phi);
         // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
-        if (rx === 0 || ry === 0) {
+        if (
+            !isFiniteNumber(rx) ||
+            !isFiniteNumber(ry) ||
+            Math.abs(rx) <= NEARLY_LINEAR_EPS ||
+            Math.abs(ry) <= NEARLY_LINEAR_EPS
+        ) {
             return null;
         }
 
@@ -134,10 +212,11 @@ export const arcSegmentToCenter = (() => {
         }
 
         const sign = fA === fS ? -1 : 1;
-        const multiplier = Math.sqrt(
-            (rx2 * ry2 - rx2 * y1Prime2 - ry2 * x1Prime2) /
-                (rx2 * y1Prime2 + ry2 * x1Prime2),
-        );
+        const denom = rx2 * y1Prime2 + ry2 * x1Prime2;
+        if (denom === 0) return null;
+        const numer = rx2 * ry2 - rx2 * y1Prime2 - ry2 * x1Prime2;
+        const ratio = Math.max(0, numer / denom);
+        const multiplier = Math.sqrt(ratio);
         const cxPrime = sign * multiplier * ((rx * xy1Prime[1]) / ry);
         const cyPrime = sign * multiplier * ((-ry * xy1Prime[0]) / rx);
 
@@ -219,6 +298,10 @@ export const samplePathSegmentAt = (() => {
     const p = createVector();
 
     return function samplePathSegmentAt(seg: PathSegment, t: number): Vector {
+        if (isNearlyLinearSegment(seg)) {
+            vec2.lerp(p, seg[1], getEndPoint(seg), t);
+            return [p[0], p[1]];
+        }
         switch (seg[0]) {
             case "L":
                 vec2.lerp(p, seg[1], seg[2], t);
@@ -257,6 +340,61 @@ export const samplePathSegmentAt = (() => {
     };
 })();
 
+export function pathSegmentTangentAt(seg: PathSegment, t: number): Vector {
+    if (isNearlyLinearSegment(seg)) {
+        const start = seg[1];
+        const end = getEndPoint(seg);
+        return [end[0] - start[0], end[1] - start[1]];
+    }
+
+    switch (seg[0]) {
+        case "L":
+            return [seg[2][0] - seg[1][0], seg[2][1] - seg[1][1]];
+        case "Q": {
+            const p0 = seg[1];
+            const p1 = seg[2];
+            const p2 = seg[3];
+            const ax = p1[0] - p0[0];
+            const ay = p1[1] - p0[1];
+            const bx = p2[0] - p1[0];
+            const by = p2[1] - p1[1];
+            return [2 * ((1 - t) * ax + t * bx), 2 * ((1 - t) * ay + t * by)];
+        }
+        case "C": {
+            const p0 = seg[1];
+            const p1 = seg[2];
+            const p2 = seg[3];
+            const p3 = seg[4];
+            const ax = p1[0] - p0[0];
+            const ay = p1[1] - p0[1];
+            const bx = p2[0] - p1[0];
+            const by = p2[1] - p1[1];
+            const cx = p3[0] - p2[0];
+            const cy = p3[1] - p2[1];
+            const u = 1 - t;
+            return [
+                3 * (u * u * ax + 2 * u * t * bx + t * t * cx),
+                3 * (u * u * ay + 2 * u * t * by + t * t * cy),
+            ];
+        }
+        case "A": {
+            const centerParametrization = arcSegmentToCenter(
+                normalizeArcSegment(seg),
+            );
+            if (!centerParametrization) {
+                return [seg[7][0] - seg[1][0], seg[7][1] - seg[1][1]];
+            }
+            const { deltaTheta, phi, theta1, rx, ry } = centerParametrization;
+            const theta = theta1 + t * deltaTheta;
+            const cosPhi = Math.cos(deg2rad(phi));
+            const sinPhi = Math.sin(deg2rad(phi));
+            const dx = -rx * Math.sin(theta) * deltaTheta;
+            const dy = ry * Math.cos(theta) * deltaTheta;
+            return [cosPhi * dx - sinPhi * dy, sinPhi * dx + cosPhi * dy];
+        }
+    }
+}
+
 export const arcSegmentToCubics = (() => {
     const fromUnit = mat2d.create();
     const matrix = mat2d.create();
@@ -265,7 +403,9 @@ export const arcSegmentToCubics = (() => {
         arc: PathArcSegment,
         maxDeltaTheta: number = Math.PI / 2,
     ): PathCubicSegment[] | [PathLineSegment] {
-        const centerParametrization = arcSegmentToCenter(arc);
+        const centerParametrization = arcSegmentToCenter(
+            normalizeArcSegment(arc),
+        );
 
         if (!centerParametrization) {
             // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
@@ -390,6 +530,16 @@ function inInterval(x: number, x0: number, x1: number) {
 }
 
 export function pathSegmentBoundingBox(seg: PathSegment): AABB {
+    if (isNearlyLinearSegment(seg)) {
+        const start = seg[1];
+        const end = getEndPoint(seg);
+        return {
+            top: Math.min(start[1], end[1]),
+            right: Math.max(start[0], end[0]),
+            bottom: Math.max(start[1], end[1]),
+            left: Math.min(start[0], end[0]),
+        };
+    }
     switch (seg[0]) {
         case "L":
             return {
@@ -427,7 +577,9 @@ export function pathSegmentBoundingBox(seg: PathSegment): AABB {
             return { top, right, bottom, left };
         }
         case "A": {
-            const centerParametrization = arcSegmentToCenter(seg);
+            const centerParametrization = arcSegmentToCenter(
+                normalizeArcSegment(seg),
+            );
 
             if (!centerParametrization) {
                 return extendBoundingBox(
@@ -563,7 +715,7 @@ function splitArcSegmentAt(
     seg: PathArcSegment,
     t: number,
 ): [PathArcSegment, PathArcSegment] | [PathLineSegment, PathLineSegment] {
-    const centerParametrization = arcSegmentToCenter(seg);
+    const centerParametrization = arcSegmentToCenter(normalizeArcSegment(seg));
 
     if (!centerParametrization) {
         // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
@@ -588,6 +740,9 @@ export function splitSegmentAt(
     seg: PathSegment,
     t: number,
 ): [PathSegment, PathSegment] {
+    if (isNearlyLinearSegment(seg)) {
+        return splitLinearSegmentAt(["L", seg[1], getEndPoint(seg)], t);
+    }
     switch (seg[0]) {
         case "L":
             return splitLinearSegmentAt(seg, t);

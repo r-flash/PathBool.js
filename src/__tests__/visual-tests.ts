@@ -11,12 +11,13 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-
-
-import * as PathBool from "../index";
-
+type PathBoolModule = typeof import("../index");
+let PathBool: PathBoolModule;
 
 const TOLERANCE = 80;
+
+process.env.PATH_BOOL_DEV_ASSERTS = "0";
+PathBool = require("../index") as PathBoolModule;
 
 const ops = {
     union: PathBool.PathBooleanOperation.Union,

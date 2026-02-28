@@ -9,7 +9,6 @@ import { Vector } from "./primitives/Vector";
 import { isBoolean, isNumber, isString } from "./util/generic";
 import { map } from "./util/iterators";
 
-
 const eof = Symbol();
 
 export function* commandsFromPathData(d: string): Iterable<PathCommand> {

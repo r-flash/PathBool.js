@@ -7,6 +7,8 @@
 export class AssertionError extends Error {
     constructor(message: string) {
         super("Assertion error: " + message);
+        this.name = "AssertionError";
+        Error.captureStackTrace?.(this, AssertionError);
     }
 }
 

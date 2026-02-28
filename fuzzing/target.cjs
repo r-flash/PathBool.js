@@ -1,5 +1,7 @@
 const PathBool = require("./build/path-bool.cjs");
 
+const MAX_INPUT_BYTES = 100000;
+
 const ops = {
     union: PathBool.PathBooleanOperation.Union,
     difference: PathBool.PathBooleanOperation.Difference,
@@ -10,6 +12,7 @@ const ops = {
 };
 
 function fuzz(buf) {
+    if (buf.length > MAX_INPUT_BYTES) return;
     const str = buf.toString();
     const arr = str.split("\n");
 
