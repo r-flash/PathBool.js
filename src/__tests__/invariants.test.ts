@@ -89,7 +89,7 @@ test("dev invariants catch edge without twin", () => {
 });
 
 test("dev invariants catch non-reciprocal twin", () => {
-    const { graph, edge, twin } = createValidGraph();
+    const { graph, twin } = createValidGraph();
     twin.twin = null;
 
     expect(() => assertMajorGraphInvariants(graph)).toThrow(AssertionError);
