@@ -42,7 +42,13 @@ const createValidGraph = () => {
     v0.outgoingEdges.push(edge);
     v1.outgoingEdges.push(twin);
 
-    return { graph: { edges: [edge, twin], vertices: [v0, v1] }, edge, twin, v0, v1 };
+    return {
+        graph: { edges: [edge, twin], vertices: [v0, v1] },
+        edge,
+        twin,
+        v0,
+        v1,
+    };
 };
 
 test("dev invariants catch broken twin structure", () => {

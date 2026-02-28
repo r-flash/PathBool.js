@@ -1,60 +1,60 @@
 {
-  "name": "path-bool",
-  "version": "0.0.6",
-  "license": "MIT",
-  "author": {
-    "name": "Adam Platkevič",
-    "email": "rflashster@gmail.com"
-  },
-  "description": "A low-level library for performing boolean operations on SVG paths.",
-  "keywords": [
-    "vector",
-    "path",
-    "boolean",
-    "bool",
-    "svg"
-  ],
-  "type": "module",
-  "main": "./dist/path-bool.js",
-  "types": "./dist/types/index.d.ts",
-  "files": [
-    "dist/path-bool.js",
-    "dist/path-bool.js.map",
-    "dist/types/**/*"
-  ],
-  "homepage": "https://r-flash.github.io/PathBool.js/",
-  "repository": {
-    "url": "git+https://github.com/r-flash/PathBool.js.git",
-    "type": "git"
-  },
-  "devDependencies": {
-    "@gitlab-org/jsfuzz": "^1.2.4",
-    "@jest/globals": "^30.2.0",
-    "@resvg/resvg-js": "^2.6.2",
-    "@rollup/plugin-node-resolve": "^16.0.3",
-    "@rollup/plugin-strip": "^3.0.4",
-    "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^12.3.0",
-    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-    "cheerio": "^1.2.0",
-    "glob": "^13.0.6",
-    "globals": "^17.3.0",
-    "jest": "^30.2.0",
-    "prettier": "3.8.1",
-    "rollup": "^4.59.0",
-    "ts-jest": "^29.4.6",
-    "tslib": "^2.8.1"
-  },
-  "scripts": {
-    "build": "NODE_ENV=production rollup -c",
-    "build-dev": "NODE_ENV=development rollup -c",
-    "build-fuzz": "rollup -c fuzzing/rollup.config.js",
-    "watch": "NODE_ENV=development rollup -c -w",
-    "test": "jest",
-    "pretty": "prettier --write ./src",
-    "fuzz": "npm run build-fuzz && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus"
-  },
-  "dependencies": {
-    "gl-matrix": "^3.4.4"
-  }
+    "name": "path-bool",
+    "version": "0.0.7",
+    "license": "MIT",
+    "author": {
+        "name": "Adam Platkevič",
+        "email": "rflashster@gmail.com"
+    },
+    "description": "A low-level library for performing boolean operations on SVG paths.",
+    "keywords": [
+        "vector",
+        "path",
+        "boolean",
+        "bool",
+        "svg"
+    ],
+    "type": "module",
+    "main": "./dist/path-bool.js",
+    "types": "./dist/types/index.d.ts",
+    "files": [
+        "dist/path-bool.js",
+        "dist/path-bool.js.map",
+        "dist/types/**/*"
+    ],
+    "homepage": "https://r-flash.github.io/PathBool.js/",
+    "repository": {
+        "url": "git+https://github.com/r-flash/PathBool.js.git",
+        "type": "git"
+    },
+    "devDependencies": {
+        "@gitlab-org/jsfuzz": "^1.2.4",
+        "@jest/globals": "^30.2.0",
+        "@resvg/resvg-js": "^2.6.2",
+        "@rollup/plugin-node-resolve": "^16.0.3",
+        "@rollup/plugin-strip": "^3.0.4",
+        "@rollup/plugin-terser": "^0.4.4",
+        "@rollup/plugin-typescript": "^12.3.0",
+        "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+        "cheerio": "^1.2.0",
+        "glob": "^13.0.6",
+        "globals": "^17.3.0",
+        "jest": "^30.2.0",
+        "prettier": "3.8.1",
+        "rollup": "^4.59.0",
+        "ts-jest": "^29.4.6",
+        "tslib": "^2.8.1"
+    },
+    "scripts": {
+        "build": "NODE_ENV=production rollup -c",
+        "build-dev": "NODE_ENV=development rollup -c",
+        "build-fuzz": "rollup -c fuzzing/rollup.config.js",
+        "watch": "NODE_ENV=development rollup -c -w",
+        "test": "jest",
+        "pretty": "prettier --write ./src",
+        "fuzz": "npm run build-fuzz && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus"
+    },
+    "dependencies": {
+        "gl-matrix": "^3.4.4"
+    }
 }
