@@ -37,13 +37,13 @@ import {
     PathSegment,
     isNearlyLinearSegment,
     pathSegmentBoundingBox,
-    pathSegmentTangentAt,
+    pathSegmentTangentAtInto,
     reversePathSegment,
-    samplePathSegmentAt,
+    samplePathSegmentAtInto,
     splitCubicSegmentAt,
     splitSegmentAt,
 } from "./primitives/PathSegment";
-import { Vector, vectorsEqual } from "./primitives/Vector";
+import { createVector, Vector, vectorsEqual } from "./primitives/Vector";
 import { countIf, hasOwn, memoizeWeak } from "./util/generic";
 import { map } from "./util/iterators";
 import { linMap } from "./util/math";
@@ -700,19 +700,25 @@ function removeDanglingEdges(graph: MinorGraph) {
 function getIncidenceAngle({ directionFlag, segments }: MinorGraphEdge) {
     const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
 
+    const p0 = createVector();
+    const p1 = createVector();
+    const pNext = createVector();
+    const tangent = createVector();
+
     const t0 = directionFlag ? 1 : 0;
     let dt = EPS.param;
-    const p0 = samplePathSegmentAt(seg, t0);
+    samplePathSegmentAtInto(seg, t0, p0);
     const t1 = directionFlag ? Math.max(0, t0 - dt) : Math.min(1, t0 + dt);
-    const p1 = samplePathSegmentAt(seg, t1);
+    samplePathSegmentAtInto(seg, t1, p1);
     let dx = p1[0] - p0[0];
     let dy = p1[1] - p0[1];
     let lenSq = dx * dx + dy * dy;
 
     if (lenSq < TANGENT_MIN_LEN_SQ) {
-        let tangent = pathSegmentTangentAt(seg, t0);
+        pathSegmentTangentAtInto(seg, t0, tangent);
         if (directionFlag) {
-            tangent = [-tangent[0], -tangent[1]];
+            tangent[0] = -tangent[0];
+            tangent[1] = -tangent[1];
         }
         lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
         if (lenSq >= TANGENT_MIN_LEN_SQ) {
@@ -726,7 +732,7 @@ function getIncidenceAngle({ directionFlag, segments }: MinorGraphEdge) {
             const tNext = directionFlag
                 ? Math.max(0, t0 - dt)
                 : Math.min(1, t0 + dt);
-            const pNext = samplePathSegmentAt(seg, tNext);
+            samplePathSegmentAtInto(seg, tNext, pNext);
             dx = pNext[0] - p0[0];
             dy = pNext[1] - p0[1];
             lenSq = dx * dx + dy * dy;
@@ -777,12 +783,14 @@ const faceToPolygon = memoizeWeak((face: DualGraphVertex) =>
         const CNT = 64;
 
         const points: Vector[] = [];
+        const p = createVector();
 
         for (const seg of edge.segments) {
             for (let i = 0; i < CNT; i++) {
                 const t0 = i / CNT;
                 const t = edge.directionFlag ? 1 - t0 : t0;
-                points.push(samplePathSegmentAt(seg, t));
+                samplePathSegmentAtInto(seg, t, p);
+                points.push([p[0], p[1]]);
             }
         }
 

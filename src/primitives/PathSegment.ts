@@ -289,7 +289,7 @@ export const arcSegmentFromCenter = (() => {
     };
 })();
 
-export const samplePathSegmentAt = (() => {
+export const samplePathSegmentAtInto = (() => {
     const p01 = createVector();
     const p12 = createVector();
     const p23 = createVector();
@@ -297,10 +297,16 @@ export const samplePathSegmentAt = (() => {
     const p123 = createVector();
     const p = createVector();
 
-    return function samplePathSegmentAt(seg: PathSegment, t: number): Vector {
+    return function samplePathSegmentAtInto(
+        seg: PathSegment,
+        t: number,
+        out: Vector,
+    ): Vector {
         if (isNearlyLinearSegment(seg)) {
             vec2.lerp(p, seg[1], getEndPoint(seg), t);
-            return [p[0], p[1]];
+            out[0] = p[0];
+            out[1] = p[1];
+            return out;
         }
         switch (seg[0]) {
             case "L":
@@ -336,64 +342,107 @@ export const samplePathSegmentAt = (() => {
             }
         }
 
-        return [p[0], p[1]];
+        out[0] = p[0];
+        out[1] = p[1];
+        return out;
     };
 })();
 
-export function pathSegmentTangentAt(seg: PathSegment, t: number): Vector {
-    if (isNearlyLinearSegment(seg)) {
-        const start = seg[1];
-        const end = getEndPoint(seg);
-        return [end[0] - start[0], end[1] - start[1]];
-    }
+export const samplePathSegmentAt = (() => {
+    const out = createVector();
 
-    switch (seg[0]) {
-        case "L":
-            return [seg[2][0] - seg[1][0], seg[2][1] - seg[1][1]];
-        case "Q": {
-            const p0 = seg[1];
-            const p1 = seg[2];
-            const p2 = seg[3];
-            const ax = p1[0] - p0[0];
-            const ay = p1[1] - p0[1];
-            const bx = p2[0] - p1[0];
-            const by = p2[1] - p1[1];
-            return [2 * ((1 - t) * ax + t * bx), 2 * ((1 - t) * ay + t * by)];
+    return function samplePathSegmentAt(seg: PathSegment, t: number): Vector {
+        samplePathSegmentAtInto(seg, t, out);
+        return [out[0], out[1]];
+    };
+})();
+
+export const pathSegmentTangentAtInto = (() => {
+    const tmp = createVector();
+
+    return function pathSegmentTangentAtInto(
+        seg: PathSegment,
+        t: number,
+        out: Vector,
+    ): Vector {
+        if (isNearlyLinearSegment(seg)) {
+            const start = seg[1];
+            const end = getEndPoint(seg);
+            out[0] = end[0] - start[0];
+            out[1] = end[1] - start[1];
+            return out;
         }
-        case "C": {
-            const p0 = seg[1];
-            const p1 = seg[2];
-            const p2 = seg[3];
-            const p3 = seg[4];
-            const ax = p1[0] - p0[0];
-            const ay = p1[1] - p0[1];
-            const bx = p2[0] - p1[0];
-            const by = p2[1] - p1[1];
-            const cx = p3[0] - p2[0];
-            const cy = p3[1] - p2[1];
-            const u = 1 - t;
-            return [
-                3 * (u * u * ax + 2 * u * t * bx + t * t * cx),
-                3 * (u * u * ay + 2 * u * t * by + t * t * cy),
-            ];
-        }
-        case "A": {
-            const centerParametrization = arcSegmentToCenter(
-                normalizeArcSegment(seg),
-            );
-            if (!centerParametrization) {
-                return [seg[7][0] - seg[1][0], seg[7][1] - seg[1][1]];
+
+        switch (seg[0]) {
+            case "L":
+                out[0] = seg[2][0] - seg[1][0];
+                out[1] = seg[2][1] - seg[1][1];
+                return out;
+            case "Q": {
+                const p0 = seg[1];
+                const p1 = seg[2];
+                const p2 = seg[3];
+                const ax = p1[0] - p0[0];
+                const ay = p1[1] - p0[1];
+                const bx = p2[0] - p1[0];
+                const by = p2[1] - p1[1];
+                out[0] = 2 * ((1 - t) * ax + t * bx);
+                out[1] = 2 * ((1 - t) * ay + t * by);
+                return out;
             }
-            const { deltaTheta, phi, theta1, rx, ry } = centerParametrization;
-            const theta = theta1 + t * deltaTheta;
-            const cosPhi = Math.cos(deg2rad(phi));
-            const sinPhi = Math.sin(deg2rad(phi));
-            const dx = -rx * Math.sin(theta) * deltaTheta;
-            const dy = ry * Math.cos(theta) * deltaTheta;
-            return [cosPhi * dx - sinPhi * dy, sinPhi * dx + cosPhi * dy];
+            case "C": {
+                const p0 = seg[1];
+                const p1 = seg[2];
+                const p2 = seg[3];
+                const p3 = seg[4];
+                const ax = p1[0] - p0[0];
+                const ay = p1[1] - p0[1];
+                const bx = p2[0] - p1[0];
+                const by = p2[1] - p1[1];
+                const cx = p3[0] - p2[0];
+                const cy = p3[1] - p2[1];
+                const u = 1 - t;
+                out[0] = 3 * (u * u * ax + 2 * u * t * bx + t * t * cx);
+                out[1] = 3 * (u * u * ay + 2 * u * t * by + t * t * cy);
+                return out;
+            }
+            case "A": {
+                const centerParametrization = arcSegmentToCenter(
+                    normalizeArcSegment(seg),
+                );
+                if (!centerParametrization) {
+                    out[0] = seg[7][0] - seg[1][0];
+                    out[1] = seg[7][1] - seg[1][1];
+                    return out;
+                }
+                const { deltaTheta, phi, theta1, rx, ry } =
+                    centerParametrization;
+                const theta = theta1 + t * deltaTheta;
+                const cosPhi = Math.cos(deg2rad(phi));
+                const sinPhi = Math.sin(deg2rad(phi));
+                const dx = -rx * Math.sin(theta) * deltaTheta;
+                const dy = ry * Math.cos(theta) * deltaTheta;
+                tmp[0] = cosPhi * dx - sinPhi * dy;
+                tmp[1] = sinPhi * dx + cosPhi * dy;
+                out[0] = tmp[0];
+                out[1] = tmp[1];
+                return out;
+            }
         }
-    }
-}
+    };
+})();
+
+export const pathSegmentTangentAt = (() => {
+    const out = createVector();
+
+    return function pathSegmentTangentAt(
+        seg: PathSegment,
+        t: number,
+    ): Vector {
+        pathSegmentTangentAtInto(seg, t, out);
+        return [out[0], out[1]];
+    };
+})();
 
 export const arcSegmentToCubics = (() => {
     const fromUnit = mat2d.create();
