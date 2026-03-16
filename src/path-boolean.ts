@@ -101,6 +101,7 @@ type MinorGraphEdge = {
     directionFlagB: boolean;
     twin: MinorGraphEdge | null;
     id: number;
+    indexInVertex?: number;
 };
 
 type MinorGraphVertex = {
@@ -768,13 +769,16 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
         if (getOrder(vertex) > 2) {
             vertex.outgoingEdges.sort((a, b) => getAngle(a) - getAngle(b));
         }
+        for (let i = 0; i < vertex.outgoingEdges.length; i++) {
+            vertex.outgoingEdges[i].indexInVertex = i;
+        }
     }
 }
 
 function getNextEdge(edge: MinorGraphEdge) {
     const { outgoingEdges } = edge.incidentVertices[1];
-    const index = outgoingEdges.findIndex((other) => other.twin === edge);
-    assertCondition(index >= 0, "Twin edge not found in outgoing edges.");
+    const index = edge.twin?.indexInVertex;
+    assertCondition(index !== undefined, "Twin edge index not found.");
     return outgoingEdges[(index + 1) % outgoingEdges.length];
 }
 
