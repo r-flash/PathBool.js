@@ -2135,7 +2135,7 @@ function computePointWinding(polygon, testedPoint) {
     }
     return winding;
 }
-function computeWinding(face) {
+const computeWinding = memoizeWeak((face) => {
     const polygon = faceToPolygon(face);
     for (let i = 0; i < polygon.length; i++) {
         const a = polygon[i];
@@ -2153,7 +2153,7 @@ function computeWinding(face) {
             };
         }
     }
-}
+});
 function computeDual({ edges, cycles }) {
     const newVertices = [];
     const minorToDualEdge = new WeakMap();
@@ -2255,8 +2255,7 @@ function boundingBoxIntersectsHorizontalRay(boundingBox, point) {
     return (intervalCrossesPoint(boundingBox.top, boundingBox.bottom, point[1]) &&
         boundingBox.right >= point[0]);
 }
-function pathSegmentHorizontalRayIntersectionCount(origSeg, point) {
-    const totalBoundingBox = pathSegmentBoundingBox(origSeg);
+function pathSegmentHorizontalRayIntersectionCount(origSeg, point, totalBoundingBox = pathSegmentBoundingBox(origSeg)) {
     if (!boundingBoxIntersectsHorizontalRay(totalBoundingBox, point))
         return 0;
     let segments = [
@@ -2304,24 +2303,56 @@ function pathSegmentHorizontalRayIntersectionCount(origSeg, point) {
     }
     return count;
 }
-function getComponentInteriorPoint(component) {
+const getComponentInteriorPoint = memoizeWeak((component) => {
     for (const face of component.vertices) {
         if (face === component.outerFace)
             continue;
         return computeWinding(face).point;
     }
-}
-function testInclusion(a, b) {
-    // TODO: Intersection counting will fail if a curve touches the horizontal line but doesn't go through.
-    const testedPoint = getComponentInteriorPoint(a);
-    for (const face of b.vertices) {
-        if (face === b.outerFace)
+});
+const getFaceIntersectionSegments = memoizeWeak((face) => face.incidentEdges.flatMap((edge) => edge.segments.map((seg) => ({
+    seg,
+    boundingBox: pathSegmentBoundingBox(seg),
+}))));
+const getFaceBoundingBox = memoizeWeak((face) => {
+    let boundingBox = null;
+    for (const { boundingBox: segBoundingBox } of getFaceIntersectionSegments(face)) {
+        boundingBox = mergeBoundingBoxes(boundingBox, segBoundingBox);
+    }
+    return boundingBox;
+});
+const getComponentBoundingBox = memoizeWeak((component) => {
+    let boundingBox = null;
+    for (const face of component.vertices) {
+        if (face === component.outerFace)
             continue;
+        boundingBox = mergeBoundingBoxes(boundingBox, getFaceBoundingBox(face));
+    }
+    return boundingBox;
+});
+function boundingBoxContainsPoint(boundingBox, point) {
+    return (point[0] >= boundingBox.left - EPS$1.point &&
+        point[0] <= boundingBox.right + EPS$1.point &&
+        point[1] >= boundingBox.top - EPS$1.point &&
+        point[1] <= boundingBox.bottom + EPS$1.point);
+}
+function boundingBoxArea({ top, right, bottom, left }) {
+    return (right - left) * (bottom - top);
+}
+function findContainingFace(component, testedPoint) {
+    // TODO: Intersection counting will fail if a curve touches the horizontal line but doesn't go through.
+    for (const face of component.vertices) {
+        if (face === component.outerFace)
+            continue;
+        if (!boundingBoxContainsPoint(getFaceBoundingBox(face), testedPoint)) {
+            continue;
+        }
         let count = 0;
-        for (const edge of face.incidentEdges) {
-            for (const seg of edge.segments) {
-                count += pathSegmentHorizontalRayIntersectionCount(seg, testedPoint);
+        for (const { seg, boundingBox } of getFaceIntersectionSegments(face)) {
+            if (!boundingBoxIntersectsHorizontalRay(boundingBox, testedPoint)) {
+                continue;
             }
+            count += pathSegmentHorizontalRayIntersectionCount(seg, testedPoint, boundingBox);
         }
         if (count % 2 === 1)
             return face;
@@ -2329,55 +2360,66 @@ function testInclusion(a, b) {
     return null;
 }
 function computeNestingTree(components) {
-    let nestingTrees = [];
-    function insert(trees, component) {
-        let found = false;
-        for (const tree of trees) {
-            const face = testInclusion(component, tree.component);
-            if (face) {
-                if (tree.outgoingEdges.has(face)) {
-                    const children = tree.outgoingEdges.get(face);
-                    tree.outgoingEdges.set(face, insert(children, component));
-                }
-                else {
-                    tree.outgoingEdges.set(face, [
-                        { component, outgoingEdges: new Map() },
-                    ]);
-                }
-                found = true;
-                break;
+    if (components.length === 0) {
+        return [];
+    }
+    let totalBoundingBox = null;
+    const info = components.map((component, index) => {
+        const interiorPoint = getComponentInteriorPoint(component);
+        const boundingBox = getComponentBoundingBox(component);
+        totalBoundingBox = mergeBoundingBoxes(totalBoundingBox, boundingBox);
+        return {
+            index,
+            component,
+            interiorPoint,
+            boundingBox,
+            area: boundingBoxArea(boundingBox),
+        };
+    });
+    const treeByComponent = new WeakMap();
+    for (const component of components) {
+        treeByComponent.set(component, { component, outgoingEdges: new Map() });
+    }
+    const componentTree = new QuadTree(totalBoundingBox, POINT_TREE_DEPTH);
+    for (const entry of info) {
+        componentTree.insert(entry.boundingBox, entry.index);
+    }
+    const roots = [];
+    for (const entry of info) {
+        const point = entry.interiorPoint;
+        const queryBox = boundingBoxAroundPoint(point, EPS$1.point);
+        const candidateIds = componentTree.find(queryBox);
+        let bestParent = null;
+        let bestFace = null;
+        for (const candidateId of candidateIds) {
+            if (candidateId === entry.index)
+                continue;
+            const candidate = info[candidateId];
+            if (!boundingBoxContainsPoint(candidate.boundingBox, point)) {
+                continue;
+            }
+            const face = findContainingFace(candidate.component, point);
+            if (!face)
+                continue;
+            if (!bestParent || candidate.area < bestParent.area) {
+                bestParent = candidate;
+                bestFace = face;
             }
         }
-        if (found) {
-            return trees;
+        const tree = treeByComponent.get(entry.component);
+        if (!bestParent || !bestFace) {
+            roots.push(tree);
+            continue;
+        }
+        const parentTree = treeByComponent.get(bestParent.component);
+        if (parentTree.outgoingEdges.has(bestFace)) {
+            parentTree.outgoingEdges.get(bestFace).push(tree);
         }
         else {
-            const newTree = {
-                component,
-                outgoingEdges: new Map(),
-            };
-            const newTrees = [newTree];
-            for (const tree of trees) {
-                const face = testInclusion(tree.component, component);
-                if (face) {
-                    if (newTree.outgoingEdges.has(face)) {
-                        newTree.outgoingEdges.get(face).push(tree);
-                    }
-                    else {
-                        newTree.outgoingEdges.set(face, [tree]);
-                    }
-                }
-                else {
-                    newTrees.push(tree);
-                }
-            }
-            return newTrees;
+            parentTree.outgoingEdges.set(bestFace, [tree]);
         }
     }
-    for (const component of components) {
-        nestingTrees = insert(nestingTrees, component);
-    }
-    return nestingTrees;
+    return roots;
 }
 function getFlag(count, fillRule) {
     switch (fillRule) {

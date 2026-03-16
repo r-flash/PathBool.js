@@ -824,7 +824,7 @@ function computePointWinding(polygon: Vector[], testedPoint: Vector) {
     return winding;
 }
 
-function computeWinding(face: DualGraphVertex) {
+const computeWinding = memoizeWeak((face: DualGraphVertex) => {
     const polygon = faceToPolygon(face);
 
     for (let i = 0; i < polygon.length; i++) {
@@ -845,7 +845,7 @@ function computeWinding(face: DualGraphVertex) {
     }
 
     assertUnreachable("No ear in polygon found.");
-}
+});
 
 function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
     const newVertices: DualGraphVertex[] = [];
@@ -979,9 +979,9 @@ function boundingBoxIntersectsHorizontalRay(
 function pathSegmentHorizontalRayIntersectionCount(
     origSeg: PathSegment,
     point: Vector,
+    totalBoundingBox: AABB = pathSegmentBoundingBox(origSeg),
 ): number {
     type IntersectionSegment = { boundingBox: AABB; seg: PathSegment };
-    const totalBoundingBox = pathSegmentBoundingBox(origSeg);
     if (!boundingBoxIntersectsHorizontalRay(totalBoundingBox, point)) return 0;
     let segments: IntersectionSegment[] = [
         { boundingBox: totalBoundingBox, seg: origSeg },
@@ -1044,27 +1044,80 @@ function pathSegmentHorizontalRayIntersectionCount(
     return count;
 }
 
-function getComponentInteriorPoint(component: DualGraphComponent): Vector {
+const getComponentInteriorPoint = memoizeWeak(
+    (component: DualGraphComponent) => {
+        for (const face of component.vertices) {
+            if (face === component.outerFace) continue;
+            return computeWinding(face).point;
+        }
+        assertUnreachable("No inner face found.");
+    },
+);
+
+const getFaceIntersectionSegments = memoizeWeak((face: DualGraphVertex) =>
+    face.incidentEdges.flatMap((edge) =>
+        edge.segments.map((seg) => ({
+            seg,
+            boundingBox: pathSegmentBoundingBox(seg),
+        })),
+    ),
+);
+
+const getFaceBoundingBox = memoizeWeak((face: DualGraphVertex) => {
+    let boundingBox: AABB | null = null;
+    for (const { boundingBox: segBoundingBox } of getFaceIntersectionSegments(
+        face,
+    )) {
+        boundingBox = mergeBoundingBoxes(boundingBox, segBoundingBox);
+    }
+    assertDefined(boundingBox, "Face has no segments.");
+    return boundingBox;
+});
+
+const getComponentBoundingBox = memoizeWeak((component: DualGraphComponent) => {
+    let boundingBox: AABB | null = null;
     for (const face of component.vertices) {
         if (face === component.outerFace) continue;
-        return computeWinding(face).point;
+        boundingBox = mergeBoundingBoxes(boundingBox, getFaceBoundingBox(face));
     }
-    assertUnreachable("No inner face found.");
+    assertDefined(boundingBox, "Component has no inner face.");
+    return boundingBox;
+});
+
+function boundingBoxContainsPoint(boundingBox: AABB, point: Vector): boolean {
+    return (
+        point[0] >= boundingBox.left - EPS.point &&
+        point[0] <= boundingBox.right + EPS.point &&
+        point[1] >= boundingBox.top - EPS.point &&
+        point[1] <= boundingBox.bottom + EPS.point
+    );
 }
 
-function testInclusion(a: DualGraphComponent, b: DualGraphComponent) {
+function boundingBoxArea({ top, right, bottom, left }: AABB): number {
+    return (right - left) * (bottom - top);
+}
+
+function findContainingFace(
+    component: DualGraphComponent,
+    testedPoint: Vector,
+): DualGraphVertex | null {
     // TODO: Intersection counting will fail if a curve touches the horizontal line but doesn't go through.
-    const testedPoint = getComponentInteriorPoint(a);
-    for (const face of b.vertices) {
-        if (face === b.outerFace) continue;
+    for (const face of component.vertices) {
+        if (face === component.outerFace) continue;
+        if (!boundingBoxContainsPoint(getFaceBoundingBox(face), testedPoint)) {
+            continue;
+        }
+
         let count = 0;
-        for (const edge of face.incidentEdges) {
-            for (const seg of edge.segments) {
-                count += pathSegmentHorizontalRayIntersectionCount(
-                    seg,
-                    testedPoint,
-                );
+        for (const { seg, boundingBox } of getFaceIntersectionSegments(face)) {
+            if (!boundingBoxIntersectsHorizontalRay(boundingBox, testedPoint)) {
+                continue;
             }
+            count += pathSegmentHorizontalRayIntersectionCount(
+                seg,
+                testedPoint,
+                boundingBox,
+            );
         }
 
         if (count % 2 === 1) return face;
@@ -1073,54 +1126,89 @@ function testInclusion(a: DualGraphComponent, b: DualGraphComponent) {
 }
 
 function computeNestingTree(components: DualGraphComponent[]): NestingTree[] {
-    let nestingTrees: NestingTree[] = [];
+    type ComponentInfo = {
+        index: number;
+        component: DualGraphComponent;
+        interiorPoint: Vector;
+        boundingBox: AABB;
+        area: number;
+    };
 
-    function insert(trees: NestingTree[], component: DualGraphComponent) {
-        let found = false;
-        for (const tree of trees) {
-            const face = testInclusion(component, tree.component);
-            if (face) {
-                if (tree.outgoingEdges.has(face)) {
-                    const children = tree.outgoingEdges.get(face)!;
-                    tree.outgoingEdges.set(face, insert(children, component));
-                } else {
-                    tree.outgoingEdges.set(face, [
-                        { component, outgoingEdges: new Map() },
-                    ]);
-                }
-                found = true;
-                break;
-            }
-        }
-        if (found) {
-            return trees;
-        } else {
-            const newTree: NestingTree = {
-                component,
-                outgoingEdges: new Map(),
-            };
-            const newTrees: NestingTree[] = [newTree];
-            for (const tree of trees) {
-                const face = testInclusion(tree.component, component);
-                if (face) {
-                    if (newTree.outgoingEdges.has(face)) {
-                        newTree.outgoingEdges.get(face)!.push(tree);
-                    } else {
-                        newTree.outgoingEdges.set(face, [tree]);
-                    }
-                } else {
-                    newTrees.push(tree);
-                }
-            }
-            return newTrees;
-        }
+    if (components.length === 0) {
+        return [];
     }
 
+    let totalBoundingBox: AABB | null = null;
+
+    const info: ComponentInfo[] = components.map((component, index) => {
+        const interiorPoint = getComponentInteriorPoint(component);
+        const boundingBox = getComponentBoundingBox(component);
+        totalBoundingBox = mergeBoundingBoxes(totalBoundingBox, boundingBox);
+        return {
+            index,
+            component,
+            interiorPoint,
+            boundingBox,
+            area: boundingBoxArea(boundingBox),
+        };
+    });
+
+    assertDefined(totalBoundingBox, "No total component bounding box found.");
+
+    const treeByComponent = new WeakMap<DualGraphComponent, NestingTree>();
     for (const component of components) {
-        nestingTrees = insert(nestingTrees, component);
+        treeByComponent.set(component, { component, outgoingEdges: new Map() });
     }
 
-    return nestingTrees;
+    const componentTree = new QuadTree<number>(
+        totalBoundingBox,
+        POINT_TREE_DEPTH,
+    );
+    for (const entry of info) {
+        componentTree.insert(entry.boundingBox, entry.index);
+    }
+
+    const roots: NestingTree[] = [];
+
+    for (const entry of info) {
+        const point = entry.interiorPoint;
+        const queryBox = boundingBoxAroundPoint(point, EPS.point);
+        const candidateIds = componentTree.find(queryBox);
+        let bestParent: ComponentInfo | null = null;
+        let bestFace: DualGraphVertex | null = null;
+
+        for (const candidateId of candidateIds) {
+            if (candidateId === entry.index) continue;
+            const candidate = info[candidateId];
+            if (!boundingBoxContainsPoint(candidate.boundingBox, point)) {
+                continue;
+            }
+
+            const face = findContainingFace(candidate.component, point);
+            if (!face) continue;
+
+            if (!bestParent || candidate.area < bestParent.area) {
+                bestParent = candidate;
+                bestFace = face;
+            }
+        }
+
+        const tree = treeByComponent.get(entry.component)!;
+
+        if (!bestParent || !bestFace) {
+            roots.push(tree);
+            continue;
+        }
+
+        const parentTree = treeByComponent.get(bestParent.component)!;
+        if (parentTree.outgoingEdges.has(bestFace)) {
+            parentTree.outgoingEdges.get(bestFace)!.push(tree);
+        } else {
+            parentTree.outgoingEdges.set(bestFace, [tree]);
+        }
+    }
+
+    return roots;
 }
 
 function getFlag(count: number, fillRule: FillRule) {
