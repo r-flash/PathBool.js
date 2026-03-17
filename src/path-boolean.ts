@@ -37,13 +37,13 @@ import {
     PathSegment,
     isNearlyLinearSegment,
     pathSegmentBoundingBox,
-    pathSegmentTangentAt,
+    pathSegmentTangentAtInto,
     reversePathSegment,
-    samplePathSegmentAt,
+    samplePathSegmentAtInto,
     splitCubicSegmentAt,
     splitSegmentAt,
 } from "./primitives/PathSegment";
-import { Vector, vectorsEqual } from "./primitives/Vector";
+import { createVector, Vector, vectorsEqual } from "./primitives/Vector";
 import { countIf, hasOwn, memoizeWeak } from "./util/generic";
 import { map } from "./util/iterators";
 import { linMap } from "./util/math";
@@ -101,6 +101,7 @@ type MinorGraphEdge = {
     directionFlagB: boolean;
     twin: MinorGraphEdge | null;
     id: number;
+    indexInVertex?: number;
 };
 
 type MinorGraphVertex = {
@@ -411,10 +412,34 @@ function findVertices(
     }
 
     const getVertexId = createObjectCounter();
-    const vertexPairIdToEdges: Record<
-        string,
-        [MajorGraphEdgeStage2, MajorGraphEdge, MajorGraphEdge][]
-    > = {};
+    const vertexPairIdToEdges = new Map<
+        number,
+        Map<number, [MajorGraphEdgeStage2, MajorGraphEdge, MajorGraphEdge][]>
+    >();
+
+    function getVertexPairEdges(
+        startId: number,
+        endId: number,
+    ): [MajorGraphEdgeStage2, MajorGraphEdge, MajorGraphEdge][] | undefined {
+        return vertexPairIdToEdges.get(startId)?.get(endId);
+    }
+
+    function ensureVertexPairEdges(
+        startId: number,
+        endId: number,
+    ): [MajorGraphEdgeStage2, MajorGraphEdge, MajorGraphEdge][] {
+        let inner = vertexPairIdToEdges.get(startId);
+        if (!inner) {
+            inner = new Map();
+            vertexPairIdToEdges.set(startId, inner);
+        }
+        let edges = inner.get(endId);
+        if (!edges) {
+            edges = [];
+            inner.set(endId, edges);
+        }
+        return edges;
+    }
 
     const newEdges = edges.flatMap((edge) => {
         const startPoint = getStartPoint(edge.seg);
@@ -450,9 +475,11 @@ function findVertices(
         const startVertex = getVertex(startPoint);
         const endVertex = getVertex(endPoint);
 
-        const vertexPairId = `${getVertexId(startVertex)}:${getVertexId(endVertex)}`;
-        if (hasOwn(vertexPairIdToEdges, vertexPairId)) {
-            const existingEdge = vertexPairIdToEdges[vertexPairId].find(
+        const startId = getVertexId(startVertex);
+        const endId = getVertexId(endVertex);
+        const existingEdges = getVertexPairEdges(startId, endId);
+        if (existingEdges) {
+            const existingEdge = existingEdges.find(
                 (other) => segmentsEqual(other[0].seg, edge.seg, EPS.point),
             );
             if (existingEdge) {
@@ -462,10 +489,10 @@ function findVertices(
             }
         }
 
-        const vertexPairIdInv = `${getVertexId(endVertex)}:${getVertexId(startVertex)}`;
-        if (hasOwn(vertexPairIdToEdges, vertexPairIdInv)) {
+        const existingEdgesInv = getVertexPairEdges(endId, startId);
+        if (existingEdgesInv) {
             const reversedSeg = reversePathSegment(edge.seg);
-            const existingEdge = vertexPairIdToEdges[vertexPairIdInv].find(
+            const existingEdge = existingEdgesInv.find(
                 (other) => segmentsEqual(other[0].seg, reversedSeg, EPS.point),
             );
             if (existingEdge) {
@@ -507,11 +534,7 @@ function findVertices(
         startVertex.outgoingEdges.push(fwdEdge);
         endVertex.outgoingEdges.push(bwdEdge);
 
-        if (hasOwn(vertexPairIdToEdges, vertexPairId)) {
-            vertexPairIdToEdges[vertexPairId].push([edge, fwdEdge, bwdEdge]);
-        } else {
-            vertexPairIdToEdges[vertexPairId] = [[edge, fwdEdge, bwdEdge]];
-        }
+        ensureVertexPairEdges(startId, endId).push([edge, fwdEdge, bwdEdge]);
 
         return [fwdEdge, bwdEdge];
     });
@@ -538,7 +561,27 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
     }) as (majorVertex: MajorGraphVertex) => MinorGraphVertex;
 
     const getEdgeId = createObjectCounter();
-    const idToEdge: Record<string, MinorGraphEdge> = {};
+    const idToEdge = new Map<number, Map<number, MinorGraphEdge>>();
+
+    function getEdgeById(
+        startId: number,
+        endId: number,
+    ): MinorGraphEdge | undefined {
+        return idToEdge.get(startId)?.get(endId);
+    }
+
+    function setEdgeById(
+        startId: number,
+        endId: number,
+        edge: MinorGraphEdge,
+    ) {
+        let inner = idToEdge.get(startId);
+        if (!inner) {
+            inner = new Map();
+            idToEdge.set(startId, inner);
+        }
+        inner.set(endId, edge);
+    }
     const visited = new WeakSet<MajorGraphVertex>();
 
     // first handle components that are not cycles
@@ -570,9 +613,11 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
             const endVertex = toMinorVertex(edge.incidentVertices[1]);
             assertDefined(edge.twin, "Edge doesn't have a twin.");
             assertDefined(startEdge.twin, "Edge doesn't have a twin.");
-            const edgeId = `${getEdgeId(startEdge)}-${getEdgeId(edge)}`;
-            const twinId = `${getEdgeId(edge.twin)}-${getEdgeId(startEdge.twin)}`;
-            const twin = idToEdge[twinId] ?? null;
+            const startId = getEdgeId(startEdge);
+            const endId = getEdgeId(edge);
+            const twinStartId = getEdgeId(edge.twin);
+            const twinEndId = getEdgeId(startEdge.twin);
+            const twin = getEdgeById(twinStartId, twinEndId) ?? null;
             const newEdge: MinorGraphEdge = {
                 segments,
                 parent: startEdge.parent,
@@ -586,7 +631,7 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
             if (twin) {
                 twin.twin = newEdge;
             }
-            idToEdge[edgeId] = newEdge;
+            setEdgeById(startId, endId, newEdge);
             startVertex.outgoingEdges.push(newEdge);
             newEdges.push(newEdge);
         }
@@ -700,19 +745,25 @@ function removeDanglingEdges(graph: MinorGraph) {
 function getIncidenceAngle({ directionFlag, segments }: MinorGraphEdge) {
     const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
 
+    const p0 = createVector();
+    const p1 = createVector();
+    const pNext = createVector();
+    const tangent = createVector();
+
     const t0 = directionFlag ? 1 : 0;
     let dt = EPS.param;
-    const p0 = samplePathSegmentAt(seg, t0);
+    samplePathSegmentAtInto(seg, t0, p0);
     const t1 = directionFlag ? Math.max(0, t0 - dt) : Math.min(1, t0 + dt);
-    const p1 = samplePathSegmentAt(seg, t1);
+    samplePathSegmentAtInto(seg, t1, p1);
     let dx = p1[0] - p0[0];
     let dy = p1[1] - p0[1];
     let lenSq = dx * dx + dy * dy;
 
     if (lenSq < TANGENT_MIN_LEN_SQ) {
-        let tangent = pathSegmentTangentAt(seg, t0);
+        pathSegmentTangentAtInto(seg, t0, tangent);
         if (directionFlag) {
-            tangent = [-tangent[0], -tangent[1]];
+            tangent[0] = -tangent[0];
+            tangent[1] = -tangent[1];
         }
         lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
         if (lenSq >= TANGENT_MIN_LEN_SQ) {
@@ -726,7 +777,7 @@ function getIncidenceAngle({ directionFlag, segments }: MinorGraphEdge) {
             const tNext = directionFlag
                 ? Math.max(0, t0 - dt)
                 : Math.min(1, t0 + dt);
-            const pNext = samplePathSegmentAt(seg, tNext);
+            samplePathSegmentAtInto(seg, tNext, pNext);
             dx = pNext[0] - p0[0];
             dy = pNext[1] - p0[1];
             lenSq = dx * dx + dy * dy;
@@ -762,13 +813,16 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
         if (getOrder(vertex) > 2) {
             vertex.outgoingEdges.sort((a, b) => getAngle(a) - getAngle(b));
         }
+        for (let i = 0; i < vertex.outgoingEdges.length; i++) {
+            vertex.outgoingEdges[i].indexInVertex = i;
+        }
     }
 }
 
 function getNextEdge(edge: MinorGraphEdge) {
     const { outgoingEdges } = edge.incidentVertices[1];
-    const index = outgoingEdges.findIndex((other) => other.twin === edge);
-    assertCondition(index >= 0, "Twin edge not found in outgoing edges.");
+    const index = edge.twin?.indexInVertex;
+    assertCondition(index !== undefined, "Twin edge index not found.");
     return outgoingEdges[(index + 1) % outgoingEdges.length];
 }
 
@@ -777,12 +831,14 @@ const faceToPolygon = memoizeWeak((face: DualGraphVertex) =>
         const CNT = 64;
 
         const points: Vector[] = [];
+        const p = createVector();
 
         for (const seg of edge.segments) {
             for (let i = 0; i < CNT; i++) {
                 const t0 = i / CNT;
                 const t = edge.directionFlag ? 1 - t0 : t0;
-                points.push(samplePathSegmentAt(seg, t));
+                samplePathSegmentAtInto(seg, t, p);
+                points.push([p[0], p[1]]);
             }
         }
 

@@ -28,15 +28,31 @@ export class QuadTree<T> {
     insert(boundingBox: AABB, value: T) {
         if (!boundingBoxesOverlap(boundingBox, this.boundingBox)) return false;
 
+        if (this.subtrees) {
+            for (let i = 0; i < this.subtrees.length; i++) {
+                const tree = this.subtrees[i];
+                tree.insert(boundingBox, value);
+            }
+            return true;
+        }
+
         if (this.depth > 0 && this.pairs.length >= this.innerNodeCapacity) {
             this.ensureSubtrees();
+            for (let i = 0; i < this.pairs.length; i++) {
+                const [pairBox, pairValue] = this.pairs[i];
+                for (let j = 0; j < this.subtrees!.length; j++) {
+                    this.subtrees![j].insert(pairBox, pairValue);
+                }
+            }
+            this.pairs.length = 0;
             for (let i = 0; i < this.subtrees!.length; i++) {
                 const tree = this.subtrees![i];
                 tree.insert(boundingBox, value);
             }
-        } else {
-            this.pairs.push([boundingBox, value]);
+            return true;
         }
+
+        this.pairs.push([boundingBox, value]);
 
         return true;
     }
