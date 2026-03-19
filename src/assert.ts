@@ -42,3 +42,9 @@ export function assertUnreachable(msg: string): never {
         `Reached code that was supposed to be unreachable: ${msg}`,
     );
 }
+
+export function assertUnreachableValue(value: never, msg: string): never {
+    throw new AssertionError(
+        `Reached code that was supposed to be unreachable: ${msg}`,
+    );
+}

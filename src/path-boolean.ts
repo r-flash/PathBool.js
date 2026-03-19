@@ -11,6 +11,7 @@ import {
     assertUnreachable,
 } from "./assert";
 import {
+    ANGLE_MIN_DIFF,
     DEV_ASSERTS,
     EPS,
     MAX_INTERSECTION_PAIRS,
@@ -479,8 +480,8 @@ function findVertices(
         const endId = getVertexId(endVertex);
         const existingEdges = getVertexPairEdges(startId, endId);
         if (existingEdges) {
-            const existingEdge = existingEdges.find(
-                (other) => segmentsEqual(other[0].seg, edge.seg, EPS.point),
+            const existingEdge = existingEdges.find((other) =>
+                segmentsEqual(other[0].seg, edge.seg, EPS.point),
             );
             if (existingEdge) {
                 existingEdge[1].parent |= edge.parent;
@@ -492,8 +493,8 @@ function findVertices(
         const existingEdgesInv = getVertexPairEdges(endId, startId);
         if (existingEdgesInv) {
             const reversedSeg = reversePathSegment(edge.seg);
-            const existingEdge = existingEdgesInv.find(
-                (other) => segmentsEqual(other[0].seg, reversedSeg, EPS.point),
+            const existingEdge = existingEdgesInv.find((other) =>
+                segmentsEqual(other[0].seg, reversedSeg, EPS.point),
             );
             if (existingEdge) {
                 if (existingEdge[0].parent === edge.parent) {
@@ -570,11 +571,7 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
         return idToEdge.get(startId)?.get(endId);
     }
 
-    function setEdgeById(
-        startId: number,
-        endId: number,
-        edge: MinorGraphEdge,
-    ) {
+    function setEdgeById(startId: number, endId: number, edge: MinorGraphEdge) {
         let inner = idToEdge.get(startId);
         if (!inner) {
             inner = new Map();
@@ -742,76 +739,83 @@ function removeDanglingEdges(graph: MinorGraph) {
     graph.edges = graph.edges.filter(keepEdge);
 }
 
-function getIncidenceAngle({ directionFlag, segments }: MinorGraphEdge) {
-    const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
-
+const getIncidenceAngle = (() => {
     const p0 = createVector();
-    const p1 = createVector();
     const pNext = createVector();
     const tangent = createVector();
 
-    const t0 = directionFlag ? 1 : 0;
-    let dt = EPS.param;
-    samplePathSegmentAtInto(seg, t0, p0);
-    const t1 = directionFlag ? Math.max(0, t0 - dt) : Math.min(1, t0 + dt);
-    samplePathSegmentAtInto(seg, t1, p1);
-    let dx = p1[0] - p0[0];
-    let dy = p1[1] - p0[1];
-    let lenSq = dx * dx + dy * dy;
+    return function getIncidenceAngle(
+        { directionFlag, segments }: MinorGraphEdge,
+        offset = false,
+    ) {
+        const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
 
-    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        // First attempt: analytical tangent
+        const t0 = directionFlag
+            ? offset
+                ? 1 - EPS.param
+                : 1
+            : offset
+              ? EPS.param
+              : 0;
         pathSegmentTangentAtInto(seg, t0, tangent);
         if (directionFlag) {
             tangent[0] = -tangent[0];
             tangent[1] = -tangent[1];
         }
-        lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
+        const lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
         if (lenSq >= TANGENT_MIN_LEN_SQ) {
             return Math.atan2(tangent[1], tangent[0]);
         }
-    }
 
-    if (lenSq < TANGENT_MIN_LEN_SQ) {
-        dt = EPS.param;
+        // Second attempt: numerical tangent
+        samplePathSegmentAtInto(seg, t0, p0);
+        let dt = EPS.param;
         for (let i = 0; i < MAX_TANGENT_SAMPLE_ITERS; i++) {
             const tNext = directionFlag
                 ? Math.max(0, t0 - dt)
                 : Math.min(1, t0 + dt);
             samplePathSegmentAtInto(seg, tNext, pNext);
-            dx = pNext[0] - p0[0];
-            dy = pNext[1] - p0[1];
-            lenSq = dx * dx + dy * dy;
+            const dx = pNext[0] - p0[0];
+            const dy = pNext[1] - p0[1];
+            const lenSq = dx * dx + dy * dy;
             if (lenSq >= TANGENT_MIN_LEN_SQ) {
-                break;
+                return Math.atan2(dy, dx);
             }
             dt *= 2;
         }
-    }
 
-    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        // Fallback: treat the segment as linear
         const start = getStartPoint(seg);
         const end = getEndPoint(seg);
-        dx = end[0] - start[0];
-        dy = end[1] - start[1];
+        let dx = end[0] - start[0];
+        let dy = end[1] - start[1];
         if (directionFlag) {
             dx = -dx;
             dy = -dy;
         }
-    }
 
-    return Math.atan2(dy, dx);
-}
+        return Math.atan2(dy, dx);
+    };
+})();
 
 function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
     // TODO: this will hardly be a bottleneck, but profile whether memoization
     //  actually helps and maybe use a simpler function that's monotonic
     //  in angle.
 
-    const getAngle = memoizeWeak(getIncidenceAngle);
-
     for (const vertex of vertices) {
         if (getOrder(vertex) > 2) {
-            vertex.outgoingEdges.sort((a, b) => getAngle(a) - getAngle(b));
+            const angleCache = new WeakMap<MinorGraphEdge, number>();
+            for (let i = 0; i < vertex.outgoingEdges.length; i++) {
+                const edge = vertex.outgoingEdges[i];
+                angleCache.set(edge, getIncidenceAngle(edge));
+            }
+            vertex.outgoingEdges.sort((a, b) => {
+                const diff = angleCache.get(a)! - angleCache.get(b)!;
+                if (Math.abs(diff) > ANGLE_MIN_DIFF) return diff;
+                return getIncidenceAngle(a, true) - getIncidenceAngle(b, true);
+            });
         }
         for (let i = 0; i < vertex.outgoingEdges.length; i++) {
             vertex.outgoingEdges[i].indexInVertex = i;

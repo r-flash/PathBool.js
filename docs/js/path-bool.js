@@ -152,16 +152,29 @@ class QuadTree {
     insert(boundingBox, value) {
         if (!boundingBoxesOverlap(boundingBox, this.boundingBox))
             return false;
-        if (this.depth > 0 && this.pairs.length >= this.innerNodeCapacity) {
-            this.ensureSubtrees();
+        if (this.subtrees) {
             for (let i = 0; i < this.subtrees.length; i++) {
                 const tree = this.subtrees[i];
                 tree.insert(boundingBox, value);
             }
+            return true;
         }
-        else {
-            this.pairs.push([boundingBox, value]);
+        if (this.depth > 0 && this.pairs.length >= this.innerNodeCapacity) {
+            this.ensureSubtrees();
+            for (let i = 0; i < this.pairs.length; i++) {
+                const [pairBox, pairValue] = this.pairs[i];
+                for (let j = 0; j < this.subtrees.length; j++) {
+                    this.subtrees[j].insert(pairBox, pairValue);
+                }
+            }
+            this.pairs.length = 0;
+            for (let i = 0; i < this.subtrees.length; i++) {
+                const tree = this.subtrees[i];
+                tree.insert(boundingBox, value);
+            }
+            return true;
         }
+        this.pairs.push([boundingBox, value]);
         return true;
     }
     find(boundingBox, set = new Set()) {
@@ -230,6 +243,7 @@ const MAX_TANGENT_SAMPLE_ITERS = 6;
 // Numerical precision
 const NEARLY_LINEAR_EPS = 1e-10;
 const TANGENT_MIN_LEN_SQ = 1e-16;
+const ANGLE_MIN_DIFF = 1e-16;
 const EPS$1 = {
     point: 1e-6,
     linear: 1e-4,
@@ -994,17 +1008,19 @@ const arcSegmentFromCenter = (() => {
         return ["A", [xy1[0], xy1[1]], rx, ry, phi, fA, fS, [xy2[0], xy2[1]]];
     };
 })();
-const samplePathSegmentAt = (() => {
+const samplePathSegmentAtInto = (() => {
     const p01 = createVector();
     const p12 = createVector();
     const p23 = createVector();
     const p012 = createVector();
     const p123 = createVector();
     const p = createVector();
-    return function samplePathSegmentAt(seg, t) {
+    return function samplePathSegmentAtInto(seg, t, out) {
         if (isNearlyLinearSegment(seg)) {
             lerp$1(p, seg[1], getEndPoint(seg), t);
-            return [p[0], p[1]];
+            out[0] = p[0];
+            out[1] = p[1];
+            return out;
         }
         switch (seg[0]) {
             case "L":
@@ -1038,60 +1054,79 @@ const samplePathSegmentAt = (() => {
                 break;
             }
         }
-        return [p[0], p[1]];
+        out[0] = p[0];
+        out[1] = p[1];
+        return out;
     };
 })();
-function pathSegmentTangentAt(seg, t) {
-    if (isNearlyLinearSegment(seg)) {
-        const start = seg[1];
-        const end = getEndPoint(seg);
-        return [end[0] - start[0], end[1] - start[1]];
-    }
-    switch (seg[0]) {
-        case "L":
-            return [seg[2][0] - seg[1][0], seg[2][1] - seg[1][1]];
-        case "Q": {
-            const p0 = seg[1];
-            const p1 = seg[2];
-            const p2 = seg[3];
-            const ax = p1[0] - p0[0];
-            const ay = p1[1] - p0[1];
-            const bx = p2[0] - p1[0];
-            const by = p2[1] - p1[1];
-            return [2 * ((1 - t) * ax + t * bx), 2 * ((1 - t) * ay + t * by)];
+const samplePathSegmentAt = (() => {
+    const out = createVector();
+    return function samplePathSegmentAt(seg, t) {
+        samplePathSegmentAtInto(seg, t, out);
+        return [out[0], out[1]];
+    };
+})();
+const pathSegmentTangentAtInto = (() => {
+    const tmp = createVector();
+    return function pathSegmentTangentAtInto(seg, t, out) {
+        if (isNearlyLinearSegment(seg)) {
+            const start = seg[1];
+            const end = getEndPoint(seg);
+            out[0] = end[0] - start[0];
+            out[1] = end[1] - start[1];
+            return out;
         }
-        case "C": {
-            const p0 = seg[1];
-            const p1 = seg[2];
-            const p2 = seg[3];
-            const p3 = seg[4];
-            const ax = p1[0] - p0[0];
-            const ay = p1[1] - p0[1];
-            const bx = p2[0] - p1[0];
-            const by = p2[1] - p1[1];
-            const cx = p3[0] - p2[0];
-            const cy = p3[1] - p2[1];
-            const u = 1 - t;
-            return [
-                3 * (u * u * ax + 2 * u * t * bx + t * t * cx),
-                3 * (u * u * ay + 2 * u * t * by + t * t * cy),
-            ];
-        }
-        case "A": {
-            const centerParametrization = arcSegmentToCenter(normalizeArcSegment(seg));
-            if (!centerParametrization) {
-                return [seg[7][0] - seg[1][0], seg[7][1] - seg[1][1]];
+        switch (seg[0]) {
+            case "Q": {
+                const p0 = seg[1];
+                const p1 = seg[2];
+                const p2 = seg[3];
+                const ax = p1[0] - p0[0];
+                const ay = p1[1] - p0[1];
+                const bx = p2[0] - p1[0];
+                const by = p2[1] - p1[1];
+                out[0] = 2 * ((1 - t) * ax + t * bx);
+                out[1] = 2 * ((1 - t) * ay + t * by);
+                return out;
             }
-            const { deltaTheta, phi, theta1, rx, ry } = centerParametrization;
-            const theta = theta1 + t * deltaTheta;
-            const cosPhi = Math.cos(deg2rad(phi));
-            const sinPhi = Math.sin(deg2rad(phi));
-            const dx = -rx * Math.sin(theta) * deltaTheta;
-            const dy = ry * Math.cos(theta) * deltaTheta;
-            return [cosPhi * dx - sinPhi * dy, sinPhi * dx + cosPhi * dy];
+            case "C": {
+                const p0 = seg[1];
+                const p1 = seg[2];
+                const p2 = seg[3];
+                const p3 = seg[4];
+                const ax = p1[0] - p0[0];
+                const ay = p1[1] - p0[1];
+                const bx = p2[0] - p1[0];
+                const by = p2[1] - p1[1];
+                const cx = p3[0] - p2[0];
+                const cy = p3[1] - p2[1];
+                const u = 1 - t;
+                out[0] = 3 * (u * u * ax + 2 * u * t * bx + t * t * cx);
+                out[1] = 3 * (u * u * ay + 2 * u * t * by + t * t * cy);
+                return out;
+            }
+            case "A": {
+                const centerParametrization = arcSegmentToCenter(normalizeArcSegment(seg));
+                if (!centerParametrization) {
+                    out[0] = seg[7][0] - seg[1][0];
+                    out[1] = seg[7][1] - seg[1][1];
+                    return out;
+                }
+                const { deltaTheta, phi, theta1, rx, ry } = centerParametrization;
+                const theta = theta1 + t * deltaTheta;
+                const cosPhi = Math.cos(deg2rad(phi));
+                const sinPhi = Math.sin(deg2rad(phi));
+                const dx = -rx * Math.sin(theta) * deltaTheta;
+                const dy = ry * Math.cos(theta) * deltaTheta;
+                tmp[0] = cosPhi * dx - sinPhi * dy;
+                tmp[1] = sinPhi * dx + cosPhi * dy;
+                out[0] = tmp[0];
+                out[1] = tmp[1];
+                return out;
+            }
         }
-    }
-}
+    };
+})();
 const arcSegmentToCubics = (() => {
     const fromUnit = create$1();
     const matrix = create$1();
@@ -1812,7 +1847,23 @@ function findVertices(edges, boundingBox) {
         }
     }
     const getVertexId = createObjectCounter();
-    const vertexPairIdToEdges = {};
+    const vertexPairIdToEdges = new Map();
+    function getVertexPairEdges(startId, endId) {
+        return vertexPairIdToEdges.get(startId)?.get(endId);
+    }
+    function ensureVertexPairEdges(startId, endId) {
+        let inner = vertexPairIdToEdges.get(startId);
+        if (!inner) {
+            inner = new Map();
+            vertexPairIdToEdges.set(startId, inner);
+        }
+        let edges = inner.get(endId);
+        if (!edges) {
+            edges = [];
+            inner.set(endId, edges);
+        }
+        return edges;
+    }
     const newEdges = edges.flatMap((edge) => {
         const startPoint = getStartPoint(edge.seg);
         const endPoint = getEndPoint(edge.seg);
@@ -1842,19 +1893,21 @@ function findVertices(edges, boundingBox) {
         }
         const startVertex = getVertex(startPoint);
         const endVertex = getVertex(endPoint);
-        const vertexPairId = `${getVertexId(startVertex)}:${getVertexId(endVertex)}`;
-        if (hasOwn(vertexPairIdToEdges, vertexPairId)) {
-            const existingEdge = vertexPairIdToEdges[vertexPairId].find((other) => segmentsEqual(other[0].seg, edge.seg, EPS$1.point));
+        const startId = getVertexId(startVertex);
+        const endId = getVertexId(endVertex);
+        const existingEdges = getVertexPairEdges(startId, endId);
+        if (existingEdges) {
+            const existingEdge = existingEdges.find((other) => segmentsEqual(other[0].seg, edge.seg, EPS$1.point));
             if (existingEdge) {
                 existingEdge[1].parent |= edge.parent;
                 existingEdge[2].parent |= edge.parent;
                 return [];
             }
         }
-        const vertexPairIdInv = `${getVertexId(endVertex)}:${getVertexId(startVertex)}`;
-        if (hasOwn(vertexPairIdToEdges, vertexPairIdInv)) {
+        const existingEdgesInv = getVertexPairEdges(endId, startId);
+        if (existingEdgesInv) {
             const reversedSeg = reversePathSegment(edge.seg);
-            const existingEdge = vertexPairIdToEdges[vertexPairIdInv].find((other) => segmentsEqual(other[0].seg, reversedSeg, EPS$1.point));
+            const existingEdge = existingEdgesInv.find((other) => segmentsEqual(other[0].seg, reversedSeg, EPS$1.point));
             if (existingEdge) {
                 if (existingEdge[0].parent === edge.parent) {
                     // discard "there and back" pairs
@@ -1888,12 +1941,7 @@ function findVertices(edges, boundingBox) {
         fwdEdge.twin = bwdEdge;
         startVertex.outgoingEdges.push(fwdEdge);
         endVertex.outgoingEdges.push(bwdEdge);
-        if (hasOwn(vertexPairIdToEdges, vertexPairId)) {
-            vertexPairIdToEdges[vertexPairId].push([edge, fwdEdge, bwdEdge]);
-        }
-        else {
-            vertexPairIdToEdges[vertexPairId] = [[edge, fwdEdge, bwdEdge]];
-        }
+        ensureVertexPairEdges(startId, endId).push([edge, fwdEdge, bwdEdge]);
         return [fwdEdge, bwdEdge];
     });
     return {
@@ -1914,7 +1962,18 @@ function computeMinor({ vertices }) {
         return minorVertex;
     });
     const getEdgeId = createObjectCounter();
-    const idToEdge = {};
+    const idToEdge = new Map();
+    function getEdgeById(startId, endId) {
+        return idToEdge.get(startId)?.get(endId);
+    }
+    function setEdgeById(startId, endId, edge) {
+        let inner = idToEdge.get(startId);
+        if (!inner) {
+            inner = new Map();
+            idToEdge.set(startId, inner);
+        }
+        inner.set(endId, edge);
+    }
     const visited = new WeakSet();
     // first handle components that are not cycles
     for (const vertex of vertices) {
@@ -1936,9 +1995,11 @@ function computeMinor({ vertices }) {
             }
             segments.push(edge.seg);
             const endVertex = toMinorVertex(edge.incidentVertices[1]);
-            const edgeId = `${getEdgeId(startEdge)}-${getEdgeId(edge)}`;
-            const twinId = `${getEdgeId(edge.twin)}-${getEdgeId(startEdge.twin)}`;
-            const twin = idToEdge[twinId] ?? null;
+            const startId = getEdgeId(startEdge);
+            const endId = getEdgeId(edge);
+            const twinStartId = getEdgeId(edge.twin);
+            const twinEndId = getEdgeId(startEdge.twin);
+            const twin = getEdgeById(twinStartId, twinEndId) ?? null;
             const newEdge = {
                 segments,
                 parent: startEdge.parent,
@@ -1952,7 +2013,7 @@ function computeMinor({ vertices }) {
             if (twin) {
                 twin.twin = newEdge;
             }
-            idToEdge[edgeId] = newEdge;
+            setEdgeById(startId, endId, newEdge);
             startVertex.outgoingEdges.push(newEdge);
             newEdges.push(newEdge);
         }
@@ -2030,78 +2091,95 @@ function removeDanglingEdges(graph) {
     }
     graph.edges = graph.edges.filter(keepEdge);
 }
-function getIncidenceAngle({ directionFlag, segments }) {
-    const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
-    const t0 = directionFlag ? 1 : 0;
-    let dt = EPS$1.param;
-    const p0 = samplePathSegmentAt(seg, t0);
-    const t1 = directionFlag ? Math.max(0, t0 - dt) : Math.min(1, t0 + dt);
-    const p1 = samplePathSegmentAt(seg, t1);
-    let dx = p1[0] - p0[0];
-    let dy = p1[1] - p0[1];
-    let lenSq = dx * dx + dy * dy;
-    if (lenSq < TANGENT_MIN_LEN_SQ) {
-        let tangent = pathSegmentTangentAt(seg, t0);
+const getIncidenceAngle = (() => {
+    const p0 = createVector();
+    const pNext = createVector();
+    const tangent = createVector();
+    return function getIncidenceAngle({ directionFlag, segments }, offset = false) {
+        const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
+        // First attempt: analytical tangent
+        const t0 = directionFlag
+            ? offset
+                ? 1 - EPS$1.param
+                : 1
+            : offset
+                ? EPS$1.param
+                : 0;
+        pathSegmentTangentAtInto(seg, t0, tangent);
         if (directionFlag) {
-            tangent = [-tangent[0], -tangent[1]];
+            tangent[0] = -tangent[0];
+            tangent[1] = -tangent[1];
         }
-        lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
+        const lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
         if (lenSq >= TANGENT_MIN_LEN_SQ) {
             return Math.atan2(tangent[1], tangent[0]);
         }
-    }
-    if (lenSq < TANGENT_MIN_LEN_SQ) {
-        dt = EPS$1.param;
+        // Second attempt: numerical tangent
+        samplePathSegmentAtInto(seg, t0, p0);
+        let dt = EPS$1.param;
         for (let i = 0; i < MAX_TANGENT_SAMPLE_ITERS; i++) {
             const tNext = directionFlag
                 ? Math.max(0, t0 - dt)
                 : Math.min(1, t0 + dt);
-            const pNext = samplePathSegmentAt(seg, tNext);
-            dx = pNext[0] - p0[0];
-            dy = pNext[1] - p0[1];
-            lenSq = dx * dx + dy * dy;
+            samplePathSegmentAtInto(seg, tNext, pNext);
+            const dx = pNext[0] - p0[0];
+            const dy = pNext[1] - p0[1];
+            const lenSq = dx * dx + dy * dy;
             if (lenSq >= TANGENT_MIN_LEN_SQ) {
-                break;
+                return Math.atan2(dy, dx);
             }
             dt *= 2;
         }
-    }
-    if (lenSq < TANGENT_MIN_LEN_SQ) {
+        // Fallback: treat the segment as linear
         const start = getStartPoint(seg);
         const end = getEndPoint(seg);
-        dx = end[0] - start[0];
-        dy = end[1] - start[1];
+        let dx = end[0] - start[0];
+        let dy = end[1] - start[1];
         if (directionFlag) {
             dx = -dx;
             dy = -dy;
         }
-    }
-    return Math.atan2(dy, dx);
-}
+        return Math.atan2(dy, dx);
+    };
+})();
 function sortOutgoingEdgesByAngle({ vertices }) {
     // TODO: this will hardly be a bottleneck, but profile whether memoization
     //  actually helps and maybe use a simpler function that's monotonic
     //  in angle.
-    const getAngle = memoizeWeak(getIncidenceAngle);
     for (const vertex of vertices) {
         if (getOrder(vertex) > 2) {
-            vertex.outgoingEdges.sort((a, b) => getAngle(a) - getAngle(b));
+            const angleCache = new WeakMap();
+            for (let i = 0; i < vertex.outgoingEdges.length; i++) {
+                const edge = vertex.outgoingEdges[i];
+                angleCache.set(edge, getIncidenceAngle(edge));
+            }
+            vertex.outgoingEdges.sort((a, b) => {
+                const diff = angleCache.get(a) - angleCache.get(b);
+                if (Math.abs(diff) > ANGLE_MIN_DIFF)
+                    return diff;
+                return getIncidenceAngle(a, true) - getIncidenceAngle(b, true);
+            });
+        }
+        for (let i = 0; i < vertex.outgoingEdges.length; i++) {
+            vertex.outgoingEdges[i].indexInVertex = i;
         }
     }
 }
 function getNextEdge(edge) {
     const { outgoingEdges } = edge.incidentVertices[1];
-    const index = outgoingEdges.findIndex((other) => other.twin === edge);
+    const index = edge.twin?.indexInVertex;
     return outgoingEdges[(index + 1) % outgoingEdges.length];
 }
 const faceToPolygon = memoizeWeak((face) => face.incidentEdges.flatMap((edge) => {
     const CNT = 64;
     const points = [];
+    const p = createVector();
     for (const seg of edge.segments) {
         for (let i = 0; i < CNT; i++) {
             const t0 = i / CNT;
             const t = edge.directionFlag ? 1 - t0 : t0;
-            points.push(samplePathSegmentAt(seg, t));
+            samplePathSegmentAtInto(seg, t, p);
+            points.push([p[0], p[1]]);
         }
     }
     return points;

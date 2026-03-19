@@ -5,6 +5,7 @@
  */
 import { mat2, mat2d, vec2 } from "gl-matrix";
 
+import { assertCondition, assertUnreachableValue } from "../assert";
 import { NEARLY_LINEAR_EPS } from "../config";
 import { deg2rad, lerp, TAU, vectorAngle } from "../util/math";
 import {
@@ -373,11 +374,9 @@ export const pathSegmentTangentAtInto = (() => {
             return out;
         }
 
+        assertCondition(seg[0] !== "L", "Linear segment not marked as linear");
+
         switch (seg[0]) {
-            case "L":
-                out[0] = seg[2][0] - seg[1][0];
-                out[1] = seg[2][1] - seg[1][1];
-                return out;
             case "Q": {
                 const p0 = seg[1];
                 const p1 = seg[2];
@@ -429,16 +428,15 @@ export const pathSegmentTangentAtInto = (() => {
                 return out;
             }
         }
+
+        assertUnreachableValue(seg[0], "Unexpected segment type " + seg[0]);
     };
 })();
 
 export const pathSegmentTangentAt = (() => {
     const out = createVector();
 
-    return function pathSegmentTangentAt(
-        seg: PathSegment,
-        t: number,
-    ): Vector {
+    return function pathSegmentTangentAt(seg: PathSegment, t: number): Vector {
         pathSegmentTangentAtInto(seg, t, out);
         return [out[0], out[1]];
     };

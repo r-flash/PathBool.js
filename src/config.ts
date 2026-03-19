@@ -21,6 +21,7 @@ export const MAX_TANGENT_SAMPLE_ITERS = 6;
 // Numerical precision
 export const NEARLY_LINEAR_EPS = 1e-10;
 export const TANGENT_MIN_LEN_SQ = 1e-16;
+export const ANGLE_MIN_DIFF = 1e-16;
 
 // Geometry precision
 export type Epsilons = {
