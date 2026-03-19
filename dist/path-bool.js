@@ -229,12 +229,13 @@ class QuadTree {
  *
  * SPDX-License-Identifier: MIT
  */
-const DEV_ASSERTS_ENV = process.env.PATH_BOOL_DEV_ASSERTS;
+const DEV_ASSERTS_ENV = typeof process !== "undefined" && process.env.PATH_BOOL_DEV_ASSERTS;
 DEV_ASSERTS_ENV === "1"
     ? true
     : DEV_ASSERTS_ENV === "0"
         ? false
-        : process.env.NODE_ENV !== "production";
+        : typeof process !== "undefined" &&
+            process.env.NODE_ENV !== "production";
 // Caps for subdivision/refinement to avoid hangs on adversarial inputs
 const MAX_SUBDIVISION_ITERS = 128;
 const MAX_SUBSEGMENTS_PER_ORIG_SEGMENT = 1024;

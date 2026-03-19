@@ -7,6 +7,7 @@ please, help me test it and provide reduced examples of failure cases.
 ## Demos
 
 - [basic](https://r-flash.github.io/PathBool.js/demo.html)
+- [animation](https://r-flash.github.io/PathBool.js/demo-animation.html)
 
 ## TODO
 
@@ -44,6 +45,7 @@ npm run bench -- --root ./my-bench-fixtures --cases "stress-*"
 ```
 
 Benchmark input format:
+
 - each case contains an SVG file named `original.svg` (override with `--file`)
 - that SVG has two path elements with IDs `a` and `b` (override with `--id-a` and `--id-b`)
 - benchmark runs all boolean ops: `union`, `difference`, `intersection`, `exclusion`, `division`, `fracture`

@@ -3,6 +3,7 @@
 ## Demos
 
 - [basic](./demo.html)
+- [animation](./demo-animation.html)
 
 ## Installation
 
@@ -12,8 +13,8 @@ You can use npm or any compatible package manager:
 npm install path-bool
 ```
 
-Alternatively, you can just `import`
-from [dist/path-bool.js](https://github.com/r-flash/PathBool.js/blob/master/dist/path-bool.js),
+Alternatively, you can just
+`import` from [dist/path-bool.js](https://github.com/r-flash/PathBool.js/blob/master/dist/path-bool.js),
 `require()` [dist/path-bool.umd.js](https://github.com/r-flash/PathBool.js/blob/master/dist/path-bool.umd.js)
 or load the UMD build using a `<script src="...">`,
 in which case the library will be exposed under the global variable `PathBool`.
