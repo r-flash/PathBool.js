@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-export { PathBooleanOperation, FillRule, pathBoolean } from "./path-boolean";
+export { PathBooleanOperation, FillRule, PathBoolean } from "./path-boolean";
+export type { PathBooleanInput } from "./path-boolean";
 
 export {
     arcSegmentToCubics,
@@ -23,3 +24,4 @@ export {
 } from "./path-data";
 
 export { pathFromCommands, pathToCommands } from "./primitives/Path";
+export type { Path } from "./primitives/Path";

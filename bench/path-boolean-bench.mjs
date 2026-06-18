@@ -149,15 +149,14 @@ function benchmarkCaseOperation(
     iterations,
     warmup,
 ) {
+    const makeInputs = () => [
+        { path: input.a, fillRule: input.aFillRule },
+        { path: input.b, fillRule: input.bFillRule },
+    ];
+
     let sink = 0;
     for (let i = 0; i < warmup; i++) {
-        sink += PathBool.pathBoolean(
-            input.a,
-            input.aFillRule,
-            input.b,
-            input.bFillRule,
-            operation,
-        ).length;
+        sink += new PathBool.PathBoolean(makeInputs()).get(operation).length;
     }
 
     let totalMs = 0;
@@ -165,13 +164,7 @@ function benchmarkCaseOperation(
     let maxMs = -Infinity;
     for (let i = 0; i < iterations; i++) {
         const t0 = performance.now();
-        const result = PathBool.pathBoolean(
-            input.a,
-            input.aFillRule,
-            input.b,
-            input.bFillRule,
-            operation,
-        );
+        const result = new PathBool.PathBoolean(makeInputs()).get(operation);
         const elapsed = performance.now() - t0;
         totalMs += elapsed;
         minMs = Math.min(minMs, elapsed);

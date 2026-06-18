@@ -9,6 +9,20 @@ import * as PathBool from "../index";
 import { Path } from "../primitives/Path";
 import { reversePathSegment } from "../primitives/PathSegment";
 
+// Local two-path convenience wrapper around the variadic PathBoolean class.
+function pathBoolean(
+    a: Path,
+    aFillRule: PathBool.FillRule,
+    b: Path,
+    bFillRule: PathBool.FillRule,
+    op: PathBool.PathBooleanOperation,
+): Path[] {
+    return new PathBool.PathBoolean([
+        { path: a, fillRule: aFillRule },
+        { path: b, fillRule: bFillRule },
+    ]).get(op);
+}
+
 function reversePath(path: Path): Path {
     return [...path].reverse().map((seg) => reversePathSegment(seg));
 }
@@ -43,7 +57,7 @@ describe("robustness properties", () => {
         const bFillRule = PathBool.FillRule.NonZero;
 
         const expected = serializePaths(
-            PathBool.pathBoolean(
+            pathBoolean(
                 pathA,
                 aFillRule,
                 pathB,
@@ -54,7 +68,7 @@ describe("robustness properties", () => {
 
         for (let i = 0; i < 20; i++) {
             const next = serializePaths(
-                PathBool.pathBoolean(
+                pathBoolean(
                     pathA,
                     aFillRule,
                     pathB,
@@ -73,7 +87,7 @@ describe("robustness properties", () => {
         const bFillRule = PathBool.FillRule.EvenOdd;
 
         const unionAB = serializePaths(
-            PathBool.pathBoolean(
+            pathBoolean(
                 pathA,
                 aFillRule,
                 pathB,
@@ -82,7 +96,7 @@ describe("robustness properties", () => {
             ),
         );
         const unionBA = serializePaths(
-            PathBool.pathBoolean(
+            pathBoolean(
                 pathB,
                 bFillRule,
                 pathA,
@@ -93,7 +107,7 @@ describe("robustness properties", () => {
         expect(unionAB).toBe(unionBA);
 
         const interAB = serializePaths(
-            PathBool.pathBoolean(
+            pathBoolean(
                 pathA,
                 aFillRule,
                 pathB,
@@ -102,7 +116,7 @@ describe("robustness properties", () => {
             ),
         );
         const interBA = serializePaths(
-            PathBool.pathBoolean(
+            pathBoolean(
                 pathB,
                 bFillRule,
                 pathA,
@@ -119,7 +133,7 @@ describe("robustness properties", () => {
         const aFillRule = PathBool.FillRule.NonZero;
 
         const union = serializePaths(
-            PathBool.pathBoolean(
+            pathBoolean(
                 pathA,
                 aFillRule,
                 empty,
@@ -129,7 +143,7 @@ describe("robustness properties", () => {
         );
         expect(union).toBe(serializePaths([pathA]));
 
-        const intersection = PathBool.pathBoolean(
+        const intersection = pathBoolean(
             pathA,
             aFillRule,
             empty,
@@ -139,7 +153,7 @@ describe("robustness properties", () => {
         expect(serializePaths(intersection)).toBe("");
 
         const difference = serializePaths(
-            PathBool.pathBoolean(
+            pathBoolean(
                 pathA,
                 aFillRule,
                 empty,

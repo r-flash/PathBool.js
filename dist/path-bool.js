@@ -1700,12 +1700,32 @@ var FillRule;
 function firstElementOfSet(set) {
     return set.values().next().value;
 }
+function makeParents(count, index) {
+    const parents = new Array(count).fill(false);
+    parents[index] = true;
+    return parents;
+}
+function booleanArraysEqual(a, b) {
+    if (a.length !== b.length)
+        return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i])
+            return false;
+    }
+    return true;
+}
+function orBooleansInto(target, source) {
+    for (let i = 0; i < source.length; i++) {
+        if (source[i])
+            target[i] = true;
+    }
+}
 function createObjectCounter() {
     let i = 0;
     return memoizeWeak(() => i++);
 }
-function segmentToEdge(parent) {
-    return (seg) => ({ seg, parent });
+function segmentToEdge(pathCount, index) {
+    return (seg) => ({ seg, parents: makeParents(pathCount, index) });
 }
 function splitAtSelfIntersections(edges) {
     for (let i = 0; i < edges.length; i++) {
@@ -1723,11 +1743,11 @@ function splitAtSelfIntersections(edges) {
             const [seg1, seg2] = splitCubicSegmentAt(edge.seg, t1);
             edges[i] = {
                 seg: seg1,
-                parent: edge.parent,
+                parents: edge.parents,
             };
             edges.push({
                 seg: seg2,
-                parent: edge.parent,
+                parents: edge.parents,
             });
         }
         else {
@@ -1735,14 +1755,14 @@ function splitAtSelfIntersections(edges) {
             const [seg2, seg3] = splitCubicSegmentAt(tmpSeg, (t2 - t1) / (1 - t1));
             edges[i] = {
                 seg: seg1,
-                parent: edge.parent,
+                parents: edge.parents,
             };
             edges.push({
                 seg: seg2,
-                parent: edge.parent,
+                parents: edge.parents,
             }, {
                 seg: seg3,
-                parent: edge.parent,
+                parents: edge.parents,
             });
         }
     }
@@ -1816,14 +1836,14 @@ function splitAtIntersections(edges) {
             newEdges.push({
                 seg: seg1,
                 boundingBox: pathSegmentBoundingBox(seg1),
-                parent: edge.parent,
+                parents: edge.parents,
             });
             tmpSeg = seg2;
         }
         newEdges.push({
             seg: tmpSeg,
             boundingBox: pathSegmentBoundingBox(tmpSeg),
-            parent: edge.parent,
+            parents: edge.parents,
         });
     }
     return { edges: newEdges, totalBoundingBox };
@@ -1900,8 +1920,8 @@ function findVertices(edges, boundingBox) {
         if (existingEdges) {
             const existingEdge = existingEdges.find((other) => segmentsEqual(other[0].seg, edge.seg, EPS$1.point));
             if (existingEdge) {
-                existingEdge[1].parent |= edge.parent;
-                existingEdge[2].parent |= edge.parent;
+                orBooleansInto(existingEdge[1].parents, edge.parents);
+                orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
             }
         }
@@ -1910,33 +1930,40 @@ function findVertices(edges, boundingBox) {
             const reversedSeg = reversePathSegment(edge.seg);
             const existingEdge = existingEdgesInv.find((other) => segmentsEqual(other[0].seg, reversedSeg, EPS$1.point));
             if (existingEdge) {
-                if (existingEdge[0].parent === edge.parent) {
+                if (booleanArraysEqual(existingEdge[0].parents, edge.parents)) {
                     // discard "there and back" pairs
                     return [];
                 }
-                existingEdge[1].parent |= edge.parent;
-                existingEdge[1].directionFlagA = edge.parent === 1;
-                existingEdge[1].directionFlagB = edge.parent === 2;
-                existingEdge[2].parent |= edge.parent;
-                existingEdge[2].directionFlagA = edge.parent === 1;
-                existingEdge[2].directionFlagB = edge.parent === 2;
+                // A shared edge traversed in the opposite direction: for each
+                // path the new segment belongs to, mark membership and flag the
+                // half-edge as running against that path's orientation. This
+                // mirrors the original two-path `directionFlag{A,B} = parent ===
+                // …` assignment, which sets the per-path flag on both half-edges.
+                for (let i = 0; i < edge.parents.length; i++) {
+                    existingEdge[1].directionFlags[i] = edge.parents[i];
+                    existingEdge[2].directionFlags[i] = edge.parents[i];
+                }
+                orBooleansInto(existingEdge[1].parents, edge.parents);
+                orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
             }
         }
         const fwdEdge = {
             ...edge,
+            parents: edge.parents.slice(),
             incidentVertices: [startVertex, endVertex],
             directionFlag: false,
-            directionFlagA: false,
-            directionFlagB: false,
+            directionFlags: new Array(edge.parents.length).fill(false),
             twin: null,
         };
         const bwdEdge = {
             ...edge,
+            parents: edge.parents.slice(),
             incidentVertices: [endVertex, startVertex],
             directionFlag: true,
-            directionFlagA: edge.parent === 1,
-            directionFlagB: edge.parent === 2,
+            // directionFlags[p] = parents[p]: on the backward half-edge the
+            // originating path runs against its own orientation.
+            directionFlags: edge.parents.slice(),
             twin: fwdEdge,
         };
         fwdEdge.twin = bwdEdge;
@@ -1984,10 +2011,9 @@ function computeMinor({ vertices }) {
         for (const startEdge of vertex.outgoingEdges) {
             const segments = [];
             let edge = startEdge;
-            while (edge.parent === startEdge.parent &&
+            while (booleanArraysEqual(edge.parents, startEdge.parents) &&
                 edge.directionFlag === startEdge.directionFlag &&
-                edge.directionFlagA === startEdge.directionFlagA &&
-                edge.directionFlagB === startEdge.directionFlagB &&
+                booleanArraysEqual(edge.directionFlags, startEdge.directionFlags) &&
                 getOrder(edge.incidentVertices[1]) === 2) {
                 segments.push(edge.seg);
                 visited.add(edge.incidentVertices[1]);
@@ -2003,11 +2029,10 @@ function computeMinor({ vertices }) {
             const twin = getEdgeById(twinStartId, twinEndId) ?? null;
             const newEdge = {
                 segments,
-                parent: startEdge.parent,
+                parents: startEdge.parents,
                 incidentVertices: [startVertex, endVertex],
                 directionFlag: startEdge.directionFlag,
-                directionFlagA: startEdge.directionFlagA,
-                directionFlagB: startEdge.directionFlagB,
+                directionFlags: startEdge.directionFlags,
                 twin: twin,
                 id: nextEdgeId++,
             };
@@ -2027,10 +2052,9 @@ function computeMinor({ vertices }) {
         let edge = vertex.outgoingEdges[0];
         const cycle = {
             segments: [],
-            parent: edge.parent,
+            parents: edge.parents,
             directionFlag: edge.directionFlag,
-            directionFlagA: edge.directionFlagA,
-            directionFlagB: edge.directionFlagB,
+            directionFlags: edge.directionFlags,
         };
         do {
             cycle.segments.push(edge.seg);
@@ -2046,8 +2070,8 @@ function computeMinor({ vertices }) {
         cycles,
     };
 }
-function removeDanglingEdges(graph) {
-    function walk(parent) {
+function removeDanglingEdges(graph, pathCount) {
+    function walk(parentIndex) {
         const keptVertices = new WeakSet();
         const vertexToLevel = new WeakMap();
         function visit(vertex, incomingEdge, level) {
@@ -2057,7 +2081,7 @@ function removeDanglingEdges(graph) {
             vertexToLevel.set(vertex, level);
             let minLevel = Infinity;
             for (const edge of vertex.outgoingEdges) {
-                if (edge.parent & parent && edge !== incomingEdge) {
+                if (edge.parents[parentIndex] && edge !== incomingEdge) {
                     minLevel = Math.min(minLevel, visit(edge.incidentVertices[1], edge.twin, level + 1));
                 }
             }
@@ -2067,24 +2091,28 @@ function removeDanglingEdges(graph) {
             return minLevel;
         }
         for (const edge of graph.edges) {
-            if (edge.parent & parent) {
+            if (edge.parents[parentIndex]) {
                 visit(edge.incidentVertices[0], null, 0);
             }
         }
         return keptVertices;
     }
-    const keptVerticesA = walk(1);
-    const keptVerticesB = walk(2);
+    const keptVerticesPerPath = [];
+    for (let i = 0; i < pathCount; i++) {
+        keptVerticesPerPath.push(walk(i));
+    }
     function keepVertex(vertex) {
-        return keptVerticesA.has(vertex) || keptVerticesB.has(vertex);
+        return keptVerticesPerPath.some((kept) => kept.has(vertex));
     }
     function keepEdge(edge) {
-        return (((edge.parent & 1) === 1 &&
-            keptVerticesA.has(edge.incidentVertices[0]) &&
-            keptVerticesA.has(edge.incidentVertices[1])) ||
-            ((edge.parent & 2) === 2 &&
-                keptVerticesB.has(edge.incidentVertices[0]) &&
-                keptVerticesB.has(edge.incidentVertices[1])));
+        for (let i = 0; i < pathCount; i++) {
+            if (edge.parents[i] &&
+                keptVerticesPerPath[i].has(edge.incidentVertices[0]) &&
+                keptVerticesPerPath[i].has(edge.incidentVertices[1])) {
+                return true;
+            }
+        }
+        return false;
     }
     graph.vertices = graph.vertices.filter(keepVertex);
     for (const vertex of graph.vertices) {
@@ -2241,18 +2269,17 @@ function computeDual({ edges, cycles }) {
             continue;
         const face = {
             incidentEdges: [],
-            flag: 0,
+            flags: [],
         };
         let edge = startEdge;
         do {
             const twin = minorToDualEdge.get(edge.twin) ?? null;
             const newEdge = {
                 segments: edge.segments,
-                parent: edge.parent,
+                parents: edge.parents,
                 incidentVertex: face,
                 directionFlag: edge.directionFlag,
-                directionFlagA: edge.directionFlagA,
-                directionFlagB: edge.directionFlagB,
+                directionFlags: edge.directionFlags,
                 twin,
             };
             if (twin) {
@@ -2267,28 +2294,26 @@ function computeDual({ edges, cycles }) {
     for (const cycle of cycles) {
         const innerFace = {
             incidentEdges: [],
-            flag: 0,
+            flags: [],
         };
         const innerHalfEdge = {
             segments: cycle.segments,
-            parent: cycle.parent,
+            parents: cycle.parents,
             incidentVertex: innerFace,
             directionFlag: cycle.directionFlag,
-            directionFlagA: cycle.directionFlagA,
-            directionFlagB: cycle.directionFlagB,
+            directionFlags: cycle.directionFlags,
             twin: null,
         };
         const outerFace = {
             incidentEdges: [],
-            flag: 0,
+            flags: [],
         };
         const outerHalfEdge = {
             segments: [...cycle.segments].reverse(),
-            parent: cycle.parent,
+            parents: cycle.parents,
             incidentVertex: outerFace,
             directionFlag: !cycle.directionFlag,
-            directionFlagA: !cycle.directionFlagA,
-            directionFlagB: !cycle.directionFlagB,
+            directionFlags: cycle.directionFlags.map((f) => !f),
             twin: innerHalfEdge,
         };
         innerHalfEdge.twin = outerHalfEdge;
@@ -2503,44 +2528,41 @@ function computeNestingTree(components) {
 function getFlag(count, fillRule) {
     switch (fillRule) {
         case FillRule.NonZero:
-            return count === 0 ? 0 : 1;
+            return count !== 0;
         case FillRule.EvenOdd:
-            return count % 2 === 0 ? 0 : 1;
+            return count % 2 !== 0;
     }
 }
-function flagFaces(nestingTrees, aFillRule, bFillRule) {
-    function visitTree(tree, aRunningCount, bRunningCount) {
+function flagFaces(nestingTrees, fillRules) {
+    const pathCount = fillRules.length;
+    function visitTree(tree, runningCounts) {
         const visitedFaces = new WeakSet();
-        function visitFace(face, aRunningCount, bRunningCount) {
+        function visitFace(face, runningCounts) {
             if (visitedFaces.has(face))
                 return;
             visitedFaces.add(face);
-            const aFlag = getFlag(aRunningCount, aFillRule);
-            const bFlag = getFlag(bRunningCount, bFillRule);
-            face.flag = aFlag | (bFlag << 1);
+            face.flags = runningCounts.map((count, i) => getFlag(count, fillRules[i]));
             for (const edge of face.incidentEdges) {
                 const twin = edge.twin;
-                let nextACount = aRunningCount;
-                if (edge.parent & 1) {
-                    nextACount += edge.directionFlagA ? -1 : 1;
+                const nextCounts = runningCounts.slice();
+                for (let i = 0; i < pathCount; i++) {
+                    if (edge.parents[i]) {
+                        nextCounts[i] += edge.directionFlags[i] ? -1 : 1;
+                    }
                 }
-                let nextBCount = bRunningCount;
-                if (edge.parent & 2) {
-                    nextBCount += edge.directionFlagB ? -1 : 1;
-                }
-                visitFace(twin.incidentVertex, nextACount, nextBCount);
+                visitFace(twin.incidentVertex, nextCounts);
             }
             if (tree.outgoingEdges.has(face)) {
                 const subtrees = tree.outgoingEdges.get(face);
                 for (const subtree of subtrees) {
-                    visitTree(subtree, aRunningCount, bRunningCount);
+                    visitTree(subtree, runningCounts);
                 }
             }
         }
-        visitFace(tree.component.outerFace, aRunningCount, bRunningCount);
+        visitFace(tree.component.outerFace, runningCounts);
     }
     for (const tree of nestingTrees) {
-        visitTree(tree, 0, 0);
+        visitTree(tree, new Array(pathCount).fill(0));
     }
 }
 function* getSelectedFaces(nestingTrees, predicate) {
@@ -2639,46 +2661,61 @@ function dumpFaces(nestingTrees, predicate) {
     }
     return paths;
 }
+/*
+ Operation predicates over the per-path inside/outside flags. The binary
+ operations generalize to N paths by a left-fold ("first vs the rest"):
+ Difference is the first path minus the union of the others, Exclusion is the
+ XOR (odd number of paths), and Division dumps the faces of the first path.
+*/
 const operationPredicates = {
-    [PathBooleanOperation.Union]: ({ flag }) => flag > 0,
-    [PathBooleanOperation.Difference]: ({ flag }) => flag === 1,
-    [PathBooleanOperation.Intersection]: ({ flag }) => flag === 3,
-    [PathBooleanOperation.Exclusion]: ({ flag }) => flag === 1 || flag === 2,
-    [PathBooleanOperation.Division]: ({ flag }) => (flag & 1) === 1,
-    [PathBooleanOperation.Fracture]: ({ flag }) => flag > 0,
+    [PathBooleanOperation.Union]: (flags) => flags.some(Boolean),
+    [PathBooleanOperation.Difference]: (flags) => flags[0] && !flags.slice(1).some(Boolean),
+    [PathBooleanOperation.Intersection]: (flags) => flags.every(Boolean),
+    [PathBooleanOperation.Exclusion]: (flags) => flags.reduce((count, f) => count + (f ? 1 : 0), 0) % 2 === 1,
+    [PathBooleanOperation.Division]: (flags) => flags[0],
+    [PathBooleanOperation.Fracture]: (flags) => flags.some(Boolean),
 };
-function pathBoolean(a, aFillRule, b, bFillRule, op) {
-    const unsplitEdges = [
-        ...map(a, segmentToEdge(1)),
-        ...map(b, segmentToEdge(2)),
-    ];
-    splitAtSelfIntersections(unsplitEdges);
-    const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(unsplitEdges);
-    if (!totalBoundingBox) {
-        // input geometry is empty
-        return [];
+/*
+ Runs the boolean-operation pipeline up to and including face flagging for a set
+ of N input paths in the constructor, then selects faces per operation in `get`.
+ The expensive geometric work happens once; multiple `get` calls reuse it.
+*/
+class PathBoolean {
+    constructor(inputs) {
+        const pathCount = inputs.length;
+        const unsplitEdges = inputs.flatMap(({ path }, i) => path.map(segmentToEdge(pathCount, i)));
+        splitAtSelfIntersections(unsplitEdges);
+        const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(unsplitEdges);
+        if (!totalBoundingBox) {
+            // input geometry is empty
+            this.nestingTrees = [];
+            return;
+        }
+        const majorGraph = findVertices(splitEdges, totalBoundingBox);
+        // console.log(majorGraphToDot(majorGraph));
+        const minorGraph = computeMinor(majorGraph);
+        // console.log(minorGraphToDot(minorGraph.edges));
+        // console.dir(minorGraph.cycles, { depth: 4 });
+        removeDanglingEdges(minorGraph, pathCount);
+        // console.log(minorGraphToDot(minorGraph.edges));
+        sortOutgoingEdgesByAngle(minorGraph);
+        const dualGraphComponents = computeDual(minorGraph);
+        // console.log(dualGraphToDot(dualGraphComponents));
+        const nestingTrees = computeNestingTree(dualGraphComponents);
+        // console.log(nestingTrees.length, nestingTreesToDot(nestingTrees));
+        flagFaces(nestingTrees, inputs.map(({ fillRule }) => fillRule));
+        this.nestingTrees = nestingTrees;
     }
-    const majorGraph = findVertices(splitEdges, totalBoundingBox);
-    // console.log(majorGraphToDot(majorGraph));
-    const minorGraph = computeMinor(majorGraph);
-    // console.log(minorGraphToDot(minorGraph.edges));
-    // console.dir(minorGraph.cycles, { depth: 4 });
-    removeDanglingEdges(minorGraph);
-    // console.log(minorGraphToDot(minorGraph.edges));
-    sortOutgoingEdgesByAngle(minorGraph);
-    const dualGraphComponents = computeDual(minorGraph);
-    // console.log(dualGraphToDot(dualGraphComponents));
-    const nestingTrees = computeNestingTree(dualGraphComponents);
-    // console.log(nestingTrees.length, nestingTreesToDot(nestingTrees));
-    flagFaces(nestingTrees, aFillRule, bFillRule);
-    const predicate = operationPredicates[op];
-    switch (op) {
-        case PathBooleanOperation.Division:
-        case PathBooleanOperation.Fracture:
-            return dumpFaces(nestingTrees, predicate);
-        default: {
-            const selectedFaces = new Set(getSelectedFaces(nestingTrees, predicate));
-            return [[...walkFaces(selectedFaces)]];
+    get(op) {
+        const predicate = (face) => operationPredicates[op](face.flags);
+        switch (op) {
+            case PathBooleanOperation.Division:
+            case PathBooleanOperation.Fracture:
+                return dumpFaces(this.nestingTrees, predicate);
+            default: {
+                const selectedFaces = new Set(getSelectedFaces(this.nestingTrees, predicate));
+                return [[...walkFaces(selectedFaces)]];
+            }
         }
     }
 }
@@ -3133,5 +3170,5 @@ function pathToPathData(path, eps = 1e-4) {
     ].join(" ");
 }
 
-export { FillRule, PathBooleanOperation, arcSegmentToCubics, commandsFromPathData, pathBoolean, pathCubicSegmentSelfIntersection, pathFromCommands, pathFromPathData, pathSegmentBoundingBox, pathSegmentIntersection, pathToCommands, pathToPathData, samplePathSegmentAt };
+export { FillRule, PathBoolean, PathBooleanOperation, arcSegmentToCubics, commandsFromPathData, pathCubicSegmentSelfIntersection, pathFromCommands, pathFromPathData, pathSegmentBoundingBox, pathSegmentIntersection, pathToCommands, pathToPathData, samplePathSegmentAt };
 //# sourceMappingURL=path-bool.js.map

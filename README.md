@@ -70,13 +70,24 @@ const fillRuleA = PathBool.FillRule.EvenOdd;
 const pathB = PathBool.pathFromPathData("M0,0 C...");
 const fillRuleB = PathBool.FillRule.NonZero;
 
-const op = PathBool.PathBooleanOperation.Union;
+// Build the arrangement once from any number of { path, fillRule } inputs...
+const pathBoolean = new PathBool.PathBoolean([
+    { path: pathA, fillRule: fillRuleA },
+    { path: pathB, fillRule: fillRuleB },
+]);
 
-const result = PathBool.pathBoolean(pathA, fillRuleA, pathB, fillRuleB, op);
+// ...then select results for one or more operations (the heavy work is reused).
+const result = pathBoolean.get(PathBool.PathBooleanOperation.Union);
+const fractured = pathBoolean.get(PathBool.PathBooleanOperation.Fracture);
 
 console.log(result.map(PathBool.pathToPathData));
 console.log(result.map(PathBool.pathToCommands));
 ```
+
+The asymmetric operations generalize to more than two inputs by a left-fold
+("first path vs. the rest"): `Difference` is the first path minus the union of
+the others, `Exclusion` is the regions covered by an odd number of paths, and
+`Division` returns the faces of the first path.
 
 ## License
 

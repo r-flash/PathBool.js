@@ -11,6 +11,8 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
+import type { FillRule, Path, PathBooleanInput } from "../index";
+
 type PathBoolModule = typeof import("../index");
 let PathBool: PathBoolModule;
 
@@ -28,47 +30,49 @@ const ops = {
     fracture: PathBool.PathBooleanOperation.Fracture,
 };
 
+// The variadic suite only has ground truth for the operations whose meaning is
+// independent of input order.
+const symmetricOps = {
+    union: ops.union,
+    intersection: ops.intersection,
+    exclusion: ops.exclusion,
+    fracture: ops.fracture,
+};
+
 const fillRules = {
     nonzero: PathBool.FillRule.NonZero,
     evenodd: PathBool.FillRule.EvenOdd,
 };
 
-const folders = globSync("src/__fixtures__/visual-tests/*/").flatMap((dir) =>
-    Object.entries(ops).map(([opName, op]) => ({
-        name: path.basename(dir),
-        dir,
-        opName,
-        op,
-    })),
-);
+function fillRuleOf($element: cheerio.Cheerio<any>): FillRule {
+    return (
+        fillRules[$element.css("fill-rule") ?? "nonzero"] ??
+        PathBool.FillRule.NonZero
+    );
+}
 
-test.each(folders)("$name $opName", async ({ dir, opName, op }) => {
-    await fs.mkdir(path.join(dir, "test-results"), { recursive: true });
-
-    const originalPath = path.join(dir, "original.svg");
-    const originalCode = await fs.readFile(originalPath, "utf-8");
-
-    const $ = cheerio.load(originalCode, { xml: true });
-    const $a = $(`#a`);
-    const $b = $(`#b`);
-    const a = PathBool.pathFromPathData($a.attr("d")!);
-    const b = PathBool.pathFromPathData($b.attr("d")!);
-    const aFillRule =
-        fillRules[$a.css("fill-rule") ?? "nonzero"] ??
-        PathBool.FillRule.NonZero;
-    const bFillRule =
-        fillRules[$b.css("fill-rule") ?? "nonzero"] ??
-        PathBool.FillRule.NonZero;
-
-    const result = PathBool.pathBoolean(a, aFillRule, b, bFillRule, op)!;
-    for (const path of result) {
-        $a.clone()
-            .attr("d", PathBool.pathToPathData(path, 1e-4))
+/*
+ Renders our result paths (cloning `$template` for its style) and the committed
+ ground-truth SVG, writes both into `<dir>/test-results/`, and asserts every
+ pixel matches within TOLERANCE.
+*/
+async function renderAndCompare(
+    $: cheerio.CheerioAPI,
+    $template: cheerio.Cheerio<any>,
+    dir: string,
+    opName: string,
+    result: Path[],
+) {
+    for (const resultPath of result) {
+        $template
+            .clone()
+            .attr("d", PathBool.pathToPathData(resultPath, 1e-4))
             .removeAttr("id")
-            .insertBefore($a);
+            .insertBefore($template);
     }
-    $a.remove();
-    $b.remove();
+    // Drop the original template path so only our results are rendered. Callers
+    // must have already removed every other source path.
+    $template.remove();
     const oursCode = $.html();
 
     const destinationPath = path.join(
@@ -112,10 +116,83 @@ test.each(folders)("$name $opName", async ({ dir, opName, op }) => {
 
     const $gt = cheerio.load(groundTruthCode);
     expect(result.length).toStrictEqual($gt("path").length);
+}
+
+const binaryFolders = globSync("src/__fixtures__/visual-tests/*/").flatMap(
+    (dir) =>
+        Object.entries(ops).map(([opName, op]) => ({
+            name: path.basename(dir),
+            dir,
+            opName,
+            op,
+        })),
+);
+
+test.each(binaryFolders)("$name $opName", async ({ dir, opName, op }) => {
+    await fs.mkdir(path.join(dir, "test-results"), { recursive: true });
+
+    const originalPath = path.join(dir, "original.svg");
+    const originalCode = await fs.readFile(originalPath, "utf-8");
+
+    const $ = cheerio.load(originalCode, { xml: true });
+    const $a = $(`#a`);
+    const $b = $(`#b`);
+    const a = PathBool.pathFromPathData($a.attr("d")!);
+    const b = PathBool.pathFromPathData($b.attr("d")!);
+    const aFillRule = fillRuleOf($a);
+    const bFillRule = fillRuleOf($b);
+
+    const result = new PathBool.PathBoolean([
+        { path: a, fillRule: aFillRule },
+        { path: b, fillRule: bFillRule },
+    ]).get(op);
 
     const fuzzTestingStr = $a.attr("d") + "\n" + $b.attr("d");
+    $b.remove();
+    await renderAndCompare($, $a, dir, opName, result);
+
     const hash = crypto.createHash("sha256");
     hash.update(fuzzTestingStr);
     const digest = hash.digest("hex");
     await fs.writeFile(`fuzzing/corpus/test-${digest}`, fuzzTestingStr);
 });
+
+const variadicFolders = globSync(
+    "src/__fixtures__/visual-tests-variadic/*/",
+).flatMap((dir) =>
+    Object.entries(symmetricOps).map(([opName, op]) => ({
+        name: path.basename(dir),
+        dir,
+        opName,
+        op,
+    })),
+);
+
+test.each(variadicFolders)(
+    "variadic $name $opName",
+    async ({ dir, opName, op }) => {
+        await fs.mkdir(path.join(dir, "test-results"), { recursive: true });
+
+        const originalPath = path.join(dir, "original.svg");
+        const originalCode = await fs.readFile(originalPath, "utf-8");
+
+        const $ = cheerio.load(originalCode, { xml: true });
+        const $paths = $("path");
+
+        const inputs: PathBooleanInput[] = $paths.toArray().map((element) => {
+            const $element = $(element);
+            return {
+                path: PathBool.pathFromPathData($element.attr("d")!),
+                fillRule: fillRuleOf($element),
+            };
+        });
+
+        const result = new PathBool.PathBoolean(inputs).get(op);
+
+        // Use the first path as the style template; remove the rest up front so
+        // renderAndCompare only has the template left to drop.
+        const $template = $paths.first();
+        $paths.slice(1).remove();
+        await renderAndCompare($, $template, dir, opName, result);
+    },
+);

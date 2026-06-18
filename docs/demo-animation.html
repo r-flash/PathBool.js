@@ -142,7 +142,10 @@
         ].reduce(multiplyMatrices, makeIdentityMatrix());
         fgsvg.setAttribute("transform", `matrix(${matrix.join(" ")})`);
         const fgtrans = applyTransformPath(fgpath, matrix);
-        const resultpaths = PB.pathBoolean(bgpath, PB.FillRule.NonZero, fgtrans, PB.FillRule.NonZero, PB.PathBooleanOperation.Intersection);
+        const resultpaths = new PB.PathBoolean([
+            { path: bgpath, fillRule: PB.FillRule.NonZero },
+            { path: fgtrans, fillRule: PB.FillRule.NonZero },
+        ]).get(PB.PathBooleanOperation.Intersection);
         resultsvg.setAttribute("d", PB.pathToPathData(resultpaths[0]));
         frames++;
         if (now - last > 1e3) {

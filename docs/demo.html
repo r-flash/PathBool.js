@@ -144,7 +144,10 @@
         const pathBFillRule = fillRules[pathBFillRuleInput.value];
         const operation = operations[operationInput.value];
 
-        const result = PathBool.pathBoolean(pathA, pathAFillRule, pathB, pathBFillRule, operation);
+        const result = new PathBool.PathBoolean([
+            { path: pathA, fillRule: pathAFillRule },
+            { path: pathB, fillRule: pathBFillRule },
+        ]).get(operation);
 
         resultEl.innerHTML = result
             .map(p => `<path d="${PathBool.pathToPathData(p)}" />`)
