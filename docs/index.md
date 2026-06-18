@@ -38,9 +38,14 @@ const fillRuleA = PathBool.FillRule.EvenOdd;
 const pathB = PathBool.pathFromPathData("M0,0 C...");
 const fillRuleB = PathBool.FillRule.NonZero;
 
-const op = PathBool.PathBooleanOperation.Union;
+// Build the arrangement once from any number of { path, fillRule } inputs...
+const pathBoolean = new PathBool.PathBoolean([
+    { path: pathA, fillRule: fillRuleA },
+    { path: pathB, fillRule: fillRuleB },
+]);
 
-const result = PathBool.pathBoolean(pathA, fillRuleA, pathB, fillRuleB, op);
+// ...then select results for one or more operations (the heavy work is reused).
+const result = pathBoolean.get(PathBool.PathBooleanOperation.Union);
 
 console.log(result.map(PathBool.pathToPathData));
 console.log(result.map(PathBool.pathToCommands));
@@ -48,21 +53,34 @@ console.log(result.map(PathBool.pathToCommands));
 
 ## Usage
 
-The main function has the following interface:
+The main entry point is the `PathBoolean` class:
 
 ```ts
-function pathBoolean(
-    a: Path,
-    aFillRule: FillRule,
-    b: Path,
-    bFillRule: FillRule,
-    op: PathBooleanOperation,
-): Path[];
+type PathBooleanInput = {
+    path: Path;
+    fillRule: FillRule;
+};
+
+class PathBoolean {
+    constructor(inputs: PathBooleanInput[]);
+    get(op: PathBooleanOperation): Path[];
+}
 ```
+
+The constructor takes any number of `{ path, fillRule }` inputs and does the
+heavy geometric work (intersection, graph building, and face flagging) up front.
+You then call `get(op)` for each operation you want; this reuses everything
+computed in the constructor, so asking for several operations on the same inputs
+is cheap.
 
 The output array is empty if the input paths are empty.
 It contains exactly one `Path` when the operation is `Union`, `Difference`, `Intersection`, or `Exclusion`.
 Potentially multiple `Path`s are output for operations `Division` and `Fracture`.
+
+With more than two inputs, the order-dependent operations generalize by a
+left-fold ("the first path vs. the rest"): `Difference` is the first path minus
+the union of the others, `Exclusion` keeps the regions covered by an odd number
+of paths, and `Division` slices the first path.
 
 Here, `FillRule` is an enum
 (see [fill-rule documentation on MDN](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule) for
