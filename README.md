@@ -10,11 +10,6 @@ please, help me test it and provide reduced examples of failure cases.
 - [animation](https://r-flash.github.io/PathBool.js/demo-animation.html)
 - [shape builder](https://r-flash.github.io/PathBool.js/demo-shape-builder.html)
 
-## TODO
-
-- Comment the code thoroughly.
-- Support [shape builder](https://media.inkscape.org/media/news/uploads/1-3-shape-builder-ssr_gy8C0ba.webp) use-case.
-
 ## Installation
 
 ```shell
