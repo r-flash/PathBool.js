@@ -4,6 +4,7 @@
 
 - [basic](./demo.html)
 - [animation](./demo-animation.html)
+- [shape builder](./demo-shape-builder.html)
 
 ## Installation
 
@@ -64,6 +65,8 @@ type PathBooleanInput = {
 class PathBoolean {
     constructor(inputs: PathBooleanInput[]);
     get(op: PathBooleanOperation): Path[];
+    getFaces(): Path[];
+    buildShape(indices: Iterable<number>): Path;
 }
 ```
 
@@ -81,6 +84,28 @@ With more than two inputs, the order-dependent operations generalize by a
 left-fold ("the first path vs. the rest"): `Difference` is the first path minus
 the union of the others, `Exclusion` keeps the regions covered by an odd number
 of paths, and `Division` slices the first path.
+
+### Shape builder
+
+`getFaces` and `buildShape` support interactive "shape builder" tools. The same
+`PathBoolean` object reuses the arrangement it already computed:
+
+```ts
+// One Path per atomic region (the same regions, in the same order, that
+// `Fracture` produces). Use the array index as a stable handle.
+const faces = pathBoolean.getFaces();
+
+// Merge a chosen subset of those regions (by index) into a single shape,
+// tracing the outline of their union, with holes where appropriate. Indices
+// out of range are ignored.
+const shape = pathBoolean.buildShape([0, 2, 5]);
+```
+
+Render `getFaces()` as the selectable pieces, track which indices the user
+picks, and call `buildShape` to get the combined outline. Unlike `get`, which
+always wraps its result in an array, `buildShape` returns a single `Path` (which
+may contain several subpaths and holes). See the
+[shape builder demo](./demo-shape-builder.html).
 
 Here, `FillRule` is an enum
 (see [fill-rule documentation on MDN](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule) for

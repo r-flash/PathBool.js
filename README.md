@@ -8,6 +8,7 @@ please, help me test it and provide reduced examples of failure cases.
 
 - [basic](https://r-flash.github.io/PathBool.js/demo.html)
 - [animation](https://r-flash.github.io/PathBool.js/demo-animation.html)
+- [shape builder](https://r-flash.github.io/PathBool.js/demo-shape-builder.html)
 
 ## TODO
 
@@ -88,6 +89,28 @@ The asymmetric operations generalize to more than two inputs by a left-fold
 ("first path vs. the rest"): `Difference` is the first path minus the union of
 the others, `Exclusion` is the regions covered by an odd number of paths, and
 `Division` returns the faces of the first path.
+
+### Shape builder
+
+For interactive "shape builder" tools, the same `PathBoolean` object exposes the
+arrangement's atomic regions as an ordered list (the same regions `Fracture`
+returns), then merges any chosen subset of them into a single outline:
+
+```ts
+const pathBoolean = new PathBool.PathBoolean([
+    { path: pathA, fillRule: fillRuleA },
+    { path: pathB, fillRule: fillRuleB },
+]);
+
+// One Path per atomic region; render these as the selectable pieces.
+const faces = pathBoolean.getFaces();
+
+// Merge the regions the user picked (by index into `faces`) into one shape,
+// tracing the outline of their union, with holes where appropriate.
+const shape = pathBoolean.buildShape([0, 2, 5]);
+```
+
+See `docs/demo-shape-builder.html` for a clickable example.
 
 ## License
 

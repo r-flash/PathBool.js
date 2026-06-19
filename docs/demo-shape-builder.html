@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PathBool.js shape builder demo</title>
+    <style>
+        body {
+            background: #eee;
+            color: #333;
+            font-family: sans-serif;
+        }
+
+        .container {
+            max-width: 40em;
+            margin: 0 auto;
+        }
+
+        p {
+            color: #555;
+        }
+
+        svg {
+            width: 100%;
+            height: auto;
+            margin-top: 1em;
+            background: #fff;
+            border-radius: .5em;
+        }
+
+        /* The clickable atomic regions. */
+        .face {
+            fill: #cdeefb;
+            stroke: #9bc7dd;
+            stroke-width: 0.15;
+            cursor: pointer;
+            transition: fill .1s;
+        }
+
+        .face:hover {
+            fill: #aadcf3;
+        }
+
+        .face.selected {
+            fill: #4cd5ff;
+        }
+
+        /* Dashed outlines of the original input paths. */
+        .input {
+            fill: none;
+            stroke: #888;
+            stroke-width: 0.2;
+            stroke-dasharray: 0.8;
+            pointer-events: none;
+        }
+
+        /* Outline of the shape built from the current selection. */
+        #builtShape {
+            fill: none;
+            stroke: #00609c;
+            stroke-width: 0.6;
+            stroke-linejoin: round;
+            pointer-events: none;
+        }
+
+        .controls {
+            margin-top: 1em;
+        }
+
+        button {
+            font: inherit;
+            padding: .3em .8em;
+            margin-right: .5em;
+        }
+
+        pre {
+            margin-top: 1em;
+            padding: .8em;
+            background: #fff;
+            border-radius: .5em;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #00609c;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>PathBool.js shape builder</h1>
+    <p>
+        Click the atomic regions to select them, then the selection is merged
+        into a single shape (its outline is drawn in dark blue). This mirrors the
+        &ldquo;shape builder&rdquo; tool found in vector editors:
+        <code>PathBoolean.getFaces()</code> lists the regions and
+        <code>PathBoolean.buildShape([&hellip;])</code> merges a chosen subset.
+    </p>
+
+    <svg viewBox="0 2 60 52">
+        <g id="faces"></g>
+        <g id="inputs"></g>
+        <path id="builtShape" d="" />
+    </svg>
+
+    <div class="controls">
+        <button id="selectAll">select all</button>
+        <button id="clear">clear</button>
+    </div>
+
+    <pre id="output"></pre>
+</div>
+<script type="module">
+    import * as PathBool from "./js/path-bool.js";
+
+    // Builds the SVG path data for a full circle out of four quarter arcs.
+    function circle(cx, cy, r) {
+        return `M ${cx} ${cy - r} ` +
+            `A ${r} ${r} 0 0 0 ${cx - r} ${cy} ` +
+            `A ${r} ${r} 0 0 0 ${cx} ${cy + r} ` +
+            `A ${r} ${r} 0 0 0 ${cx + r} ${cy} ` +
+            `A ${r} ${r} 0 0 0 ${cx} ${cy - r} Z`;
+    }
+
+    // A classic three-circle (Venn) arrangement: seven atomic regions.
+    const inputData = [
+        circle(20, 22, 16),
+        circle(40, 22, 16),
+        circle(30, 36, 16),
+    ];
+
+    const pathBoolean = new PathBool.PathBoolean(
+        inputData.map((d) => ({
+            path: PathBool.pathFromPathData(d),
+            fillRule: PathBool.FillRule.NonZero,
+        })),
+    );
+
+    const faces = pathBoolean.getFaces();
+
+    const facesEl = document.getElementById("faces");
+    const inputsEl = document.getElementById("inputs");
+    const builtShapeEl = document.getElementById("builtShape");
+    const outputEl = document.getElementById("output");
+
+    // Draw the dashed input outlines for reference.
+    inputsEl.innerHTML = inputData
+        .map((d) => `<path class="input" d="${d}" />`)
+        .join("\n");
+
+    // Draw one clickable element per atomic region.
+    facesEl.innerHTML = faces
+        .map(
+            (face, i) =>
+                `<path class="face" data-index="${i}" ` +
+                `d="${PathBool.pathToPathData(face)}" />`,
+        )
+        .join("\n");
+
+    const selected = new Set();
+
+    function update() {
+        for (const el of facesEl.children) {
+            const i = Number(el.dataset.index);
+            el.classList.toggle("selected", selected.has(i));
+        }
+
+        const shape = pathBoolean.buildShape([...selected]);
+        const d = PathBool.pathToPathData(shape);
+        builtShapeEl.setAttribute("d", d);
+        outputEl.textContent = selected.size
+            ? `buildShape([${[...selected].sort((a, b) => a - b).join(", ")}])\n\n${d}`
+            : "Select some regions to build a shape.";
+    }
+
+    facesEl.addEventListener("click", (e) => {
+        const el = e.target.closest(".face");
+        if (!el) return;
+        const i = Number(el.dataset.index);
+        if (selected.has(i)) {
+            selected.delete(i);
+        } else {
+            selected.add(i);
+        }
+        update();
+    });
+
+    document.getElementById("selectAll").addEventListener("click", () => {
+        faces.forEach((_, i) => selected.add(i));
+        update();
+    });
+
+    document.getElementById("clear").addEventListener("click", () => {
+        selected.clear();
+        update();
+    });
+
+    update();
+</script>
+</body>
+</html>

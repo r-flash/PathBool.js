@@ -2618,7 +2618,15 @@ function* walkFaces(faces) {
         }
     }
 }
-function dumpFaces(nestingTrees, predicate) {
+/*
+ Enumerates the selected inner faces (the atomic regions of the arrangement) in a
+ stable order, returning each face's dual-graph vertex alongside its rendered
+ `Path` (with holes poked from nested child components). `dumpFaces` and the
+ Shape Builder API (`getFaces`/`buildShape`) share this enumeration so a region's
+ index reliably maps back to its face vertex.
+*/
+function enumerateFaces(nestingTrees, predicate) {
+    const faces = [];
     const paths = [];
     function visit(tree) {
         for (const face of tree.component.vertices) {
@@ -2648,6 +2656,7 @@ function dumpFaces(nestingTrees, predicate) {
                     }
                 }
             }
+            faces.push(face);
             paths.push(path);
         }
         for (const subtrees of tree.outgoingEdges.values()) {
@@ -2659,7 +2668,35 @@ function dumpFaces(nestingTrees, predicate) {
     for (const tree of nestingTrees) {
         visit(tree);
     }
-    return paths;
+    return { faces, paths };
+}
+function dumpFaces(nestingTrees, predicate) {
+    return enumerateFaces(nestingTrees, predicate).paths;
+}
+/*
+ Adds the outer face of each nested child component whose parent face is already
+ selected. `walkFaces` then traces those outer faces as holes, mirroring the
+ hole-poking `enumerateFaces`/`dumpFaces` perform per face — except here the
+ selected regions are unioned, so a child whose own region is also selected has
+ its boundary removed as an internal edge instead of becoming a hole.
+*/
+function addNestedOuterFaces(nestingTrees, selected) {
+    function visit(tree) {
+        for (const [parentFace, subtrees] of tree.outgoingEdges) {
+            if (selected.has(parentFace)) {
+                for (const subtree of subtrees) {
+                    const { outerFace } = subtree.component;
+                    selected.add(outerFace);
+                }
+            }
+            for (const subtree of subtrees) {
+                visit(subtree);
+            }
+        }
+    }
+    for (const tree of nestingTrees) {
+        visit(tree);
+    }
 }
 /*
  Operation predicates over the per-path inside/outside flags. The binary
@@ -2717,6 +2754,36 @@ class PathBoolean {
                 return [[...walkFaces(selectedFaces)]];
             }
         }
+    }
+    /*
+     The atomic regions of the arrangement — one `Path` per face covered by at
+     least one input path (each path under its own fill rule), in the same order
+     as the `Fracture` operation. The index of a region in this array is the
+     handle passed to `buildShape`. Drives the Shape Builder use case: render
+     these as selectable regions, then merge a chosen subset with `buildShape`.
+    */
+    getFaces() {
+        return this.getRegions().paths;
+    }
+    /*
+     Merges the regions at the given `getFaces` indices into a single shape,
+     tracing the outline of their union (with holes where appropriate). Indices
+     out of range are ignored. This is the Shape Builder "combine selection"
+     operation.
+    */
+    buildShape(indices) {
+        const { faces } = this.getRegions();
+        const selected = new Set();
+        for (const i of indices) {
+            const face = faces[i];
+            if (face)
+                selected.add(face);
+        }
+        addNestedOuterFaces(this.nestingTrees, selected);
+        return [...walkFaces(selected)];
+    }
+    getRegions() {
+        return (this.regions ?? (this.regions = enumerateFaces(this.nestingTrees, (face) => face.flags.some(Boolean))));
     }
 }
 
