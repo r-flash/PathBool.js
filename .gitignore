@@ -1,6 +1,7 @@
 /node_modules/
 /dist/types/
 /src/__fixtures__/visual-tests/*/test-results/
+/src/__fixtures__/visual-tests-variadic/*/test-results/
 /.idea/
 /coverage/
 /docs/js/types/
