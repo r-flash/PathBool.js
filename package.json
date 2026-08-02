@@ -52,6 +52,7 @@
         "watch": "NODE_ENV=development rollup -c -w",
         "test": "jest",
         "bench": "node ./bench/path-boolean-bench.mjs",
+        "gen-corpus": "node ./scripts/generate-corpus.mjs",
         "pretty": "prettier --write ./src",
         "fuzz": "npm run build-fuzz && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus"
     },

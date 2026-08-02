@@ -1,0 +1,126 @@
+{
+    "coincident/04-arc-vs-cubic-circle": {
+        "exclusion-is-union-minus-intersection": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "union-is-sum-of-its-three-parts": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "division-tiles-a": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "fracture-tiles-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "commutative-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "commutative-intersection": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "commutative-exclusion": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "commutative-fracture": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "partition-orientation": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "parts-fit-inside-the-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too."
+    },
+    "conditioning/02-tangent-external-far": {
+        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
+    },
+    "conditioning/02-tangent-external-large": {
+        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
+    },
+    "conditioning/02-tangent-external-rotated": {
+        "exclusion-is-union-minus-intersection": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "union-is-sum-of-its-three-parts": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "division-tiles-a": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "fracture-tiles-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "commutative-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "commutative-intersection": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "commutative-exclusion": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "commutative-fracture": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "partition-orientation": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
+        "parts-fit-inside-the-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too."
+    },
+    "conditioning/02-tangent-external-small": {
+        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
+    },
+    "conditioning/03-edge-shared-full-far": {
+        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
+        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
+    },
+    "conditioning/03-edge-shared-full-large": {
+        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
+        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
+    },
+    "conditioning/03-edge-shared-full-rotated": {
+        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
+        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
+    },
+    "conditioning/03-edge-shared-full-small": {
+        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
+        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
+    },
+    "overlap/05-round-rect-x-ellipse-rot": {
+        "exclusion-is-union-minus-intersection": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "union-is-sum-of-its-three-parts": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "division-tiles-a": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "fracture-tiles-union": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "commutative-union": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "commutative-intersection": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "commutative-exclusion": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "commutative-fracture": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "partition-orientation": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
+        "parts-fit-inside-the-union": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget."
+    },
+    "touching/01-tangent-external": {
+        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
+    },
+    "touching/02-tangent-internal": {
+        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
+        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
+    },
+    "touching/05-edge-shared-full": {
+        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
+        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
+    },
+    "touching/06-edge-shared-partial": {
+        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
+        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
+    },
+    "touching/07-edge-shared-inside": {
+        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
+        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
+    }
+}

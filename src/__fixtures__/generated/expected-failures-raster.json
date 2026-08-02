@@ -1,0 +1,89 @@
+{
+    "coincident/04-arc-vs-cubic-circle": {
+        "union": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "difference": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "intersection": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "exclusion": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "division": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "fracture": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle."
+    },
+    "conditioning/01-overlap-circles-far": {
+        "union": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
+        "difference": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
+        "intersection": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
+        "exclusion": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
+        "division": "Partition does not cover the region being partitioned at 1e6 coordinates.",
+        "fracture": "Partition does not cover the region being partitioned at 1e6 coordinates."
+    },
+    "conditioning/01-overlap-circles-rotated": {
+        "difference": "Wrong pixels after an off-axis rotation of the same overlapping-circles case.",
+        "intersection": "Wrong pixels after an off-axis rotation of the same overlapping-circles case.",
+        "exclusion": "Wrong pixels after an off-axis rotation of the same overlapping-circles case.",
+        "fracture": "Fracture returns 2 overlapping faces instead of a 3-face partition (~7358 px double-covered)."
+    },
+    "conditioning/01-overlap-circles-small": {
+        "fracture": "Fracture faces overlap at a 1e-3 scene scale: not a partition."
+    },
+    "conditioning/02-tangent-external-far": {
+        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
+    },
+    "conditioning/02-tangent-external-large": {
+        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
+    },
+    "conditioning/02-tangent-external-rotated": {
+        "union": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "difference": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "intersection": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "exclusion": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "division": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
+        "fracture": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle."
+    },
+    "conditioning/02-tangent-external-small": {
+        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
+    },
+    "overlap/05-round-rect-x-ellipse-rot": {
+        "union": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
+        "difference": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
+        "intersection": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
+        "exclusion": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
+        "division": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
+        "fracture": "Arc/arc intersection against a rotated ellipse takes ~25s per operation."
+    },
+    "overlap/12-loop-cubic-x-circle-arc": {
+        "difference": "Region around the cubic's self-intersection is omitted (~147 px).",
+        "intersection": "Region around the cubic's self-intersection is omitted (~147 px).",
+        "exclusion": "Region around the cubic's self-intersection is omitted (~147 px).",
+        "fracture": "Fracture faces overlap around the cubic's self-intersection: not a partition."
+    },
+    "touching/01-tangent-external": {
+        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
+    },
+    "touching/02-tangent-internal": {
+        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
+        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
+    }
+}
