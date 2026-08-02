@@ -40,12 +40,18 @@ Three suites do, each with a different oracle and a different blind spot:
 | `__tests__/corpus-algebraic.test.ts` | exact areas (Green's theorem), identities between results | sub-pixel errors, order dependence                             | output that is internally consistent but uniformly wrong |
 | `__tests__/corpus-raster.test.ts`    | resvg coverage masks combined with pixel arithmetic       | wrong regions, non-disjoint partitions                         | features thinner than a pixel                            |
 
-The complementarity is real rather than theoretical. The shared-collinear-edge
-order dependence is invisible to the raster tier, which only runs the forward
-direction — and that direction happens to be the correct one. Conversely, when
-two overlapping circles are wrongly treated as disjoint, Union and Fracture are
-wrong _in the same way_, so the algebraic identities balance perfectly and only
-the pixels give it away.
+The complementarity is real rather than theoretical, and each tier has already
+caught something the others could not.
+
+The shared-collinear-edge order dependence (fixed in `findVertices`, where
+merging a coincident edge used to overwrite the orientation flags of the paths
+already on it) was invisible to the raster tier, which only runs the forward
+direction — and that direction happened to be the correct one. Only comparing
+`A op B` against `B op A` exposed it.
+
+Conversely, when two overlapping circles are wrongly treated as disjoint, Union
+and Fracture come out wrong _in the same way_, so every algebraic identity
+balances perfectly and only the pixels give it away.
 
 ## expected-failures\*.json
 

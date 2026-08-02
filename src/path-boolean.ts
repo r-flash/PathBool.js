@@ -244,6 +244,31 @@ function orBooleansInto(target: boolean[], source: boolean[]) {
     }
 }
 
+/*
+ Records how a path joining an already-created edge is oriented relative to it.
+
+ `directionFlags[i]` means "path i's own segment runs against this half-edge",
+ so the two half-edges always hold opposite values for any path on the edge.
+ `againstForward` says which way round the joining path goes.
+
+ Only the joining path's slots are written. Assigning the whole array would
+ wipe the orientations of the paths already sharing the edge, which is what
+ made Intersection and Exclusion depend on the order of the inputs wherever
+ two paths shared a collinear edge.
+*/
+function setDirectionFlags(
+    existingEdge: [MajorGraphEdgeStage2, MajorGraphEdge, MajorGraphEdge],
+    parents: boolean[],
+    againstForward: boolean,
+) {
+    const [, forward, backward] = existingEdge;
+    for (let i = 0; i < parents.length; i++) {
+        if (!parents[i]) continue;
+        forward.directionFlags[i] = againstForward;
+        backward.directionFlags[i] = !againstForward;
+    }
+}
+
 function createObjectCounter(): (obj: Object) => number {
     let i = 0;
     return memoizeWeak(() => i++);
@@ -501,6 +526,12 @@ function findVertices(
                 segmentsEqual(other[0].seg, edge.seg, EPS.point),
             );
             if (existingEdge) {
+                // A shared edge traversed the same way round. The joining path
+                // runs along the forward half-edge and against the backward
+                // one, matching how a fresh edge pair is built below. Only the
+                // joining path's own slots are touched; the slots belonging to
+                // paths already on this edge keep their own orientation.
+                setDirectionFlags(existingEdge, edge.parents, false);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -519,15 +550,10 @@ function findVertices(
                     return [];
                 }
 
-                // A shared edge traversed in the opposite direction: for each
-                // path the new segment belongs to, mark membership and flag the
-                // half-edge as running against that path's orientation. This
-                // mirrors the original two-path `directionFlag{A,B} = parent ===
-                // …` assignment, which sets the per-path flag on both half-edges.
-                for (let i = 0; i < edge.parents.length; i++) {
-                    existingEdge[1].directionFlags[i] = edge.parents[i];
-                    existingEdge[2].directionFlags[i] = edge.parents[i];
-                }
+                // A shared edge traversed the opposite way round: the joining
+                // path runs along the backward half-edge and against the
+                // forward one.
+                setDirectionFlags(existingEdge, edge.parents, true);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];

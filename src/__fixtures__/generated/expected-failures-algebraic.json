@@ -59,22 +59,6 @@
         "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
         "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
     },
-    "conditioning/03-edge-shared-full-far": {
-        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
-        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
-    },
-    "conditioning/03-edge-shared-full-large": {
-        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
-        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
-    },
-    "conditioning/03-edge-shared-full-rotated": {
-        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
-        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
-    },
-    "conditioning/03-edge-shared-full-small": {
-        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
-        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
-    },
     "overlap/05-round-rect-x-ellipse-rot": {
         "exclusion-is-union-minus-intersection": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
         "union-is-sum-of-its-three-parts": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
@@ -110,17 +94,5 @@
         "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
         "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
         "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
-    },
-    "touching/05-edge-shared-full": {
-        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
-        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
-    },
-    "touching/06-edge-shared-partial": {
-        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
-        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
-    },
-    "touching/07-edge-shared-inside": {
-        "commutative-intersection": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways.",
-        "commutative-exclusion": "Collinear shared edge: swapping the input order changes the answer. Intersection is empty for (A, B) but returns a whole input square for (B, A); Exclusion loses the same area. Union and Difference agree both ways."
     }
 }
