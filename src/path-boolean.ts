@@ -393,7 +393,10 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
             continue;
         }
         const splits = splitsPerEdge[i];
-        splits.sort();
+        // Numeric, not the default lexicographic sort: a parameter small
+        // enough to stringify in exponential form ("1e-7") would otherwise
+        // sort after "0.9" and the segment would be cut in the wrong order.
+        splits.sort((a, b) => a - b);
         if (splits.length + 1 > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
             splits.length = Math.max(0, MAX_SUBSEGMENTS_PER_ORIG_SEGMENT - 1);
         }

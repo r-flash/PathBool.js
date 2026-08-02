@@ -7,14 +7,6 @@
         "division": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)",
         "fracture": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)"
     },
-    "conditioning/02-tangent-external-rotated": {
-        "union": "Rotated tangency: assertEqual 'Multiple outer faces found' (2 outer faces)",
-        "difference": "Rotated tangency: assertEqual 'Multiple outer faces found' (2 outer faces)",
-        "intersection": "Rotated tangency: assertEqual 'Multiple outer faces found' (2 outer faces)",
-        "exclusion": "Rotated tangency: assertEqual 'Multiple outer faces found' (2 outer faces)",
-        "division": "Rotated tangency: assertEqual 'Multiple outer faces found' (2 outer faces)",
-        "fracture": "Rotated tangency: assertEqual 'Multiple outer faces found' (2 outer faces)"
-    },
     "conditioning/01-overlap-circles-small": {
         "union": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
         "difference": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",

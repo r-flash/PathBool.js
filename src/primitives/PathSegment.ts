@@ -49,6 +49,30 @@ type PathArcSegmentCenterParametrization = {
     phi: number;
 };
 
+/*
+ gl-matrix allocates its matrices as Float32Array unless the host application
+ changes ARRAY_TYPE globally, which a library has no business doing — a
+ consumer may be feeding the same gl-matrix straight into WebGL buffers and
+ want float32.
+
+ Float32 costs about nine digits, and everything here flows through these
+ matrices. An arc's rotation matrix rounded to float32 shifts the recovered
+ centre parametrization by ~1e-8, which is enormous next to EPS.param: the arc
+ then no longer passes through its own stated endpoint, and its tangent at
+ that endpoint is wrong by the same order. That is far bigger than the
+ differences the incidence-angle sort has to resolve, so tangent curves ended
+ up ordered wrongly around a vertex.
+
+ The identity initializers match what mat2.create()/mat2d.create() return.
+*/
+function createMat2(): mat2 {
+    return new Float64Array([1, 0, 0, 1]);
+}
+
+function createMat2d(): mat2d {
+    return new Float64Array([1, 0, 0, 1, 0, 0]);
+}
+
 function isFiniteNumber(value: number): boolean {
     return Number.isFinite(value);
 }
@@ -158,7 +182,7 @@ export function reversePathSegment(seg: PathSegment): PathSegment {
 
 export const arcSegmentToCenter = (() => {
     const xy1Prime = createVector();
-    const rotationMatrix = mat2.create();
+    const rotationMatrix = createMat2();
     const addend = createVector();
     const cxy = createVector();
 
@@ -257,7 +281,7 @@ export const arcSegmentToCenter = (() => {
 export const arcSegmentFromCenter = (() => {
     const xy1 = createVector();
     const xy2 = createVector();
-    const rotationMatrix = mat2.create();
+    const rotationMatrix = createMat2();
 
     return function arcSegmentFromCenter({
         center,
@@ -443,8 +467,8 @@ export const pathSegmentTangentAt = (() => {
 })();
 
 export const arcSegmentToCubics = (() => {
-    const fromUnit = mat2d.create();
-    const matrix = mat2d.create();
+    const fromUnit = createMat2d();
+    const matrix = createMat2d();
 
     return function arcSegmentToCubics(
         arc: PathArcSegment,

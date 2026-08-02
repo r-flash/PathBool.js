@@ -24,14 +24,6 @@
     "conditioning/01-overlap-circles-small": {
         "fracture": "Fracture faces overlap at a 1e-3 scene scale: not a partition."
     },
-    "conditioning/02-tangent-external-rotated": {
-        "union": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "difference": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "intersection": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "exclusion": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "division": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "fracture": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle."
-    },
     "overlap/05-round-rect-x-ellipse-rot": {
         "union": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
         "difference": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
