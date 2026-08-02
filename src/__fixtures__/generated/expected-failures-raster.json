@@ -24,22 +24,6 @@
     "conditioning/01-overlap-circles-small": {
         "fracture": "Fracture faces overlap at a 1e-3 scene scale: not a partition."
     },
-    "conditioning/02-tangent-external-far": {
-        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
-    },
-    "conditioning/02-tangent-external-large": {
-        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
-    },
     "conditioning/02-tangent-external-rotated": {
         "union": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
         "difference": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
@@ -47,14 +31,6 @@
         "exclusion": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
         "division": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
         "fracture": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle."
-    },
-    "conditioning/02-tangent-external-small": {
-        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
     },
     "overlap/05-round-rect-x-ellipse-rot": {
         "union": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
@@ -69,21 +45,5 @@
         "intersection": "Region around the cubic's self-intersection is omitted (~147 px).",
         "exclusion": "Region around the cubic's self-intersection is omitted (~147 px).",
         "fracture": "Fracture faces overlap around the cubic's self-intersection: not a partition."
-    },
-    "touching/01-tangent-external": {
-        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
-    },
-    "touching/02-tangent-internal": {
-        "union": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "difference": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "intersection": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "exclusion": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "division": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle.",
-        "fracture": "Tangency: assertUnreachable('No ear in polygon found'). Ungated, so it throws here too; stripped only in the production bundle."
     }
 }

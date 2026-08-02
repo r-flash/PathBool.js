@@ -1,44 +1,4 @@
 {
-    "touching/01-tangent-external": {
-        "union": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "difference": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "intersection": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "exclusion": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "division": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "fracture": "Tangency: reaches assertUnreachable('No ear in polygon found')"
-    },
-    "touching/02-tangent-internal": {
-        "union": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "difference": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "intersection": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "exclusion": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "division": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "fracture": "Tangency: reaches assertUnreachable('No ear in polygon found')"
-    },
-    "conditioning/02-tangent-external-far": {
-        "union": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "difference": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "intersection": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "exclusion": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "division": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "fracture": "Tangency: reaches assertUnreachable('No ear in polygon found')"
-    },
-    "conditioning/02-tangent-external-large": {
-        "union": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "difference": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "intersection": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "exclusion": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "division": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "fracture": "Tangency: reaches assertUnreachable('No ear in polygon found')"
-    },
-    "conditioning/02-tangent-external-small": {
-        "union": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "difference": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "intersection": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "exclusion": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "division": "Tangency: reaches assertUnreachable('No ear in polygon found')",
-        "fracture": "Tangency: reaches assertUnreachable('No ear in polygon found')"
-    },
     "coincident/04-arc-vs-cubic-circle": {
         "union": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)",
         "difference": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)",

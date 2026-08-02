@@ -18,6 +18,7 @@ import {
     MAX_SUBDIVISION_ITERS,
     MAX_SUBSEGMENTS_PER_ORIG_SEGMENT,
     MAX_TANGENT_SAMPLE_ITERS,
+    MAX_TIE_BREAK_PARAM_STEP,
     TANGENT_MIN_LEN_SQ,
 } from "./config";
 import { pathCubicSegmentSelfIntersection } from "./intersections/path-cubic-segment-self-intersection";
@@ -793,25 +794,64 @@ function removeDanglingEdges(graph: MinorGraph, pathCount: number) {
     graph.edges = graph.edges.filter(keepEdge);
 }
 
+/*
+ Parametric speed |P'| where an edge meets its vertex. Used to convert a
+ distance along the curve into a step in parameter space, so that edges whose
+ segments are parametrized at different rates can be stepped by the same arc
+ length.
+*/
+const getIncidenceSpeed = (() => {
+    const tangent = createVector();
+
+    return function getIncidenceSpeed({
+        directionFlag,
+        segments,
+    }: MinorGraphEdge) {
+        pathSegmentTangentAtInto(segments[0], directionFlag ? 1 : 0, tangent);
+        return Math.hypot(tangent[0], tangent[1]);
+    };
+})();
+
 const getIncidenceAngle = (() => {
     const p0 = createVector();
     const pNext = createVector();
     const tangent = createVector();
 
+    /*
+     `offsetDistance` breaks ties between edges that leave the vertex at the
+     same angle, by measuring the tangent a little way along the curve instead
+     of exactly at the vertex.
+
+     It is a distance, not a parameter step, and every edge at a vertex is
+     given the same one. Stepping by a fixed *parameter* cannot separate two
+     curves that are parametrized over the same angular span: two circles
+     meeting at an internal tangency are both drawn as quarter arcs, so a step
+     of EPS.param turns both tangents by exactly pi/2 * EPS.param no matter how
+     large the circles are, and the tie survives. Stepping by a fixed arc
+     length instead turns each by that length over its own radius, which is
+     precisely the curvature difference that distinguishes them.
+    */
     return function getIncidenceAngle(
-        { directionFlag, segments }: MinorGraphEdge,
-        offset = false,
+        edge: MinorGraphEdge,
+        offsetDistance = 0,
     ) {
+        const { directionFlag, segments } = edge;
         const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
 
+        const tEnd = directionFlag ? 1 : 0;
+        let t0 = tEnd;
+        if (offsetDistance > 0) {
+            const speed = getIncidenceSpeed(edge);
+            // Cap the step so a slow parametrization cannot walk out of the
+            // segment and pick up an angle from somewhere else entirely.
+            const dt =
+                speed > 0
+                    ? Math.min(MAX_TIE_BREAK_PARAM_STEP, offsetDistance / speed)
+                    : EPS.param;
+            t0 = directionFlag ? 1 - dt : dt;
+        }
+
         // First attempt: analytical tangent
-        const t0 = directionFlag
-            ? offset
-                ? 1 - EPS.param
-                : 1
-            : offset
-              ? EPS.param
-              : 0;
         pathSegmentTangentAtInto(seg, t0, tangent);
         if (directionFlag) {
             tangent[0] = -tangent[0];
@@ -861,6 +901,23 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
     for (const vertex of vertices) {
         if (getOrder(vertex) > 2) {
             const angleCache = new WeakMap<MinorGraphEdge, number>();
+            /*
+             The tie-break step has to be one distance shared by every edge at
+             this vertex, otherwise each edge would be sampled somewhere
+             different along its own curve and the comparison would be
+             meaningless. Deriving it from the slowest parametrization keeps
+             the step at EPS.param for that edge — the size the tie-break has
+             always used — and shrinks it proportionally for the rest.
+            */
+            let minSpeed = Infinity;
+            for (const edge of vertex.outgoingEdges) {
+                const speed = getIncidenceSpeed(edge);
+                if (speed > 0) minSpeed = Math.min(minSpeed, speed);
+            }
+            const tieBreakDistance = Number.isFinite(minSpeed)
+                ? EPS.param * minSpeed
+                : EPS.param;
+
             for (let i = 0; i < vertex.outgoingEdges.length; i++) {
                 const edge = vertex.outgoingEdges[i];
                 angleCache.set(edge, getIncidenceAngle(edge));
@@ -868,7 +925,10 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
             vertex.outgoingEdges.sort((a, b) => {
                 const diff = angleCache.get(a)! - angleCache.get(b)!;
                 if (Math.abs(diff) > ANGLE_MIN_DIFF) return diff;
-                return getIncidenceAngle(a, true) - getIncidenceAngle(b, true);
+                return (
+                    getIncidenceAngle(a, tieBreakDistance) -
+                    getIncidenceAngle(b, tieBreakDistance)
+                );
             });
         }
         for (let i = 0; i < vertex.outgoingEdges.length; i++) {

@@ -11,30 +11,6 @@
         "partition-orientation": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
         "parts-fit-inside-the-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too."
     },
-    "conditioning/02-tangent-external-far": {
-        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
-    },
-    "conditioning/02-tangent-external-large": {
-        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
-    },
     "conditioning/02-tangent-external-rotated": {
         "exclusion-is-union-minus-intersection": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
         "union-is-sum-of-its-three-parts": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
@@ -47,18 +23,6 @@
         "partition-orientation": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
         "parts-fit-inside-the-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too."
     },
-    "conditioning/02-tangent-external-small": {
-        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
-    },
     "overlap/05-round-rect-x-ellipse-rot": {
         "exclusion-is-union-minus-intersection": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
         "union-is-sum-of-its-three-parts": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
@@ -70,29 +34,5 @@
         "commutative-fracture": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
         "partition-orientation": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget.",
         "parts-fit-inside-the-union": "Arc/arc intersection against a rotated ellipse takes ~25s; both orderings exceed the budget."
-    },
-    "touching/01-tangent-external": {
-        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
-    },
-    "touching/02-tangent-internal": {
-        "exclusion-is-union-minus-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "union-is-sum-of-its-three-parts": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "division-tiles-a": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "fracture-tiles-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-intersection": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-exclusion": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "commutative-fracture": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "partition-orientation": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too.",
-        "parts-fit-inside-the-union": "Tangency: assertUnreachable('No ear in polygon found') before any result is produced. Ungated, so it throws here too."
     }
 }
