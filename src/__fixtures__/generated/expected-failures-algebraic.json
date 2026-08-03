@@ -10,29 +10,5 @@
         "commutative-fracture": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
         "partition-orientation": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too.",
         "parts-fit-inside-the-union": "assertEqual 'Multiple outer faces found' before any result is produced. Ungated, so it throws here too."
-    },
-    "conditioning/01-overlap-circles-rotated": {
-        "exclusion-is-union-minus-intersection": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "union-is-sum-of-its-three-parts": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "division-tiles-a": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "fracture-tiles-union": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "commutative-union": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "commutative-intersection": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "commutative-exclusion": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "commutative-fracture": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "partition-orientation": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "parts-fit-inside-the-union": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case)."
-    },
-    "conditioning/02-tangent-external-rotated": {
-        "exclusion-is-union-minus-intersection": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "union-is-sum-of-its-three-parts": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "division-tiles-a": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "fracture-tiles-union": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "commutative-union": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "commutative-intersection": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "commutative-exclusion": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "commutative-fracture": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "partition-orientation": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "parts-fit-inside-the-union": "Arc subdivision degrades for rotated arcs: ~11s per operation."
     }
 }

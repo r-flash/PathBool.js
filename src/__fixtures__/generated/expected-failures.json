@@ -7,14 +7,6 @@
         "division": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)",
         "fracture": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)"
     },
-    "conditioning/01-overlap-circles-rotated": {
-        "union": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "difference": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "intersection": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "exclusion": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "division": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
-        "fracture": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case)."
-    },
     "conditioning/01-overlap-circles-small": {
         "union": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
         "difference": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
@@ -22,13 +14,5 @@
         "exclusion": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
         "division": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
         "fracture": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open"
-    },
-    "conditioning/02-tangent-external-rotated": {
-        "union": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "difference": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "intersection": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "exclusion": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "division": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
-        "fracture": "Arc subdivision degrades for rotated arcs: ~11s per operation."
     }
 }
