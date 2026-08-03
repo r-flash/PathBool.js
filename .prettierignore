@@ -1,0 +1,8 @@
+# Written by scripts/generate-corpus.mjs. Prettier and the generator disagree
+# about array formatting, so letting prettier touch these means the next
+# `npm run gen-corpus` flips them straight back.
+src/__fixtures__/generated/manifest.json
+src/__fixtures__/generated/*/
+
+# The hand-maintained expected-failures*.json files at that level are not
+# listed here on purpose — those stay formatted.
