@@ -244,13 +244,75 @@ const MAX_TANGENT_SAMPLE_ITERS = 6;
 // Numerical precision
 const NEARLY_LINEAR_EPS = 1e-10;
 const TANGENT_MIN_LEN_SQ = 1e-16;
-const ANGLE_MIN_DIFF = 1e-16;
+/*
+ Below this, two incidence angles at a vertex count as equal and the edges are
+ ordered by their angle a little way along the curve instead.
+
+ It has to stay well clear of floating-point noise. Angles come out of `atan2`
+ on computed tangents and are bounded by pi, so one ulp is already 2.2e-16:
+ at 1e-16 the tie never fired for two curves that genuinely meet at the same
+ angle, and the sort ordered them on rounding error. That is what made two
+ tangent circles trace a face that doubled back on itself, leaving it with zero
+ winding everywhere and no ear to find.
+
+ The signal it falls through to is far larger than this bound — offsetting by
+ EPS.param along a quarter-circle arc turns the tangent by about 1.6e-8 — so
+ there is room for several orders of magnitude of margin on both sides.
+*/
+const ANGLE_MIN_DIFF = 1e-12;
+/*
+ Ceiling on the parameter step the incidence-angle tie-break may take, for
+ segments whose parametrization is slow enough that the shared arc-length step
+ would otherwise carry it a long way along the curve — or off the end of it.
+*/
+const MAX_TIE_BREAK_PARAM_STEP = 1e-3;
 const EPS$1 = {
     point: 1e-6,
     linear: 1e-4,
     param: 1e-8,
     collinear: Number.MIN_VALUE * 64,
 };
+/*
+ `point` and `linear` are lengths, so they only mean anything relative to the
+ size of the geometry. The values above are not scale-free constants; they are
+ the right values for a scene about fifty units across, which is what the hand
+ fixtures happen to be. Shrink the same drawing and they stop working: at a
+ scene 2.2e-3 across, subdivision stopped while a chord still spanned a large
+ fraction of its arc, so intersection points landed about 1e-6 out — further
+ apart than `point`, so the vertices that should have merged did not, and the
+ output was left open by most of the width of the scene.
+
+ The two have to move together. Scaling one and not the other pulled two
+ overlapping circles into a single circle: `point` decides which endpoints are
+ the same vertex, `linear` decides how finely a curve is chopped before those
+ endpoints are computed, and the second has to stay well clear of the first.
+*/
+const REFERENCE_EXTENT = 50;
+/*
+ Derived from the extent of the geometry, not from how far it sits from the
+ origin. A large offset is a different problem — precision is lost in the
+ arithmetic there, and widening a tolerance conceals that rather than curing
+ it — and measurably not the one these two cause.
+
+ Only ever downwards. How fine the detail in a drawing is does not follow how
+ big the drawing is: a 900-unit logo is drawn with much the same absolute
+ precision as a 48-unit icon, so the values above are about right for both,
+ and scaling them up by eighteen swallowed the detail in the 900-unit one
+ whole. Scaling down has no such hazard — a tighter tolerance merges less —
+ and it is the only direction the failure was ever in.
+*/
+function epsilonsForExtent(extent) {
+    const scale = Number.isFinite(extent) && extent > 0
+        ? Math.min(1, extent / REFERENCE_EXTENT)
+        : 1;
+    return {
+        point: EPS$1.point * scale,
+        linear: EPS$1.linear * scale,
+        // Both are dimensionless: a curve parameter and, in practice, zero.
+        param: EPS$1.param,
+        collinear: EPS$1.collinear,
+    };
+}
 
 const EPS = 1e-12;
 function pathCubicSegmentSelfIntersection(seg) {
@@ -293,27 +355,6 @@ function pathCubicSegmentSelfIntersection(seg) {
 var ARRAY_TYPE = typeof Float32Array !== "undefined" ? Float32Array : Array;
 
 /**
- * 2x2 Matrix
- * @module mat2
- */
-
-/**
- * Creates a new identity mat2
- *
- * @returns {mat2} a new 2x2 matrix
- */
-function create$2() {
-  var out = new ARRAY_TYPE(4);
-  if (ARRAY_TYPE != Float32Array) {
-    out[1] = 0;
-    out[2] = 0;
-  }
-  out[0] = 1;
-  out[3] = 1;
-  return out;
-}
-
-/**
  * Transpose the values of a mat2
  *
  * @param {mat2} out the receiving matrix
@@ -354,43 +395,6 @@ function fromRotation$1(out, rad) {
   out[1] = s;
   out[2] = -s;
   out[3] = c;
-  return out;
-}
-
-/**
- * 2x3 Matrix
- * @module mat2d
- * @description
- * A mat2d contains six elements defined as:
- * <pre>
- * [a, b,
- *  c, d,
- *  tx, ty]
- * </pre>
- * This is a short form for the 3x3 matrix:
- * <pre>
- * [a, b, 0,
- *  c, d, 0,
- *  tx, ty, 1]
- * </pre>
- * The last column is ignored so the array is shorter and operations are faster.
- */
-
-/**
- * Creates a new identity mat2d
- *
- * @returns {mat2d} a new 2x3 matrix
- */
-function create$1() {
-  var out = new ARRAY_TYPE(6);
-  if (ARRAY_TYPE != Float32Array) {
-    out[1] = 0;
-    out[2] = 0;
-    out[4] = 0;
-    out[5] = 0;
-  }
-  out[0] = 1;
-  out[3] = 1;
   return out;
 }
 
@@ -602,18 +606,6 @@ function scale(out, a, b) {
 }
 
 /**
- * Calculates the length of a vec2
- *
- * @param {ReadonlyVec2} a vector to calculate length of
- * @returns {Number} length of a
- */
-function length(a) {
-  var x = a[0],
-    y = a[1];
-  return Math.sqrt(x * x + y * y);
-}
-
-/**
  * Calculates the squared length of a vec2
  *
  * @param {ReadonlyVec2} a vector to calculate squared length of
@@ -727,12 +719,6 @@ function rotate(out, a, b, rad) {
 }
 
 /**
- * Alias for {@link vec2.length}
- * @function
- */
-var len = length;
-
-/**
  * Alias for {@link vec2.subtract}
  * @function
  */
@@ -797,16 +783,31 @@ function lerp(a, b, t) {
 function deg2rad(deg) {
     return (deg / 180) * Math.PI;
 }
+/*
+ Signed angle from `u` to `v`, in (-pi, pi].
+
+ By atan2 of the cross and dot products rather than acos of the normalized
+ dot, which matters more than it looks. acos is ill-conditioned at both ends
+ of its range: for a small angle theta its absolute error is about eps/theta,
+ so the *relative* error is about eps/theta^2. Arc subdivision re-derives a
+ sub-arc's centre parametrization from its endpoints at every level, so that
+ error compounds — halving a quarter circle, the recovered deltaTheta was off
+ by 1.4e-8 relative at depth 15 and 1.9e-2 at depth 25, and by depth 29 the
+ recovery failed outright.
+
+ That is not only an accuracy problem. Bounding boxes that stop shrinking stop
+ the intersection finder pruning, so it would grind through thousands of pairs
+ per level; fixing this cut the test suite from 205s to 87s.
+
+ atan2 also removes a cliff. The old sign came from Math.sign of the cross
+ product, which for nearly parallel vectors could round to zero or to the
+ wrong sign; a flipped sign then met `if (fS && deltaTheta < 0) deltaTheta +=
+ TAU` in arcSegmentToCenter and turned a hair-thin arc into a nearly complete
+ one. atan2 carries the sign itself, and returns pi for antiparallel vectors
+ without needing the special case that used to be here.
+*/
 function vectorAngle(u, v) {
-    const EPS = 1e-12;
-    const sign = Math.sign(u[0] * v[1] - u[1] * v[0]);
-    if (sign === 0 &&
-        Math.abs(u[0] + v[0]) < EPS &&
-        Math.abs(u[1] + v[1]) < EPS) {
-        // TODO: u can be scaled
-        return Math.PI;
-    }
-    return sign * Math.acos(dot(u, v) / len(u) / len(v));
+    return Math.atan2(u[0] * v[1] - u[1] * v[0], dot(u, v));
 }
 
 /*
@@ -826,6 +827,28 @@ function vectorsEqual(a, b, eps = 0) {
  *
  * SPDX-License-Identifier: MIT
  */
+/*
+ gl-matrix allocates its matrices as Float32Array unless the host application
+ changes ARRAY_TYPE globally, which a library has no business doing — a
+ consumer may be feeding the same gl-matrix straight into WebGL buffers and
+ want float32.
+
+ Float32 costs about nine digits, and everything here flows through these
+ matrices. An arc's rotation matrix rounded to float32 shifts the recovered
+ centre parametrization by ~1e-8, which is enormous next to EPS.param: the arc
+ then no longer passes through its own stated endpoint, and its tangent at
+ that endpoint is wrong by the same order. That is far bigger than the
+ differences the incidence-angle sort has to resolve, so tangent curves ended
+ up ordered wrongly around a vertex.
+
+ The identity initializers match what mat2.create()/mat2d.create() return.
+*/
+function createMat2() {
+    return new Float64Array([1, 0, 0, 1]);
+}
+function createMat2d() {
+    return new Float64Array([1, 0, 0, 1, 0, 0]);
+}
 function isFiniteNumber(value) {
     return Number.isFinite(value);
 }
@@ -857,8 +880,20 @@ function isNearlyLinearSegment(seg, eps = NEARLY_LINEAR_EPS) {
     const b = getEndPoint(seg);
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
-    if (dx * dx + dy * dy <= eps * eps)
-        return true;
+    /*
+     Coincident endpoints do not make a curve degenerate. A cubic that closes
+     on itself is a loop -- exactly what splitting at a self-intersection
+     produces -- and it can enclose as much area as it likes. Treating one as
+     linear collapsed it to a point everywhere: its bounding box, every sample
+     of it, its tangent, and its halves when split.
+
+     For a line and for an arc it really is degenerate, though; SVG omits an
+     arc whose endpoints coincide. The Q and C cases below need no separate
+     test, because pointLineDistance measures from the start point when the
+     chord has no length, so a curve whose control points sit on top of its
+     endpoints is still reported as linear.
+    */
+    const chordIsDegenerate = dx * dx + dy * dy <= eps * eps;
     switch (seg[0]) {
         case "L":
             return true;
@@ -868,7 +903,8 @@ function isNearlyLinearSegment(seg, eps = NEARLY_LINEAR_EPS) {
             return (pointLineDistance(seg[2], a, b, eps) <= eps &&
                 pointLineDistance(seg[3], a, b, eps) <= eps);
         case "A":
-            return (!Number.isFinite(seg[2]) ||
+            return (chordIsDegenerate ||
+                !Number.isFinite(seg[2]) ||
                 !Number.isFinite(seg[3]) ||
                 Math.abs(seg[2]) <= eps ||
                 Math.abs(seg[3]) <= eps);
@@ -916,7 +952,7 @@ function reversePathSegment(seg) {
 }
 const arcSegmentToCenter = (() => {
     const xy1Prime = createVector();
-    const rotationMatrix = create$2();
+    const rotationMatrix = createMat2();
     const addend = createVector();
     const cxy = createVector();
     return function arcSegmentToCenter([_A, xy1, rx, ry, phi, fA, fS, xy2,]) {
@@ -994,10 +1030,14 @@ const arcSegmentToCenter = (() => {
 const arcSegmentFromCenter = (() => {
     const xy1 = createVector();
     const xy2 = createVector();
-    const rotationMatrix = create$2();
+    const rotationMatrix = createMat2();
     return function arcSegmentFromCenter({ center, theta1, deltaTheta, rx, ry, phi, }) {
         // https://svgwg.org/svg2-draft/implnote.html#ArcConversionCenterToEndpoint
-        fromRotation$1(rotationMatrix, phi); // TODO: sign (also in sampleAt)
+        // `phi` is in degrees, as everywhere else in a PathArcSegment, while
+        // fromRotation takes radians. Rotating by phi directly puts the arc
+        // somewhere else entirely — invisibly so at phi = 0, which is why only
+        // rotated arcs were affected.
+        fromRotation$1(rotationMatrix, deg2rad(phi));
         set(xy1, rx * Math.cos(theta1), ry * Math.sin(theta1));
         transformMat2(xy1, xy1, rotationMatrix);
         add(xy1, xy1, center);
@@ -1050,7 +1090,8 @@ const samplePathSegmentAtInto = (() => {
                 const { deltaTheta, phi, theta1, rx, ry, center } = centerParametrization;
                 const theta = theta1 + t * deltaTheta;
                 set(p, rx * Math.cos(theta), ry * Math.sin(theta));
-                rotate(p, p, [0, 0], phi); // TODO: sign (also in fromCenter)
+                // Degrees to radians, as in arcSegmentFromCenter above.
+                rotate(p, p, [0, 0], deg2rad(phi));
                 add(p, p, center);
                 break;
             }
@@ -1058,6 +1099,13 @@ const samplePathSegmentAtInto = (() => {
         out[0] = p[0];
         out[1] = p[1];
         return out;
+    };
+})();
+const samplePathSegmentAt = (() => {
+    const out = createVector();
+    return function samplePathSegmentAt(seg, t) {
+        samplePathSegmentAtInto(seg, t, out);
+        return [out[0], out[1]];
     };
 })();
 const pathSegmentTangentAtInto = (() => {
@@ -1122,8 +1170,8 @@ const pathSegmentTangentAtInto = (() => {
     };
 })();
 const arcSegmentToCubics = (() => {
-    const fromUnit = create$1();
-    const matrix = create$1();
+    const fromUnit = createMat2d();
+    const matrix = createMat2d();
     return function arcSegmentToCubics(arc, maxDeltaTheta = Math.PI / 2) {
         const centerParametrization = arcSegmentToCenter(normalizeArcSegment(arc));
         if (!centerParametrization) {
@@ -1172,27 +1220,47 @@ function evalCubic1d(p0, p1, p2, p3, t) {
 function cubicBoundingInterval(p0, p1, p2, p3) {
     let min = Math.min(p0, p3);
     let max = Math.max(p0, p3);
+    function consider(t) {
+        if (!(0 < t && t < 1))
+            return;
+        const x = evalCubic1d(p0, p1, p2, p3, t);
+        min = Math.min(min, x);
+        max = Math.max(max, x);
+    }
+    // The derivative, a*t^2 + b*t + c, whose roots are the interior extremes.
     const a = 3 * (-p0 + 3 * p1 - 3 * p2 + p3);
     const b = 6 * (p0 - 2 * p1 + p2);
     const c = 3 * (p1 - p0);
-    const D = b * b - 4 * a * c;
-    if (D < 0 || a === 0) {
-        // TODO: if a=0, solve linear
+    /*
+     `a` vanishes whenever 3*(p1 - p2) === p0 - p3, which every cubic that is
+     symmetric in this coordinate satisfies — p1 === p2 with p0 === p3. That is
+     an ordinary shape, not a corner case: any symmetric arch or loop.
+
+     Rounding leaves `a` at about 1e-16 rather than exactly zero, so the old
+     `a === 0` test never fired and the quadratic formula went ahead and
+     divided by the noise. For the control values -0.6, 1.4, 1.4, -0.6 it
+     returned t = 0.889 where the extreme is at 0.5, and the interval came back
+     as -0.6 .. -0.0074 for a curve reaching 0.9. Comparing `a` against the
+     other coefficients instead of against zero is what makes the test mean
+     anything; below that the derivative is linear and has one root.
+    */
+    if (Math.abs(a) <= 1e-12 * Math.max(Math.abs(b), Math.abs(c))) {
+        if (b !== 0)
+            consider(-c / b);
         return [min, max];
     }
-    const sqrtD = Math.sqrt(D);
-    const t0 = (-b - sqrtD) / (2 * a);
-    if (0 < t0 && t0 < 1) {
-        const x0 = evalCubic1d(p0, p1, p2, p3, t0);
-        min = Math.min(min, x0);
-        max = Math.max(max, x0);
-    }
-    const t1 = (-b + sqrtD) / (2 * a);
-    if (0 < t1 && t1 < 1) {
-        const x1 = evalCubic1d(p0, p1, p2, p3, t1);
-        min = Math.min(min, x1);
-        max = Math.max(max, x1);
-    }
+    const D = b * b - 4 * a * c;
+    if (D < 0)
+        return [min, max];
+    /*
+     Solved through `q` rather than by the schoolbook formula twice: taking
+     both roots as (-b +- sqrt(D)) / 2a subtracts two nearly equal numbers for
+     whichever sign opposes b, and loses most of that root's precision.
+    */
+    const q = -0.5 * (b + (b < 0 ? -1 : 1) * Math.sqrt(D));
+    consider(q / a);
+    if (q !== 0)
+        consider(c / q);
     return [min, max];
 }
 function evalQuadratic1d(p0, p1, p2, t) {
@@ -1215,9 +1283,20 @@ function quadraticBoundingInterval(p0, p1, p2) {
     }
     return [min, max];
 }
-function inInterval(x, x0, x1) {
-    const mapped = (x - x0) / (x1 - x0);
-    return 0 <= mapped && mapped <= 1;
+/*
+ Whether an arc sweeping from `theta1` to `theta2` passes through `target`,
+ which is an angle in the same measure, up to whole turns.
+
+ A sweep is at most one full turn, so at most one representative of `target`
+ can fall inside it: lift `target` to the first one at or above the low end
+ and ask whether it is still below the high end. That replaces testing a
+ couple of hand-picked representatives, which could not cover every way a
+ sweep straddles the branch cut.
+*/
+function sweepContainsAngle(target, theta1, theta2) {
+    const lo = Math.min(theta1, theta2);
+    const hi = Math.max(theta1, theta2);
+    return target + TAU * Math.ceil((lo - target) / TAU) <= hi;
 }
 function pathSegmentBoundingBox(seg) {
     if (isNearlyLinearSegment(seg)) {
@@ -1257,34 +1336,33 @@ function pathSegmentBoundingBox(seg) {
             if (phi === 0 || rx === ry) {
                 const theta2 = theta1 + deltaTheta;
                 let boundingBox = extendBoundingBox(boundingBoxAroundPoint(seg[1], 0), seg[7]);
-                // FIXME: the following gives false positives, resulting in larger boxes
-                if (inInterval(-Math.PI, theta1, theta2) ||
-                    inInterval(Math.PI, theta1, theta2)) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0] - rx,
-                        center[1],
-                    ]);
-                }
-                if (inInterval(-Math.PI / 2, theta1, theta2) ||
-                    inInterval((3 * Math.PI) / 2, theta1, theta2)) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0],
-                        center[1] - ry,
-                    ]);
-                }
-                if (inInterval(0, theta1, theta2) ||
-                    inInterval(2 * Math.PI, theta1, theta2)) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0] + rx,
-                        center[1],
-                    ]);
-                }
-                if (inInterval(Math.PI / 2, theta1, theta2) ||
-                    inInterval((5 * Math.PI) / 2, theta1, theta2)) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0],
-                        center[1] + ry,
-                    ]);
+                /*
+                 The four axis extremes, as angles in the parametrization's
+                 own frame.
+
+                 With rx === ry the parametrization angle is measured in the
+                 ellipse's frame and only then turned by phi, so the extreme
+                 the world sees at angle a is reached at a - phi. Testing the
+                 unturned angles let a small arc claim an extreme it never
+                 goes near: written with phi = 45 a circle's arc came out with
+                 a box 8.8 times its own chord, and 20 times at phi = 135.
+                 Boxes that big are still correct, but they stop the
+                 intersection finder pruning anything.
+
+                 phi is 0 in the other case this branch handles, so the offset
+                 simply vanishes there.
+                */
+                const offset = deg2rad(phi);
+                const extremes = [
+                    [Math.PI - offset, [center[0] - rx, center[1]]],
+                    [-Math.PI / 2 - offset, [center[0], center[1] - ry]],
+                    [-offset, [center[0] + rx, center[1]]],
+                    [Math.PI / 2 - offset, [center[0], center[1] + ry]],
+                ];
+                for (const [angle, point] of extremes) {
+                    if (sweepContainsAngle(angle, theta1, theta2)) {
+                        boundingBox = extendBoundingBox(boundingBox, point);
+                    }
                 }
                 return expandBoundingBox(boundingBox, 1e-11); // TODO: get rid of expansion
             }
@@ -1527,7 +1605,136 @@ const collinearLineSegmentIntersection = (() => {
         return pairs;
     };
 })();
-function pathSegmentIntersection(seg0, seg1, eps) {
+/*
+ Collapses the many reports a single crossing can generate back into one.
+
+ Where two curves meet at a shallow angle, subdivision cannot separate the
+ crossing from its surroundings: it keeps bisecting until the leaves are
+ straight enough to intersect as lines, and then a whole run of neighbouring
+ leaf pairs each report a hit. A circle against the cubic that approximates it
+ produced 146 points across the two paths where 8 are geometrically possible,
+ and every spurious one becomes a vertex, an edge, and eventually a sliver
+ face — that case ended up with 103 faces claiming to be the outer one.
+
+ Two reports are the same crossing when the curves stay within eps.point of
+ each other all the way between them. That asks the question directly, in the
+ terms the rest of the library already uses for whether two places are the
+ same place, and it distinguishes the two situations that matter: curves that
+ osculate stay together across the whole run of spurious reports, while curves
+ that cross transversally have pulled well apart before the next genuine
+ crossing.
+
+ Earlier attempts keyed on the subdivision's own leaves instead — their
+ adjacency, then their size as a measure of how well a report is placed. Both
+ failed, and in opposite directions. Leaves are far finer than the spread of
+ reports around an osculating contact, so grouping by them left it in pieces;
+ and they are far coarser than the true accuracy of a transversal crossing,
+ where the line-line solve inside the leaf is good to the leaf's sagitta
+ rather than its width, so grouping by them merged genuinely distinct
+ crossings in real-02 and lost five faces.
+
+ The representative is the report whose parameters put the two curves closest
+ together, not an average of the group. The split points these produce have to
+ land within eps.point of each other or the graph will not merge them into a
+ single vertex, and averaging across a group spanning 2.7e-4 breaks exactly
+ that.
+*/
+const SEPARATION_SAMPLES = 8;
+function staysTogether(seg0, seg1, a, b, eps) {
+    for (let k = 1; k < SEPARATION_SAMPLES; k++) {
+        const s = k / SEPARATION_SAMPLES;
+        const p = samplePathSegmentAt(seg0, lerp(a.t0, b.t0, s));
+        const q = samplePathSegmentAt(seg1, lerp(a.t1, b.t1, s));
+        if (Math.hypot(p[0] - q[0], p[1] - q[1]) > eps.point)
+            return false;
+    }
+    return true;
+}
+function groupCandidates(seg0, seg1, candidates, eps) {
+    if (candidates.length <= 1) {
+        return candidates.map((c) => [c.t0, c.t1]);
+    }
+    const sorted = [...candidates].sort((a, b) => a.t0 - b.t0);
+    const groups = [[sorted[0]]];
+    for (let i = 1; i < sorted.length; i++) {
+        const group = groups[groups.length - 1];
+        const previous = group[group.length - 1];
+        if (staysTogether(seg0, seg1, previous, sorted[i], eps)) {
+            group.push(sorted[i]);
+        }
+        else {
+            groups.push([sorted[i]]);
+        }
+    }
+    return groups.map((group) => refineContact(seg0, seg1, group));
+}
+/*
+ Pins a grouped contact down to where the curves actually meet.
+
+ The reports in a group are scattered along the run the subdivision could not
+ resolve, and the nearest of them can still sit well off the true contact: on
+ the circle-against-its-own-cubic case the best report of one group was 2.4e-5
+ away from the tangency. That is small, but splitting both curves there rather
+ than at the contact leaves them crossing at a shallow angle instead of
+ touching, and the incidence angles at the resulting vertex then differ by
+ 1.4e-7 — far too much for the sort to recognize as a tie, so it orders them on
+ that instead of on curvature and traces the faces wrongly.
+
+ The group brackets the contact, so a golden-section search along the straight
+ correspondence between its outermost reports finds it. Only groups with
+ something to refine are touched: a single report comes from a leaf pair that
+ crossed squarely, where the line-line solve inside the leaf is already as good
+ as this could be.
+*/
+const REFINE_STEPS = 40;
+const INV_GOLDEN = (Math.sqrt(5) - 1) / 2;
+function refineContact(seg0, seg1, group) {
+    let best = group[0];
+    for (const c of group)
+        if (c.gap < best.gap)
+            best = c;
+    if (group.length < 2)
+        return [best.t0, best.t1];
+    // The group is in order of t0, so its ends bracket the contact.
+    const first = group[0];
+    const last = group[group.length - 1];
+    const at = (s) => {
+        const t0 = lerp(first.t0, last.t0, s);
+        const t1 = lerp(first.t1, last.t1, s);
+        const p = samplePathSegmentAt(seg0, t0);
+        const q = samplePathSegmentAt(seg1, t1);
+        return { t0, t1, gap: Math.hypot(p[0] - q[0], p[1] - q[1]) };
+    };
+    let lo = 0;
+    let hi = 1;
+    let c = hi - INV_GOLDEN * (hi - lo);
+    let d = lo + INV_GOLDEN * (hi - lo);
+    let fc = at(c);
+    let fd = at(d);
+    for (let i = 0; i < REFINE_STEPS; i++) {
+        if (fc.gap < fd.gap) {
+            hi = d;
+            d = c;
+            fd = fc;
+            c = hi - INV_GOLDEN * (hi - lo);
+            fc = at(c);
+        }
+        else {
+            lo = c;
+            c = d;
+            fc = fd;
+            d = lo + INV_GOLDEN * (hi - lo);
+            fd = at(d);
+        }
+    }
+    const refined = fc.gap < fd.gap ? fc : fd;
+    return refined.gap < best.gap
+        ? [refined.t0, refined.t1]
+        : [best.t0, best.t1];
+}
+function pathSegmentIntersection(origSeg0, origSeg1, eps) {
+    const seg0 = origSeg0;
+    const seg1 = origSeg1;
     if (seg0[0] === "L" && seg1[0] === "L") {
         const segLine0 = [seg0[1], seg0[2]];
         const segLine1 = [seg1[1], seg1[2]];
@@ -1554,16 +1761,21 @@ function pathSegmentIntersection(seg0, seg1, eps) {
             },
         ],
     ];
-    const params = [];
+    const candidates = [];
     function pushLineSegmentIntersection(seg0, seg1) {
         const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
         const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
         const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps);
         if (st) {
-            params.push([
-                lerp(seg0.startParam, seg0.endParam, st[0]),
-                lerp(seg1.startParam, seg1.endParam, st[1]),
-            ]);
+            const t0 = lerp(seg0.startParam, seg0.endParam, st[0]);
+            const t1 = lerp(seg1.startParam, seg1.endParam, st[1]);
+            const p = samplePathSegmentAt(origSeg0, t0);
+            const q = samplePathSegmentAt(origSeg1, t1);
+            candidates.push({
+                t0,
+                t1,
+                gap: Math.hypot(p[0] - q[0], p[1] - q[1]),
+            });
         }
     }
     function isLinear(seg) {
@@ -1625,7 +1837,7 @@ function pathSegmentIntersection(seg0, seg1, eps) {
         }
         pairs = nextPairs;
     }
-    return params;
+    return groupCandidates(origSeg0, origSeg1, candidates, eps);
 }
 
 /*
@@ -1665,6 +1877,7 @@ function* map(iter, fn) {
  *
  * SPDX-License-Identifier: MIT
  */
+const TAU_ANGLE = 2 * Math.PI;
 const INTERSECTION_TREE_DEPTH = 8;
 const POINT_TREE_DEPTH = 8;
 var PathBooleanOperation;
@@ -1704,6 +1917,27 @@ function orBooleansInto(target, source) {
             target[i] = true;
     }
 }
+/*
+ Records how a path joining an already-created edge is oriented relative to it.
+
+ `directionFlags[i]` means "path i's own segment runs against this half-edge",
+ so the two half-edges always hold opposite values for any path on the edge.
+ `againstForward` says which way round the joining path goes.
+
+ Only the joining path's slots are written. Assigning the whole array would
+ wipe the orientations of the paths already sharing the edge, which is what
+ made Intersection and Exclusion depend on the order of the inputs wherever
+ two paths shared a collinear edge.
+*/
+function setDirectionFlags(existingEdge, parents, againstForward) {
+    const [, forward, backward] = existingEdge;
+    for (let i = 0; i < parents.length; i++) {
+        if (!parents[i])
+            continue;
+        forward.directionFlags[i] = againstForward;
+        backward.directionFlags[i] = !againstForward;
+    }
+}
 function createObjectCounter() {
     let i = 0;
     return memoizeWeak(() => i++);
@@ -1711,7 +1945,7 @@ function createObjectCounter() {
 function segmentToEdge(pathCount, index) {
     return (seg) => ({ seg, parents: makeParents(pathCount, index) });
 }
-function splitAtSelfIntersections(edges) {
+function splitAtSelfIntersections(edges, eps) {
     for (let i = 0; i < edges.length; i++) {
         const edge = edges[i];
         if (edge.seg[0] !== "C")
@@ -1751,7 +1985,7 @@ function splitAtSelfIntersections(edges) {
         }
     }
 }
-function splitAtIntersections(edges) {
+function splitAtIntersections(edges, eps) {
     const withBoundingBox = edges.map((edge) => ({
         ...edge,
         boundingBox: pathSegmentBoundingBox(edge.seg),
@@ -1776,7 +2010,7 @@ function splitAtIntersections(edges) {
                 break;
             }
             const candidate = edges[j];
-            const intersection = pathSegmentIntersection(edge.seg, candidate.seg, EPS$1);
+            const intersection = pathSegmentIntersection(edge.seg, candidate.seg, eps);
             for (const [t0, t1] of intersection) {
                 addSplit(i, t0);
                 addSplit(j, t1);
@@ -1800,7 +2034,10 @@ function splitAtIntersections(edges) {
             continue;
         }
         const splits = splitsPerEdge[i];
-        splits.sort();
+        // Numeric, not the default lexicographic sort: a parameter small
+        // enough to stringify in exponential form ("1e-7") would otherwise
+        // sort after "0.9" and the segment would be cut in the wrong order.
+        splits.sort((a, b) => a - b);
         if (splits.length + 1 > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
             splits.length = Math.max(0, MAX_SUBSEGMENTS_PER_ORIG_SEGMENT - 1);
         }
@@ -1832,11 +2069,11 @@ function splitAtIntersections(edges) {
     }
     return { edges: newEdges, totalBoundingBox };
 }
-function findVertices(edges, boundingBox) {
+function findVertices(edges, boundingBox, eps) {
     const vertexTree = new QuadTree(boundingBox, POINT_TREE_DEPTH);
     const newVertices = [];
     function getVertex(point) {
-        const box = boundingBoxAroundPoint(point, EPS$1.point);
+        const box = boundingBoxAroundPoint(point, eps.point);
         const existingVertices = vertexTree.find(box);
         if (existingVertices.size) {
             return firstElementOfSet(existingVertices);
@@ -1873,18 +2110,18 @@ function findVertices(edges, boundingBox) {
         const startPoint = getStartPoint(edge.seg);
         const endPoint = getEndPoint(edge.seg);
         // discard zero-length segments before creating vertices
-        if (vectorsEqual(startPoint, endPoint, EPS$1.point)) {
+        if (vectorsEqual(startPoint, endPoint, eps.point)) {
             switch (edge.seg[0]) {
                 case "L":
                     return [];
                 case "C":
-                    if (vectorsEqual(edge.seg[1], edge.seg[2], EPS$1.point) &&
-                        vectorsEqual(edge.seg[3], edge.seg[4], EPS$1.point)) {
+                    if (vectorsEqual(edge.seg[1], edge.seg[2], eps.point) &&
+                        vectorsEqual(edge.seg[3], edge.seg[4], eps.point)) {
                         return [];
                     }
                     break;
                 case "Q":
-                    if (vectorsEqual(edge.seg[1], edge.seg[2], EPS$1.point)) {
+                    if (vectorsEqual(edge.seg[1], edge.seg[2], eps.point)) {
                         return [];
                     }
                     break;
@@ -1902,8 +2139,14 @@ function findVertices(edges, boundingBox) {
         const endId = getVertexId(endVertex);
         const existingEdges = getVertexPairEdges(startId, endId);
         if (existingEdges) {
-            const existingEdge = existingEdges.find((other) => segmentsEqual(other[0].seg, edge.seg, EPS$1.point));
+            const existingEdge = existingEdges.find((other) => segmentsEqual(other[0].seg, edge.seg, eps.point));
             if (existingEdge) {
+                // A shared edge traversed the same way round. The joining path
+                // runs along the forward half-edge and against the backward
+                // one, matching how a fresh edge pair is built below. Only the
+                // joining path's own slots are touched; the slots belonging to
+                // paths already on this edge keep their own orientation.
+                setDirectionFlags(existingEdge, edge.parents, false);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -1912,21 +2155,16 @@ function findVertices(edges, boundingBox) {
         const existingEdgesInv = getVertexPairEdges(endId, startId);
         if (existingEdgesInv) {
             const reversedSeg = reversePathSegment(edge.seg);
-            const existingEdge = existingEdgesInv.find((other) => segmentsEqual(other[0].seg, reversedSeg, EPS$1.point));
+            const existingEdge = existingEdgesInv.find((other) => segmentsEqual(other[0].seg, reversedSeg, eps.point));
             if (existingEdge) {
                 if (booleanArraysEqual(existingEdge[0].parents, edge.parents)) {
                     // discard "there and back" pairs
                     return [];
                 }
-                // A shared edge traversed in the opposite direction: for each
-                // path the new segment belongs to, mark membership and flag the
-                // half-edge as running against that path's orientation. This
-                // mirrors the original two-path `directionFlag{A,B} = parent ===
-                // …` assignment, which sets the per-path flag on both half-edges.
-                for (let i = 0; i < edge.parents.length; i++) {
-                    existingEdge[1].directionFlags[i] = edge.parents[i];
-                    existingEdge[2].directionFlags[i] = edge.parents[i];
-                }
+                // A shared edge traversed the opposite way round: the joining
+                // path runs along the backward half-edge and against the
+                // forward one.
+                setDirectionFlags(existingEdge, edge.parents, true);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -2104,20 +2342,52 @@ function removeDanglingEdges(graph, pathCount) {
     }
     graph.edges = graph.edges.filter(keepEdge);
 }
+/*
+ Parametric speed |P'| where an edge meets its vertex. Used to convert a
+ distance along the curve into a step in parameter space, so that edges whose
+ segments are parametrized at different rates can be stepped by the same arc
+ length.
+*/
+const getIncidenceSpeed = (() => {
+    const tangent = createVector();
+    return function getIncidenceSpeed({ directionFlag, segments, }) {
+        pathSegmentTangentAtInto(segments[0], directionFlag ? 1 : 0, tangent);
+        return Math.hypot(tangent[0], tangent[1]);
+    };
+})();
 const getIncidenceAngle = (() => {
     const p0 = createVector();
     const pNext = createVector();
     const tangent = createVector();
-    return function getIncidenceAngle({ directionFlag, segments }, offset = false) {
+    /*
+     `offsetDistance` breaks ties between edges that leave the vertex at the
+     same angle, by measuring the tangent a little way along the curve instead
+     of exactly at the vertex.
+
+     It is a distance, not a parameter step, and every edge at a vertex is
+     given the same one. Stepping by a fixed *parameter* cannot separate two
+     curves that are parametrized over the same angular span: two circles
+     meeting at an internal tangency are both drawn as quarter arcs, so a step
+     of EPS.param turns both tangents by exactly pi/2 * EPS.param no matter how
+     large the circles are, and the tie survives. Stepping by a fixed arc
+     length instead turns each by that length over its own radius, which is
+     precisely the curvature difference that distinguishes them.
+    */
+    return function getIncidenceAngle(edge, offsetDistance = 0) {
+        const { directionFlag, segments } = edge;
         const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
+        const tEnd = directionFlag ? 1 : 0;
+        let t0 = tEnd;
+        if (offsetDistance > 0) {
+            const speed = getIncidenceSpeed(edge);
+            // Cap the step so a slow parametrization cannot walk out of the
+            // segment and pick up an angle from somewhere else entirely.
+            const dt = speed > 0
+                ? Math.min(MAX_TIE_BREAK_PARAM_STEP, offsetDistance / speed)
+                : EPS$1.param;
+            t0 = directionFlag ? 1 - dt : dt;
+        }
         // First attempt: analytical tangent
-        const t0 = directionFlag
-            ? offset
-                ? 1 - EPS$1.param
-                : 1
-            : offset
-                ? EPS$1.param
-                : 0;
         pathSegmentTangentAtInto(seg, t0, tangent);
         if (directionFlag) {
             tangent[0] = -tangent[0];
@@ -2162,21 +2432,73 @@ function sortOutgoingEdgesByAngle({ vertices }) {
     for (const vertex of vertices) {
         if (getOrder(vertex) > 2) {
             const angleCache = new WeakMap();
-            for (let i = 0; i < vertex.outgoingEdges.length; i++) {
-                const edge = vertex.outgoingEdges[i];
-                angleCache.set(edge, getIncidenceAngle(edge));
+            /*
+             The tie-break step has to be one distance shared by every edge at
+             this vertex, otherwise each edge would be sampled somewhere
+             different along its own curve and the comparison would be
+             meaningless. Deriving it from the slowest parametrization keeps
+             the step at EPS.param for that edge — the size the tie-break has
+             always used — and shrinks it proportionally for the rest.
+            */
+            let minSpeed = Infinity;
+            for (const edge of vertex.outgoingEdges) {
+                const speed = getIncidenceSpeed(edge);
+                if (speed > 0)
+                    minSpeed = Math.min(minSpeed, speed);
+            }
+            const tieBreakDistance = Number.isFinite(minSpeed)
+                ? EPS$1.param * minSpeed
+                : EPS$1.param;
+            /*
+             Two keys per edge: the direction it leaves in, and how far it has
+             turned by the time it has gone `tieBreakDistance` along itself.
+             The turn is the curvature, and it is what orders edges that leave
+             in the same direction.
+
+             The turn is compared on its own rather than as part of the
+             offset angle, because the two share whatever error the direction
+             carries and subtracting cancels it. Where a tangency cannot be
+             located exactly — the contact between a circle and the cubic that
+             approximates it can only be pinned to about 1e-7 along the curve —
+             the directions of the two curves at the vertex differ by around
+             6e-10 while their curvatures differ by only 5e-11. Comparing
+             offset angles lets that 6e-10 decide, and it has no geometric
+             meaning: it orders the pair backwards, and the faces traced from
+             it come out wrong.
+            */
+            const turnCache = new WeakMap();
+            for (const edge of vertex.outgoingEdges) {
+                const primary = getIncidenceAngle(edge);
+                angleCache.set(edge, primary);
+                turnCache.set(edge, normalizeAngle(getIncidenceAngle(edge, tieBreakDistance) - primary));
             }
             vertex.outgoingEdges.sort((a, b) => {
+                const turnA = turnCache.get(a);
+                const turnB = turnCache.get(b);
+                /*
+                 Directions count as the same when they differ by less than
+                 either edge turns over that step: below that the measurement
+                 cannot tell a genuine corner from the error in placing the
+                 vertex, and curvature is the better discriminator. Straight
+                 edges turn by nothing, so ANGLE_MIN_DIFF floors it and they
+                 are ordered by direction as before.
+                */
+                const tolerance = Math.max(ANGLE_MIN_DIFF, Math.abs(turnA), Math.abs(turnB));
                 const diff = angleCache.get(a) - angleCache.get(b);
-                if (Math.abs(diff) > ANGLE_MIN_DIFF)
+                if (Math.abs(diff) > tolerance)
                     return diff;
-                return getIncidenceAngle(a, true) - getIncidenceAngle(b, true);
+                return turnA - turnB;
             });
         }
         for (let i = 0; i < vertex.outgoingEdges.length; i++) {
             vertex.outgoingEdges[i].indexInVertex = i;
         }
     }
+}
+/* Into (-pi, pi], so a turn across the branch cut is not read as a full circle. */
+function normalizeAngle(angle) {
+    const wrapped = (((angle + Math.PI) % TAU_ANGLE) + TAU_ANGLE) % TAU_ANGLE;
+    return wrapped - Math.PI;
 }
 function getNextEdge(edge) {
     const { outgoingEdges } = edge.incidentVertices[1];
@@ -2226,6 +2548,29 @@ function computePointWinding(polygon, testedPoint) {
     }
     return winding;
 }
+/*
+ Which way round a face is traced, by the signed area of its sampled outline.
+
+ In a planar subdivision every inner face is traced one way and the single
+ outer face the other, so the sign identifies it. This is measured rather than
+ the winding about an interior point because a face can be far thinner than
+ the sampling: each lens between a circle and the cubic approximating it is
+ 0.785 long and 2.7e-4 wide, against a sample spacing of 0.0123. At that aspect
+ the two sampled sides cross each other, the winding about a point picked from
+ three consecutive samples is a coin toss, and three of eight identical lenses
+ came out claiming to be outer faces. The area of the same crossed-over outline
+ is still the area of the lens, to the sign that matters here.
+*/
+const faceSignedArea = memoizeWeak((face) => {
+    const polygon = faceToPolygon(face);
+    let total = 0;
+    for (let i = 0; i < polygon.length; i++) {
+        const a = polygon[i];
+        const b = polygon[(i + 1) % polygon.length];
+        total += a[0] * b[1] - b[0] * a[1];
+    }
+    return total / 2;
+});
 const computeWinding = memoizeWeak((face) => {
     const polygon = faceToPolygon(face);
     for (let i = 0; i < polygon.length; i++) {
@@ -2305,6 +2650,8 @@ function computeDual({ edges, cycles }) {
         outerFace.incidentEdges.push(outerHalfEdge);
         newVertices.push(innerFace, outerFace);
     }
+    // Inner faces come out negative under this tracing, the outer one positive.
+    const isOuterFace = (face) => faceSignedArea(face) > 0;
     const components = [];
     const visitedVertices = new WeakSet();
     const visitedEdges = new WeakSet();
@@ -2330,7 +2677,7 @@ function computeDual({ edges, cycles }) {
             }
         };
         visit(vertex);
-        const outerFace = componentVertices.find((face) => computeWinding(face).winding < 0);
+        const outerFace = componentVertices.find(isOuterFace);
         components.push({
             vertices: componentVertices,
             edges: componentEdges,
@@ -2343,7 +2690,7 @@ function boundingBoxIntersectsHorizontalRay(boundingBox, point) {
     return (intervalCrossesPoint(boundingBox.top, boundingBox.bottom, point[1]) &&
         boundingBox.right >= point[0]);
 }
-function pathSegmentHorizontalRayIntersectionCount(origSeg, point, totalBoundingBox = pathSegmentBoundingBox(origSeg)) {
+function pathSegmentHorizontalRayIntersectionCount(origSeg, point, eps, totalBoundingBox = pathSegmentBoundingBox(origSeg)) {
     if (!boundingBoxIntersectsHorizontalRay(totalBoundingBox, point))
         return 0;
     let segments = [
@@ -2364,7 +2711,7 @@ function pathSegmentHorizontalRayIntersectionCount(origSeg, point, totalBounding
         const nextSegments = [];
         for (const { boundingBox, seg } of segments) {
             if (isNearlyLinearSegment(seg) ||
-                boundingBoxMaxExtent(boundingBox) < EPS$1.linear) {
+                boundingBoxMaxExtent(boundingBox) < eps.linear) {
                 if (lineSegmentIntersectsHorizontalRay(getStartPoint(seg), getEndPoint(seg), point)) {
                     count++;
                 }
@@ -2418,21 +2765,21 @@ const getComponentBoundingBox = memoizeWeak((component) => {
     }
     return boundingBox;
 });
-function boundingBoxContainsPoint(boundingBox, point) {
-    return (point[0] >= boundingBox.left - EPS$1.point &&
-        point[0] <= boundingBox.right + EPS$1.point &&
-        point[1] >= boundingBox.top - EPS$1.point &&
-        point[1] <= boundingBox.bottom + EPS$1.point);
+function boundingBoxContainsPoint(boundingBox, point, eps) {
+    return (point[0] >= boundingBox.left - eps.point &&
+        point[0] <= boundingBox.right + eps.point &&
+        point[1] >= boundingBox.top - eps.point &&
+        point[1] <= boundingBox.bottom + eps.point);
 }
 function boundingBoxArea({ top, right, bottom, left }) {
     return (right - left) * (bottom - top);
 }
-function findContainingFace(component, testedPoint) {
+function findContainingFace(component, testedPoint, eps) {
     // TODO: Intersection counting will fail if a curve touches the horizontal line but doesn't go through.
     for (const face of component.vertices) {
         if (face === component.outerFace)
             continue;
-        if (!boundingBoxContainsPoint(getFaceBoundingBox(face), testedPoint)) {
+        if (!boundingBoxContainsPoint(getFaceBoundingBox(face), testedPoint, eps)) {
             continue;
         }
         let count = 0;
@@ -2440,14 +2787,14 @@ function findContainingFace(component, testedPoint) {
             if (!boundingBoxIntersectsHorizontalRay(boundingBox, testedPoint)) {
                 continue;
             }
-            count += pathSegmentHorizontalRayIntersectionCount(seg, testedPoint, boundingBox);
+            count += pathSegmentHorizontalRayIntersectionCount(seg, testedPoint, eps, boundingBox);
         }
         if (count % 2 === 1)
             return face;
     }
     return null;
 }
-function computeNestingTree(components) {
+function computeNestingTree(components, eps) {
     if (components.length === 0) {
         return [];
     }
@@ -2475,7 +2822,7 @@ function computeNestingTree(components) {
     const roots = [];
     for (const entry of info) {
         const point = entry.interiorPoint;
-        const queryBox = boundingBoxAroundPoint(point, EPS$1.point);
+        const queryBox = boundingBoxAroundPoint(point, eps.point);
         const candidateIds = componentTree.find(queryBox);
         let bestParent = null;
         let bestFace = null;
@@ -2483,10 +2830,10 @@ function computeNestingTree(components) {
             if (candidateId === entry.index)
                 continue;
             const candidate = info[candidateId];
-            if (!boundingBoxContainsPoint(candidate.boundingBox, point)) {
+            if (!boundingBoxContainsPoint(candidate.boundingBox, point, eps)) {
                 continue;
             }
-            const face = findContainingFace(candidate.component, point);
+            const face = findContainingFace(candidate.component, point, eps);
             if (!face)
                 continue;
             if (!bestParent || candidate.area < bestParent.area) {
@@ -2705,14 +3052,24 @@ class PathBoolean {
     constructor(inputs) {
         const pathCount = inputs.length;
         const unsplitEdges = inputs.flatMap(({ path }, i) => path.map(segmentToEdge(pathCount, i)));
+        /*
+         Length-valued tolerances scale with how big the geometry is; see
+         epsilonsForExtent. Measured before anything is split, so that every
+         stage of a run shares one set of values.
+        */
+        let inputBoundingBox = null;
+        for (const { seg } of unsplitEdges) {
+            inputBoundingBox = mergeBoundingBoxes(inputBoundingBox, pathSegmentBoundingBox(seg));
+        }
+        const eps = epsilonsForExtent(inputBoundingBox ? boundingBoxMaxExtent(inputBoundingBox) : 0);
         splitAtSelfIntersections(unsplitEdges);
-        const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(unsplitEdges);
+        const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(unsplitEdges, eps);
         if (!totalBoundingBox) {
             // input geometry is empty
             this.nestingTrees = [];
             return;
         }
-        const majorGraph = findVertices(splitEdges, totalBoundingBox);
+        const majorGraph = findVertices(splitEdges, totalBoundingBox, eps);
         // console.log(majorGraphToDot(majorGraph));
         const minorGraph = computeMinor(majorGraph);
         // console.log(minorGraphToDot(minorGraph.edges));
@@ -2722,7 +3079,7 @@ class PathBoolean {
         sortOutgoingEdgesByAngle(minorGraph);
         const dualGraphComponents = computeDual(minorGraph);
         // console.log(dualGraphToDot(dualGraphComponents));
-        const nestingTrees = computeNestingTree(dualGraphComponents);
+        const nestingTrees = computeNestingTree(dualGraphComponents, eps);
         // console.log(nestingTrees.length, nestingTreesToDot(nestingTrees));
         flagFaces(nestingTrees, inputs.map(({ fillRule }) => fillRule));
         this.nestingTrees = nestingTrees;
