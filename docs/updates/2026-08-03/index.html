@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>path-bool — correctness work, 3 August 2026</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #16181d;
+    --muted: #5c6370;
+    --rule: #e3e6ea;
+    --panel: #f7f8fa;
+    --accent: #c8102e;
+    --good: #1a7f37;
+    --bad: #b42318;
+    --code-bg: #f2f4f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --fg: #e6e8eb;
+      --muted: #99a1ad;
+      --rule: #262b33;
+      --panel: #161a21;
+      --accent: #ff5b73;
+      --good: #4ac26b;
+      --bad: #ff7b72;
+      --code-bg: #1a1f27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 96px; }
+  header { border-bottom: 2px solid var(--fg); padding-bottom: 24px; margin-bottom: 40px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+  h2 {
+    font-size: 22px; margin: 56px 0 6px; letter-spacing: -0.01em;
+    padding-bottom: 8px; border-bottom: 1px solid var(--rule);
+  }
+  h3 { font-size: 17px; margin: 36px 0 4px; }
+  h3 .tag {
+    font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 3px 6px; margin-left: 8px; vertical-align: 2px; letter-spacing: 0.04em;
+  }
+  p { margin: 12px 0; }
+  .lede { font-size: 17px; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 18px 0; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  td.num, th.num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  tr.total td { border-top: 2px solid var(--fg); border-bottom: none; font-weight: 700; }
+  .scroll { overflow-x: auto; }
+  .good { color: var(--good); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 600; }
+  figure { margin: 20px 0 8px; }
+  .trip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .trip.two { grid-template-columns: repeat(2, 1fr); max-width: 640px; }
+  @media (max-width: 700px) { .trip, .trip.two { grid-template-columns: 1fr; } }
+  .shot { border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: #fff; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot .cap {
+    font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 7px 10px; border-top: 1px solid var(--rule);
+    background: var(--panel); color: var(--muted);
+  }
+  .shot .cap.before { color: var(--bad); }
+  .shot .cap.after { color: var(--good); }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 8px; padding: 14px 18px; margin: 18px 0;
+  }
+  .panel p:first-child { margin-top: 0; }
+  .panel p:last-child { margin-bottom: 0; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  .note { border-left: 3px solid var(--accent); padding-left: 14px; color: var(--muted); font-size: 14.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Correctness work on <span class="mono">path-bool</span></h1>
+</header>
+
+<p class="lede">
+  Every defect below produced a wrong answer silently — no exception, no warning, just an
+  incorrect region. Most were found by a generated fixture corpus added at the start of this
+  branch, checked against three independent oracles. Two were found only because a fix for one
+  defect exposed another underneath it.
+</p>
+
+<h2>Summary</h2>
+
+<div class="scroll">
+<table>
+  <thead>
+    <tr><th>Defect</th><th>Trigger</th><th>Symptom</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Order dependence</td><td>Two inputs sharing a collinear edge</td><td>Intersection returned a whole input shape when the arguments were swapped</td></tr>
+    <tr><td>Tangency abort</td><td>Two curves touching at a point</td><td>Every operation failed</td></tr>
+    <tr><td>float32 truncation</td><td>Any rotated arc</td><td>~9 digits lost; tangent circles merged into one</td></tr>
+    <tr><td>Degrees as radians</td><td>Any rotated arc</td><td>Wrong geometry; one case 500× slower</td></tr>
+    <tr><td>Angle ill-conditioning</td><td>Repeated curve subdivision</td><td>Error grew to 2% by depth 25; heavy slowdown throughout</td></tr>
+    <tr><td>Arc bounds ignore rotation</td><td>Arc spanning an axis extreme</td><td>Bounds up to 20× too large, and could omit part of the arc</td></tr>
+    <tr><td>Cubic bounds miss extremes</td><td>Any symmetric cubic</td><td>Bounds excluded the curve's own apex</td></tr>
+    <tr><td>Loops read as degenerate</td><td>Self-intersecting path</td><td>The loop was invisible to intersection</td></tr>
+    <tr><td>Fixed tolerances</td><td>Drawing smaller than ~50 units</td><td>Output loops left open; areas off by 0.4%</td></tr>
+    <tr><td>Repeated crossing reports</td><td>Curves meeting at a shallow angle</td><td>146 intersections where 8 exist; 54 degenerate faces</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Performance</h2>
+
+<p>
+  Measured on the production bundle, best of five runs per operation, all six operations per
+  fixture. The <b>real-world set</b> is the 25 hand-made fixtures that predate this branch —
+  ordinary icon and logo artwork, unchanged by the work.
+</p>
+
+<div class="panel">
+  <dl class="kv">
+    <dt>Real-world set, total</dt><dd>508.8 ms → 497.6 ms &nbsp;(<span class="good">0.98×</span>)</dd>
+    <dt>Per-fixture, geometric mean</dt><dd><span class="bad">1.03×</span> — a 3% median slowdown</dd>
+    <dt>Failures</dt><dd>0 before, 0 after</dd>
+  </dl>
+</div>
+
+<p>
+  Net cost on ordinary content is negligible. The additional work per crossing is offset by a
+  much better-conditioned angle computation, which reduced subdivision depth across the board.
+  Individual fixtures move in both directions.
+</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Fixture</th><th class="num">Before (ms)</th><th class="num">After (ms)</th><th class="num">Ratio</th></tr></thead>
+  <tbody>
+    <tr><td>real-02</td><td class="num">228.69</td><td class="num">224.12</td><td class="num">0.98</td></tr>
+    <tr><td>nesting-05</td><td class="num">144.87</td><td class="num">133.70</td><td class="num">0.92</td></tr>
+    <tr><td>real-01</td><td class="num">39.19</td><td class="num">35.05</td><td class="num">0.89</td></tr>
+    <tr><td>simple-04</td><td class="num">11.03</td><td class="num">11.21</td><td class="num">1.02</td></tr>
+    <tr><td>dangling-01</td><td class="num">9.40</td><td class="num">10.18</td><td class="num">1.08</td></tr>
+    <tr><td>nesting-03</td><td class="num">8.31</td><td class="num">9.63</td><td class="num">1.16</td></tr>
+    <tr><td>simple-03</td><td class="num">8.09</td><td class="num">9.83</td><td class="num">1.22</td></tr>
+    <tr><td>dangling-02</td><td class="num">7.14</td><td class="num">8.08</td><td class="num">1.13</td></tr>
+    <tr><td>simple-01</td><td class="num">5.72</td><td class="num">6.54</td><td class="num">1.14</td></tr>
+    <tr><td>simple-08</td><td class="num">5.54</td><td class="num">4.87</td><td class="num">0.88</td></tr>
+    <tr><td>nesting-01</td><td class="num">5.07</td><td class="num">5.60</td><td class="num">1.11</td></tr>
+    <tr><td>simple-06</td><td class="num">5.01</td><td class="num">6.56</td><td class="num">1.31</td></tr>
+    <tr><td>dangling-04</td><td class="num">4.65</td><td class="num">5.32</td><td class="num">1.14</td></tr>
+    <tr><td>simple-05</td><td class="num">4.57</td><td class="num">5.27</td><td class="num">1.15</td></tr>
+    <tr><td>nesting-02</td><td class="num">4.10</td><td class="num">4.26</td><td class="num">1.04</td></tr>
+    <tr><td>real-03</td><td class="num">3.87</td><td class="num">4.14</td><td class="num">1.07</td></tr>
+    <tr><td>simple-07</td><td class="num">3.69</td><td class="num">4.00</td><td class="num">1.09</td></tr>
+    <tr><td>nesting-04</td><td class="num">2.84</td><td class="num">2.63</td><td class="num">0.93</td></tr>
+    <tr><td>dangling-03</td><td class="num">2.58</td><td class="num">2.52</td><td class="num">0.98</td></tr>
+    <tr><td>touching-02</td><td class="num">1.14</td><td class="num">0.93</td><td class="num">0.82</td></tr>
+    <tr><td>degenerate-02</td><td class="num">1.10</td><td class="num">1.05</td><td class="num">0.96</td></tr>
+    <tr><td>degenerate-03</td><td class="num">0.81</td><td class="num">0.59</td><td class="num">0.73</td></tr>
+    <tr><td>simple-02</td><td class="num">0.67</td><td class="num">0.59</td><td class="num">0.87</td></tr>
+    <tr><td>touching-01</td><td class="num">0.46</td><td class="num">0.76</td><td class="num">1.65</td></tr>
+    <tr><td>degenerate-01</td><td class="num">0.20</td><td class="num">0.16</td><td class="num">0.82</td></tr>
+    <tr class="total"><td>Total</td><td class="num">508.8</td><td class="num">497.6</td><td class="num">0.98</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Extremes</h3>
+
+<p>Outside ordinary artwork the changes move performance sharply in both directions.</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Case</th><th class="num">Before</th><th class="num">After</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Rounded rect × rotated ellipse</td>
+      <td class="num">1084 ms</td><td class="num">2.2 ms</td>
+      <td><span class="good">493× faster</span>, and the answer was wrong before</td>
+    </tr>
+    <tr>
+      <td>Circle × its cubic approximation</td>
+      <td class="num">123 ms</td><td class="num">649 ms</td>
+      <td><span class="bad">5.3× slower</span>, and the answer was garbage before</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p class="note">
+  The second is a deliberate trade. That case previously produced 54 zero-area faces in 123 ms;
+  it now produces the correct 9 faces in 649 ms. The extra time is spent resolving crossings
+  between two curves that run within a whisker of each other along their whole length. It remains
+  the one known-slow case and is tracked as such.
+</p>
+
+<h2>Defects</h2>
+
+<h3>1 · Swapping the inputs changed the answer<span class="tag">d86ea91</span></h3>
+<p>
+  Where two inputs shared part of a boundary, the result depended on argument order. Two 2×2
+  squares meeting along an edge: intersection was correctly empty one way round, and returned an
+  entire input square the other. Union and difference agreed both ways, which is why the hand
+  fixtures never caught it.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-shared-edge-swapped.png" alt="Two squares meeting along a shared edge"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-shared-edge-swapped-intersection.png" alt="Intersection returning a whole square"><div class="cap before">Before — intersection, area 4</div></div>
+    <div class="shot"><img src="img/after-shared-edge-swapped-intersection.png" alt="Empty intersection"><div class="cap after">After — empty</div></div>
+  </div>
+  <figcaption>
+    <code>intersection(B, A)</code>. The squares meet along an edge and share no area, so the
+    result must be empty. Exclusion was affected the same way: 4 instead of 8.
+  </figcaption>
+</figure>
+
+<h3>2 · Curves touching at a point aborted the operation<span class="tag">e98f1bc</span></h3>
+<p>
+  Two circles tangent at a single point failed every operation — externally or internally
+  tangent, at any position or scale. Tangency is common in real artwork: fillets, inscribed
+  shapes, anything constructed by snapping.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-tangent-external.png" alt="Two circles touching at one point"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-tangent-external-union.png" alt="No output"><div class="cap before">Before — operation failed</div></div>
+    <div class="shot"><img src="img/after-tangent-external-union.png" alt="Union of two tangent circles"><div class="cap after">After — union, area 2π</div></div>
+  </div>
+  <figcaption>
+    Union of two externally tangent unit circles: 6.283146 against an exact 2π = 6.283185, and
+    fracture correctly returns two faces. The internally tangent case gives π and π/4.
+  </figcaption>
+</figure>
+
+<h3>3 · Arc geometry was truncated to float32<span class="tag">b0f091a</span></h3>
+<p>
+  Matrices came from a library that allocates single precision by default, costing roughly nine
+  digits on every arc. An unrotated arc is unaffected, so this stayed hidden. A rotated arc no
+  longer passed through its own stated endpoint, missing it by ~1.7e-8 — enough to make two
+  tangent circles merge into one.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-tangent-rotated.png" alt="Two rotated tangent circles"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-tangent-rotated-union.png" alt="Union showing only one circle"><div class="cap before">Before — area 3.14 (one circle)</div></div>
+    <div class="shot"><img src="img/after-tangent-rotated-union.png" alt="Union showing both circles"><div class="cap after">After — area 6.28 (both)</div></div>
+  </div>
+  <figcaption>
+    The same tangent pair as above, rotated 21.2°. The union lost an entire circle.
+  </figcaption>
+</figure>
+
+<h3>4 · Rotated arcs were sampled in the wrong units<span class="tag">44bb7c4</span></h3>
+<p>
+  Two places passed a rotation in degrees to routines expecting radians, so an arc at 30° was
+  placed as though rotated by 30 radians. Sampling and splitting a rotated arc returned points
+  that were not on the curve. Both sites carried a comment suspecting the sign; the defect was
+  the unit.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-rotated-ellipse.png" alt="Rounded rectangle overlapping a rotated ellipse"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-rotated-ellipse-union.png" alt="Malformed union"><div class="cap before">Before — 1084 ms, area 6.93</div></div>
+    <div class="shot"><img src="img/after-rotated-ellipse-union.png" alt="Correct union"><div class="cap after">After — 2.2 ms, area 7.95</div></div>
+  </div>
+  <figcaption>
+    Rounded rectangle against a rotated ellipse. The union dropped the ellipse entirely. The
+    misplaced sub-arcs also defeated the pruning that keeps intersection finding cheap, which is
+    where the 493× came from.
+  </figcaption>
+</figure>
+<p>
+  The same defect made rotated circles that plainly overlap come out disjoint — sampling placed
+  each on its own circle but at the wrong angle.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-circles-rotated.png" alt="Two overlapping rotated circles"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-circles-rotated-intersection.png" alt="Empty intersection"><div class="cap before">Before — intersection empty</div></div>
+    <div class="shot"><img src="img/after-circles-rotated-intersection.png" alt="Lens-shaped intersection"><div class="cap after">After — area 0.847182</div></div>
+  </div>
+  <figcaption>
+    Union came to exactly the sum of the two areas (2π), the signature of two shapes treated as
+    disjoint. Fracture returned 2 faces where 3 are required.
+  </figcaption>
+</figure>
+
+<h3>5 · Angle recovery was ill-conditioned<span class="tag">ce2e76a</span></h3>
+<p>
+  Angles were recovered with a function whose relative error grows as the angle shrinks. Curve
+  subdivision re-derives these at every level, so the error compounded: halving a quarter circle,
+  the recovered sweep was off by 1.4e-8 at depth 15 and <b>1.9e-2 at depth 25</b>, and by depth 29
+  the recovery failed outright.
+</p>
+<p>
+  Beyond accuracy, bounds that stop shrinking stop the intersection finder pruning. Correcting
+  this cut the full test suite from 205 s to 98 s — a tax that had been spread across every case,
+  not just the two that were visibly slow.
+</p>
+
+<h3>6 · Arc bounds ignored the arc's own rotation<span class="tag">3567f77</span></h3>
+<p>
+  Bounds for a circular arc depended on how the arc was written rather than where it is. With
+  identical geometry expressed at different rotations, the bounding box measured 0.74× the arc's
+  chord at most angles but <b>8.8× at 45° and 20.2× at 135°</b>. Over-large bounds only cost time;
+  the same defect could also <i>omit</i> part of an arc, and a bound that misses part of a curve
+  causes real crossings to be discarded silently. A randomised sweep found curve points up to
+  2.4 units outside their own bounds.
+</p>
+
+<h3>7 · Bounds excluded a symmetric curve's apex<span class="tag">f4e27ad</span></h3>
+<p>
+  Any cubic symmetric in one axis — an ordinary arch — had bounds covering only its endpoints.
+  A randomised sweep: <b>0 of 2000</b> arbitrary cubics escaped their bounds, against
+  <b>2000 of 2000</b> symmetric ones.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-symmetric-arch-zoom.png" alt="A disc straddling the apex of a symmetric arch"><div class="cap">Inputs (zoom at apex)</div></div>
+    <div class="shot"><img src="img/before-symmetric-arch-intersection-zoom.png" alt="Empty intersection"><div class="cap before">Before — empty</div></div>
+    <div class="shot"><img src="img/after-symmetric-arch-intersection-zoom.png" alt="Lens intersection"><div class="cap after">After — area 0.103510</div></div>
+  </div>
+  <figcaption>
+    A symmetric arch reaching y = 1.5 reported a bounding height of zero, so a disc straddling
+    its apex intersected nothing and the union came out as the plain sum of the two areas.
+  </figcaption>
+</figure>
+
+<h3>8 · A closed loop counted as a degenerate segment<span class="tag">117070b</span></h3>
+<p>
+  A curve whose endpoints coincide was treated as having no extent — but that is exactly what
+  splitting a self-intersecting path at its crossing produces. The loop collapsed to a point
+  everywhere: bounds, samples, and both halves when split.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-loop-cubic-zoom.png" alt="A circle cutting into the loop of a self-intersecting curve"><div class="cap">Inputs (zoom)</div></div>
+    <div class="shot"><img src="img/before-loop-cubic-intersection-zoom.png" alt="Empty intersection"><div class="cap before">Before — empty</div></div>
+    <div class="shot"><img src="img/after-loop-cubic-intersection-zoom.png" alt="Sliver intersection"><div class="cap after">After — area 0.045885</div></div>
+  </div>
+  <figcaption>
+    The loop was the only part of the self-intersecting path reaching into the circle, so with it
+    invisible the two shapes came out disjoint. Fracture returned 3 faces where 4 are required.
+  </figcaption>
+</figure>
+
+<h3>9 · Tolerances did not scale with the drawing<span class="tag">8dc4cf9</span></h3>
+<p>
+  The distance thresholds governing "same point" and "straight enough" were fixed constants,
+  correct for a drawing about 50 units across — the size the hand fixtures happen to be. Shrink
+  the same artwork and they stop working: curve subdivision halted while a chord still spanned
+  much of its arc, and output loops were left open by most of the width of the scene.
+</p>
+<div class="panel">
+  <dl class="kv">
+    <dt>Intersection area at 1e-3 scale</dt>
+    <dd>before 8.4369058e-7 · after 8.4718204e-7 · exact 8.4718800e-7 &nbsp;(<span class="bad">0.41% error</span>)</dd>
+    <dt>Union area at 1e-3 scale</dt>
+    <dd>before 5.4363355e-6 · after 5.4359731e-6 · exact 5.4359960e-6</dd>
+  </dl>
+</div>
+<p>
+  Thresholds now scale down with the input, and only down: detail density does not follow drawing
+  size, and scaling up broke a 900-unit fixture whose fine detail was swallowed. Results are now
+  identical to every digit across a 2<sup>15</sup> range of scales.
+</p>
+
+<h3>10 · One crossing reported many times over<span class="tag">b16dfbe · e971b4e</span></h3>
+<p>
+  Where two curves meet at a shallow angle, the finder cannot separate the crossing from its
+  surroundings and a whole run of neighbouring probes each report a hit. A circle against the
+  cubic that approximates it produced <b>146 crossings where 8 exist</b>. Each spurious one became
+  a vertex, an edge, and finally a sliver face.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-arc-vs-cubic.png" alt="A circle and its cubic approximation, visually identical"><div class="cap">Inputs (two near-identical circles)</div></div>
+    <div class="shot"><img src="img/before-arc-vs-cubic-fracture.png" alt="Fracture producing nothing visible"><div class="cap before">Before — 54 zero-area faces</div></div>
+    <div class="shot"><img src="img/after-arc-vs-cubic-fracture.png" alt="Fracture producing a filled disc"><div class="cap after">After — 9 faces, area 3.142467</div></div>
+  </div>
+  <figcaption>
+    Fracture must return the disc plus the eight slivers between the two outlines. Before, it
+    returned 54 degenerate faces enclosing no area at all — the render is empty.
+  </figcaption>
+</figure>
+<figure>
+  <div class="trip two">
+    <div class="shot"><img src="img/before-arc-vs-cubic-exclusion-zoom.png" alt="Empty frame where the sliver should be"><div class="cap before">Before — nothing returned here</div></div>
+    <div class="shot"><img src="img/after-arc-vs-cubic-exclusion-zoom.png" alt="The sliver between the two outlines"><div class="cap after">After — the sliver, ~2.7e-4 across</div></div>
+  </div>
+  <figcaption>
+    Exclusion, magnified 1080×, centred where the two outlines separate most widely (19.4° round
+    the circle, a gap of 2.7e-4). Exclusion should return exactly these eight slivers and nothing
+    else: total area 0.000880 after, against 0.000120 before. The inputs are not shown alongside
+    because at this magnification the renderer places the two outlines on the same pixels, though
+    it resolves the returned region between them without difficulty.
+  </figcaption>
+</figure>
+<p>
+  Collapsing the reports was not sufficient on its own. With the crossings correct, the contact
+  still had to be pinned to where the curves actually touch, edges leaving a vertex in the same
+  direction had to be ordered by curvature rather than by direction, and the outer boundary had to
+  be identified by a measure that survives an outline thinner than the sampling. All three were
+  required: with any one absent the case still lost faces.
+</p>
+
+<h2>Testing</h2>
+
+<p>
+  The corpus added at the head of this branch is the reason these were found. It sits between the
+  hand-made fixtures and the fuzzer: 55 generated cases, each existing for a nameable reason —
+  a shape pair crossed with a placement that stresses one specific behaviour (tangency, shared
+  edges, coincident vertices, fill rules, numeric conditioning).
+</p>
+<p>
+  The fixtures ship without expected output on purpose. Blessing the library's own output would
+  freeze whatever bugs it already had, so each suite brings an independent oracle:
+</p>
+<div class="scroll">
+<table>
+  <thead><tr><th>Suite</th><th>Oracle</th><th>Catches</th><th>Blind to</th></tr></thead>
+  <tbody>
+    <tr><td>Structural</td><td>none — shape only</td><td>crashes, hangs, open loops, non-determinism</td><td>anything well-formed but wrong</td></tr>
+    <tr><td>Algebraic</td><td>exact areas, identities between results</td><td>sub-pixel errors, order dependence</td><td>output that is consistently wrong</td></tr>
+    <tr><td>Raster</td><td>independent renderer, pixel set algebra</td><td>wrong regions, overlapping faces</td><td>features thinner than a pixel</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The complementarity was load-bearing, not theoretical. Order dependence was invisible to the
+  raster oracle, which only ran arguments one way round — and that way happened to be correct.
+  Conversely, when two overlapping circles were treated as disjoint, union and fracture were wrong
+  <i>in the same way</i>, so every algebraic identity balanced and only the pixels gave it away.
+</p>
+<p>
+  Alongside the corpus, five property suites now assert invariants directly rather than pinning
+  outputs: bounds contain their curve and are not much larger than it (arcs and cubics), results
+  are invariant under scale, crossings are neither duplicated nor merged, and closed loops behave
+  as curves. Each was verified to fail against the pre-fix code.
+</p>
+
+<h2>Known issue</h2>
+<p>
+  One case remains listed. A circle against the cubic that approximates it now produces entirely
+  correct geometry, but takes about 0.65 s per operation — the two outlines run within a whisker
+  of each other along their whole length, so the finder subdivides its way down the entire arc.
+  Recognising that two curves coincide within tolerance over a stretch, rather than bisecting
+  along it, is the remaining work.
+</p>
+
+</div>
+</body>
+</html>

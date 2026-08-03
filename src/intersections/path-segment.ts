@@ -20,6 +20,7 @@ import {
     PathSegment,
     pathSegmentBoundingBox,
     isNearlyLinearSegment,
+    samplePathSegmentAt,
     splitSegmentAt,
 } from "../primitives/PathSegment";
 import { createVector, Vector, vectorsEqual } from "../primitives/Vector";
@@ -197,11 +198,169 @@ const collinearLineSegmentIntersection = (() => {
     };
 })();
 
-export function pathSegmentIntersection(
+/* One reported crossing: where it lands on each curve, and how far apart the
+ two curves are at those parameters. */
+type Candidate = {
+    t0: number;
+    t1: number;
+    gap: number;
+};
+
+/*
+ Collapses the many reports a single crossing can generate back into one.
+
+ Where two curves meet at a shallow angle, subdivision cannot separate the
+ crossing from its surroundings: it keeps bisecting until the leaves are
+ straight enough to intersect as lines, and then a whole run of neighbouring
+ leaf pairs each report a hit. A circle against the cubic that approximates it
+ produced 146 points across the two paths where 8 are geometrically possible,
+ and every spurious one becomes a vertex, an edge, and eventually a sliver
+ face — that case ended up with 103 faces claiming to be the outer one.
+
+ Two reports are the same crossing when the curves stay within eps.point of
+ each other all the way between them. That asks the question directly, in the
+ terms the rest of the library already uses for whether two places are the
+ same place, and it distinguishes the two situations that matter: curves that
+ osculate stay together across the whole run of spurious reports, while curves
+ that cross transversally have pulled well apart before the next genuine
+ crossing.
+
+ Earlier attempts keyed on the subdivision's own leaves instead — their
+ adjacency, then their size as a measure of how well a report is placed. Both
+ failed, and in opposite directions. Leaves are far finer than the spread of
+ reports around an osculating contact, so grouping by them left it in pieces;
+ and they are far coarser than the true accuracy of a transversal crossing,
+ where the line-line solve inside the leaf is good to the leaf's sagitta
+ rather than its width, so grouping by them merged genuinely distinct
+ crossings in real-02 and lost five faces.
+
+ The representative is the report whose parameters put the two curves closest
+ together, not an average of the group. The split points these produce have to
+ land within eps.point of each other or the graph will not merge them into a
+ single vertex, and averaging across a group spanning 2.7e-4 breaks exactly
+ that.
+*/
+const SEPARATION_SAMPLES = 8;
+
+function staysTogether(
     seg0: PathSegment,
     seg1: PathSegment,
+    a: Candidate,
+    b: Candidate,
+    eps: Epsilons,
+): boolean {
+    for (let k = 1; k < SEPARATION_SAMPLES; k++) {
+        const s = k / SEPARATION_SAMPLES;
+        const p = samplePathSegmentAt(seg0, lerp(a.t0, b.t0, s));
+        const q = samplePathSegmentAt(seg1, lerp(a.t1, b.t1, s));
+        if (Math.hypot(p[0] - q[0], p[1] - q[1]) > eps.point) return false;
+    }
+    return true;
+}
+
+function groupCandidates(
+    seg0: PathSegment,
+    seg1: PathSegment,
+    candidates: Candidate[],
     eps: Epsilons,
 ): [number, number][] {
+    if (candidates.length <= 1) {
+        return candidates.map((c) => [c.t0, c.t1]);
+    }
+
+    const sorted = [...candidates].sort((a, b) => a.t0 - b.t0);
+    const groups: Candidate[][] = [[sorted[0]]];
+    for (let i = 1; i < sorted.length; i++) {
+        const group = groups[groups.length - 1];
+        const previous = group[group.length - 1];
+        if (staysTogether(seg0, seg1, previous, sorted[i], eps)) {
+            group.push(sorted[i]);
+        } else {
+            groups.push([sorted[i]]);
+        }
+    }
+
+    return groups.map(
+        (group) => refineContact(seg0, seg1, group) as [number, number],
+    );
+}
+
+/*
+ Pins a grouped contact down to where the curves actually meet.
+
+ The reports in a group are scattered along the run the subdivision could not
+ resolve, and the nearest of them can still sit well off the true contact: on
+ the circle-against-its-own-cubic case the best report of one group was 2.4e-5
+ away from the tangency. That is small, but splitting both curves there rather
+ than at the contact leaves them crossing at a shallow angle instead of
+ touching, and the incidence angles at the resulting vertex then differ by
+ 1.4e-7 — far too much for the sort to recognize as a tie, so it orders them on
+ that instead of on curvature and traces the faces wrongly.
+
+ The group brackets the contact, so a golden-section search along the straight
+ correspondence between its outermost reports finds it. Only groups with
+ something to refine are touched: a single report comes from a leaf pair that
+ crossed squarely, where the line-line solve inside the leaf is already as good
+ as this could be.
+*/
+const REFINE_STEPS = 40;
+const INV_GOLDEN = (Math.sqrt(5) - 1) / 2;
+
+function refineContact(
+    seg0: PathSegment,
+    seg1: PathSegment,
+    group: Candidate[],
+): [number, number] {
+    let best = group[0];
+    for (const c of group) if (c.gap < best.gap) best = c;
+    if (group.length < 2) return [best.t0, best.t1];
+
+    // The group is in order of t0, so its ends bracket the contact.
+    const first = group[0];
+    const last = group[group.length - 1];
+    const at = (s: number): Candidate => {
+        const t0 = lerp(first.t0, last.t0, s);
+        const t1 = lerp(first.t1, last.t1, s);
+        const p = samplePathSegmentAt(seg0, t0);
+        const q = samplePathSegmentAt(seg1, t1);
+        return { t0, t1, gap: Math.hypot(p[0] - q[0], p[1] - q[1]) };
+    };
+
+    let lo = 0;
+    let hi = 1;
+    let c = hi - INV_GOLDEN * (hi - lo);
+    let d = lo + INV_GOLDEN * (hi - lo);
+    let fc = at(c);
+    let fd = at(d);
+    for (let i = 0; i < REFINE_STEPS; i++) {
+        if (fc.gap < fd.gap) {
+            hi = d;
+            d = c;
+            fd = fc;
+            c = hi - INV_GOLDEN * (hi - lo);
+            fc = at(c);
+        } else {
+            lo = c;
+            c = d;
+            fc = fd;
+            d = lo + INV_GOLDEN * (hi - lo);
+            fd = at(d);
+        }
+    }
+
+    const refined = fc.gap < fd.gap ? fc : fd;
+    return refined.gap < best.gap
+        ? [refined.t0, refined.t1]
+        : [best.t0, best.t1];
+}
+
+export function pathSegmentIntersection(
+    origSeg0: PathSegment,
+    origSeg1: PathSegment,
+    eps: Epsilons,
+): [number, number][] {
+    const seg0 = origSeg0;
+    const seg1 = origSeg1;
     if (seg0[0] === "L" && seg1[0] === "L") {
         const segLine0: [Vector, Vector] = [seg0[1], seg0[2]];
         const segLine1: [Vector, Vector] = [seg1[1], seg1[2]];
@@ -234,7 +393,7 @@ export function pathSegmentIntersection(
         ],
     ];
 
-    const params: [number, number][] = [];
+    const candidates: Candidate[] = [];
 
     function pushLineSegmentIntersection(
         seg0: IntersectionSegment,
@@ -244,10 +403,15 @@ export function pathSegmentIntersection(
         const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
         const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps);
         if (st) {
-            params.push([
-                lerp(seg0.startParam, seg0.endParam, st[0]),
-                lerp(seg1.startParam, seg1.endParam, st[1]),
-            ]);
+            const t0 = lerp(seg0.startParam, seg0.endParam, st[0]);
+            const t1 = lerp(seg1.startParam, seg1.endParam, st[1]);
+            const p = samplePathSegmentAt(origSeg0, t0);
+            const q = samplePathSegmentAt(origSeg1, t1);
+            candidates.push({
+                t0,
+                t1,
+                gap: Math.hypot(p[0] - q[0], p[1] - q[1]),
+            });
         }
     }
 
@@ -319,5 +483,5 @@ export function pathSegmentIntersection(
         pairs = nextPairs;
     }
 
-    return params;
+    return groupCandidates(origSeg0, origSeg1, candidates, eps);
 }

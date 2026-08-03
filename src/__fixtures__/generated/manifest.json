@@ -1,0 +1,888 @@
+{
+    "generatorVersion": 1,
+    "generator": "scripts/generate-corpus.mjs",
+    "renderSize": 512,
+    "caseCount": 55,
+    "cases": [
+        {
+            "id": "overlap/01-circle-arc-x-circle-arc",
+            "category": "overlap",
+            "name": "01-circle-arc-x-circle-arc",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/02-circle-arc-x-circle-cubic",
+            "category": "overlap",
+            "name": "02-circle-arc-x-circle-cubic",
+            "shapes": [
+                "circle-arc",
+                "circle-cubic"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/03-square-x-circle-arc",
+            "category": "overlap",
+            "name": "03-square-x-circle-arc",
+            "shapes": [
+                "square",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/04-triangle-x-square",
+            "category": "overlap",
+            "name": "04-triangle-x-square",
+            "shapes": [
+                "triangle",
+                "square"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/05-round-rect-x-ellipse-rot",
+            "category": "overlap",
+            "name": "05-round-rect-x-ellipse-rot",
+            "shapes": [
+                "round-rect",
+                "ellipse-rot"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/06-quad-blob-x-circle-cubic",
+            "category": "overlap",
+            "name": "06-quad-blob-x-circle-cubic",
+            "shapes": [
+                "quad-blob",
+                "circle-cubic"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/07-comb-x-square",
+            "category": "overlap",
+            "name": "07-comb-x-square",
+            "shapes": [
+                "comb",
+                "square"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/08-c-shape-x-circle-arc",
+            "category": "overlap",
+            "name": "08-c-shape-x-circle-arc",
+            "shapes": [
+                "c-shape",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/09-annulus-x-square",
+            "category": "overlap",
+            "name": "09-annulus-x-square",
+            "shapes": [
+                "annulus",
+                "square"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/10-pentagram-x-circle-arc",
+            "category": "overlap",
+            "name": "10-pentagram-x-circle-arc",
+            "shapes": [
+                "pentagram",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/11-cusp-cubic-x-square",
+            "category": "overlap",
+            "name": "11-cusp-cubic-x-square",
+            "shapes": [
+                "cusp-cubic",
+                "square"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "overlap/12-loop-cubic-x-circle-arc",
+            "category": "overlap",
+            "name": "12-loop-cubic-x-circle-arc",
+            "shapes": [
+                "loop-cubic",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "generic transversal overlap"
+        },
+        {
+            "id": "touching/01-tangent-external",
+            "category": "touching",
+            "name": "01-tangent-external",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "tangent-external",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "circles meet at the single point (1, 0)"
+        },
+        {
+            "id": "touching/02-tangent-internal",
+            "category": "touching",
+            "name": "02-tangent-internal",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "tangent-internal",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "smaller circle touches the inside of the larger at (1, 0)"
+        },
+        {
+            "id": "touching/03-vertex-on-vertex",
+            "category": "touching",
+            "name": "03-vertex-on-vertex",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "vertex-on-vertex",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "squares share exactly the corner (1, 1)"
+        },
+        {
+            "id": "touching/04-vertex-on-edge",
+            "category": "touching",
+            "name": "04-vertex-on-edge",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "vertex-on-edge",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "rotated square touches the middle of A's right edge with a vertex"
+        },
+        {
+            "id": "touching/05-edge-shared-full",
+            "category": "touching",
+            "name": "05-edge-shared-full",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "edge-shared-full",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "collinear overlap along the whole of the edge x = 1"
+        },
+        {
+            "id": "touching/06-edge-shared-partial",
+            "category": "touching",
+            "name": "06-edge-shared-partial",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "edge-shared-partial",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "collinear overlap along half of the edge x = 1"
+        },
+        {
+            "id": "touching/07-edge-shared-inside",
+            "category": "touching",
+            "name": "07-edge-shared-inside",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "edge-shared-inside",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "B's whole left edge lies strictly inside A's right edge"
+        },
+        {
+            "id": "nesting/01-circle-in-circle",
+            "category": "nesting",
+            "name": "01-circle-in-circle",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "circle-in-circle",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "B strictly inside A"
+        },
+        {
+            "id": "nesting/02-circle-around-circle",
+            "category": "nesting",
+            "name": "02-circle-around-circle",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "circle-around-circle",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "A strictly inside B (the reverse nesting order)"
+        },
+        {
+            "id": "nesting/03-square-in-circle",
+            "category": "nesting",
+            "name": "03-square-in-circle",
+            "shapes": [
+                "circle-arc",
+                "square"
+            ],
+            "placement": "square-in-circle",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "straight-edged island inside a curved boundary"
+        },
+        {
+            "id": "nesting/04-circle-in-square",
+            "category": "nesting",
+            "name": "04-circle-in-square",
+            "shapes": [
+                "square",
+                "circle-arc"
+            ],
+            "placement": "circle-in-square",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "curved island inside a straight boundary"
+        },
+        {
+            "id": "nesting/05-circle-in-annulus-hole",
+            "category": "nesting",
+            "name": "05-circle-in-annulus-hole",
+            "shapes": [
+                "annulus",
+                "circle-arc"
+            ],
+            "placement": "circle-in-annulus-hole",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "B sits in A's hole, touching nothing: two levels of nesting"
+        },
+        {
+            "id": "nesting/06-circle-spanning-annulus",
+            "category": "nesting",
+            "name": "06-circle-spanning-annulus",
+            "shapes": [
+                "annulus",
+                "circle-arc"
+            ],
+            "placement": "circle-spanning-annulus",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "B crosses both rings of the annulus"
+        },
+        {
+            "id": "coincident/01-identical-circle",
+            "category": "coincident",
+            "name": "01-identical-circle",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "identical-circle",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "every edge of A coincides with an edge of B"
+        },
+        {
+            "id": "coincident/02-identical-square-reversed",
+            "category": "coincident",
+            "name": "02-identical-square-reversed",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "identical-square-reversed",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "same boundary, opposite winding"
+        },
+        {
+            "id": "coincident/03-identical-pentagram-evenodd",
+            "category": "coincident",
+            "name": "03-identical-pentagram-evenodd",
+            "shapes": [
+                "pentagram",
+                "pentagram"
+            ],
+            "placement": "identical-pentagram-evenodd",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "conditioning": "origin",
+            "note": "coincident boundaries that are themselves self-intersecting"
+        },
+        {
+            "id": "coincident/04-arc-vs-cubic-circle",
+            "category": "coincident",
+            "name": "04-arc-vs-cubic-circle",
+            "shapes": [
+                "circle-arc",
+                "circle-cubic"
+            ],
+            "placement": "arc-vs-cubic-circle",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "same nominal circle, two representations, ~2.7e-4 apart: near-coincident but not equal"
+        },
+        {
+            "id": "coincident/05-offset-1e-9-square",
+            "category": "coincident",
+            "name": "05-offset-1e-9-square",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "offset-1e-9-square",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "offset below EPS.point: edges should merge"
+        },
+        {
+            "id": "coincident/06-offset-1e-12-circle",
+            "category": "coincident",
+            "name": "06-offset-1e-12-circle",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "offset-1e-12-circle",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "offset at the edge of double precision for unit coordinates"
+        },
+        {
+            "id": "disjoint/01-square-and-circle",
+            "category": "disjoint",
+            "name": "01-square-and-circle",
+            "shapes": [
+                "square",
+                "circle-arc"
+            ],
+            "placement": "square-and-circle",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "separated shapes: intersection is empty, union has two components"
+        },
+        {
+            "id": "disjoint/02-annulus-and-square",
+            "category": "disjoint",
+            "name": "02-annulus-and-square",
+            "shapes": [
+                "annulus",
+                "square"
+            ],
+            "placement": "annulus-and-square",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "a hole-bearing component alongside a separate solid one"
+        },
+        {
+            "id": "fill-rule/01-pentagram-x-circle-nonzero-nonzero",
+            "category": "fill-rule",
+            "name": "01-pentagram-x-circle-nonzero-nonzero",
+            "shapes": [
+                "pentagram",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "self-intersecting A read as nonzero, B as nonzero"
+        },
+        {
+            "id": "fill-rule/02-pentagram-x-circle-nonzero-evenodd",
+            "category": "fill-rule",
+            "name": "02-pentagram-x-circle-nonzero-evenodd",
+            "shapes": [
+                "pentagram",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "conditioning": "origin",
+            "note": "self-intersecting A read as nonzero, B as evenodd"
+        },
+        {
+            "id": "fill-rule/03-pentagram-x-circle-evenodd-nonzero",
+            "category": "fill-rule",
+            "name": "03-pentagram-x-circle-evenodd-nonzero",
+            "shapes": [
+                "pentagram",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "self-intersecting A read as evenodd, B as nonzero"
+        },
+        {
+            "id": "fill-rule/04-pentagram-x-circle-evenodd-evenodd",
+            "category": "fill-rule",
+            "name": "04-pentagram-x-circle-evenodd-evenodd",
+            "shapes": [
+                "pentagram",
+                "circle-arc"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "conditioning": "origin",
+            "note": "self-intersecting A read as evenodd, B as evenodd"
+        },
+        {
+            "id": "fill-rule/05-annulus-x-square-nonzero",
+            "category": "fill-rule",
+            "name": "05-annulus-x-square-nonzero",
+            "shapes": [
+                "annulus",
+                "square"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "opposing-winding subpaths read as nonzero"
+        },
+        {
+            "id": "fill-rule/06-annulus-x-square-evenodd",
+            "category": "fill-rule",
+            "name": "06-annulus-x-square-evenodd",
+            "shapes": [
+                "annulus",
+                "square"
+            ],
+            "placement": "overlap",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "opposing-winding subpaths read as evenodd"
+        },
+        {
+            "id": "degenerate/01-spike-vs-square",
+            "category": "degenerate",
+            "name": "01-spike-vs-square",
+            "shapes": [
+                "degenerate-spike",
+                "square"
+            ],
+            "placement": "spike-vs-square",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "zero-area spike protruding from an otherwise ordinary square"
+        },
+        {
+            "id": "degenerate/02-spike-through-boundary",
+            "category": "degenerate",
+            "name": "02-spike-through-boundary",
+            "shapes": [
+                "degenerate-spike",
+                "square"
+            ],
+            "placement": "spike-through-boundary",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the spike is crossed by B's boundary"
+        },
+        {
+            "id": "degenerate/03-parallel-lines",
+            "category": "degenerate",
+            "name": "03-parallel-lines",
+            "shapes": [
+                "zero-area-line",
+                "zero-area-line"
+            ],
+            "placement": "parallel-lines",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "two wholly zero-area paths, not touching"
+        },
+        {
+            "id": "degenerate/04-crossing-lines",
+            "category": "degenerate",
+            "name": "04-crossing-lines",
+            "shapes": [
+                "zero-area-line",
+                "zero-area-line"
+            ],
+            "placement": "crossing-lines",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "two wholly zero-area paths crossing at the origin"
+        },
+        {
+            "id": "conditioning/01-overlap-circles-far",
+            "category": "conditioning",
+            "name": "01-overlap-circles-far",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "overlap-circles",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "far",
+            "note": "overlap-circles, translated to 1e6, where EPS.point is close to float noise"
+        },
+        {
+            "id": "conditioning/01-overlap-circles-small",
+            "category": "conditioning",
+            "name": "01-overlap-circles-small",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "overlap-circles",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "small",
+            "note": "overlap-circles, scaled to 1e-3, where features are smaller than EPS.linear"
+        },
+        {
+            "id": "conditioning/01-overlap-circles-large",
+            "category": "conditioning",
+            "name": "01-overlap-circles-large",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "overlap-circles",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "large",
+            "note": "overlap-circles, scaled to 1e3"
+        },
+        {
+            "id": "conditioning/01-overlap-circles-rotated",
+            "category": "conditioning",
+            "name": "01-overlap-circles-rotated",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "overlap-circles",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "rotated",
+            "note": "overlap-circles, rotated off-axis, so nothing is axis-aligned any more"
+        },
+        {
+            "id": "conditioning/02-tangent-external-far",
+            "category": "conditioning",
+            "name": "02-tangent-external-far",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "tangent-external",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "far",
+            "note": "tangent-external, translated to 1e6, where EPS.point is close to float noise"
+        },
+        {
+            "id": "conditioning/02-tangent-external-small",
+            "category": "conditioning",
+            "name": "02-tangent-external-small",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "tangent-external",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "small",
+            "note": "tangent-external, scaled to 1e-3, where features are smaller than EPS.linear"
+        },
+        {
+            "id": "conditioning/02-tangent-external-large",
+            "category": "conditioning",
+            "name": "02-tangent-external-large",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "tangent-external",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "large",
+            "note": "tangent-external, scaled to 1e3"
+        },
+        {
+            "id": "conditioning/02-tangent-external-rotated",
+            "category": "conditioning",
+            "name": "02-tangent-external-rotated",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "tangent-external",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "rotated",
+            "note": "tangent-external, rotated off-axis, so nothing is axis-aligned any more"
+        },
+        {
+            "id": "conditioning/03-edge-shared-full-far",
+            "category": "conditioning",
+            "name": "03-edge-shared-full-far",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "edge-shared-full",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "far",
+            "note": "edge-shared-full, translated to 1e6, where EPS.point is close to float noise"
+        },
+        {
+            "id": "conditioning/03-edge-shared-full-small",
+            "category": "conditioning",
+            "name": "03-edge-shared-full-small",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "edge-shared-full",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "small",
+            "note": "edge-shared-full, scaled to 1e-3, where features are smaller than EPS.linear"
+        },
+        {
+            "id": "conditioning/03-edge-shared-full-large",
+            "category": "conditioning",
+            "name": "03-edge-shared-full-large",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "edge-shared-full",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "large",
+            "note": "edge-shared-full, scaled to 1e3"
+        },
+        {
+            "id": "conditioning/03-edge-shared-full-rotated",
+            "category": "conditioning",
+            "name": "03-edge-shared-full-rotated",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "edge-shared-full",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "rotated",
+            "note": "edge-shared-full, rotated off-axis, so nothing is axis-aligned any more"
+        }
+    ]
+}

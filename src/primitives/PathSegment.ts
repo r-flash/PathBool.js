@@ -49,6 +49,30 @@ type PathArcSegmentCenterParametrization = {
     phi: number;
 };
 
+/*
+ gl-matrix allocates its matrices as Float32Array unless the host application
+ changes ARRAY_TYPE globally, which a library has no business doing — a
+ consumer may be feeding the same gl-matrix straight into WebGL buffers and
+ want float32.
+
+ Float32 costs about nine digits, and everything here flows through these
+ matrices. An arc's rotation matrix rounded to float32 shifts the recovered
+ centre parametrization by ~1e-8, which is enormous next to EPS.param: the arc
+ then no longer passes through its own stated endpoint, and its tangent at
+ that endpoint is wrong by the same order. That is far bigger than the
+ differences the incidence-angle sort has to resolve, so tangent curves ended
+ up ordered wrongly around a vertex.
+
+ The identity initializers match what mat2.create()/mat2d.create() return.
+*/
+function createMat2(): mat2 {
+    return new Float64Array([1, 0, 0, 1]);
+}
+
+function createMat2d(): mat2d {
+    return new Float64Array([1, 0, 0, 1, 0, 0]);
+}
+
 function isFiniteNumber(value: number): boolean {
     return Number.isFinite(value);
 }
@@ -90,7 +114,20 @@ export function isNearlyLinearSegment(
     const b = getEndPoint(seg);
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
-    if (dx * dx + dy * dy <= eps * eps) return true;
+    /*
+     Coincident endpoints do not make a curve degenerate. A cubic that closes
+     on itself is a loop -- exactly what splitting at a self-intersection
+     produces -- and it can enclose as much area as it likes. Treating one as
+     linear collapsed it to a point everywhere: its bounding box, every sample
+     of it, its tangent, and its halves when split.
+
+     For a line and for an arc it really is degenerate, though; SVG omits an
+     arc whose endpoints coincide. The Q and C cases below need no separate
+     test, because pointLineDistance measures from the start point when the
+     chord has no length, so a curve whose control points sit on top of its
+     endpoints is still reported as linear.
+    */
+    const chordIsDegenerate = dx * dx + dy * dy <= eps * eps;
 
     switch (seg[0]) {
         case "L":
@@ -104,6 +141,7 @@ export function isNearlyLinearSegment(
             );
         case "A":
             return (
+                chordIsDegenerate ||
                 !Number.isFinite(seg[2]) ||
                 !Number.isFinite(seg[3]) ||
                 Math.abs(seg[2]) <= eps ||
@@ -158,7 +196,7 @@ export function reversePathSegment(seg: PathSegment): PathSegment {
 
 export const arcSegmentToCenter = (() => {
     const xy1Prime = createVector();
-    const rotationMatrix = mat2.create();
+    const rotationMatrix = createMat2();
     const addend = createVector();
     const cxy = createVector();
 
@@ -257,7 +295,7 @@ export const arcSegmentToCenter = (() => {
 export const arcSegmentFromCenter = (() => {
     const xy1 = createVector();
     const xy2 = createVector();
-    const rotationMatrix = mat2.create();
+    const rotationMatrix = createMat2();
 
     return function arcSegmentFromCenter({
         center,
@@ -268,7 +306,11 @@ export const arcSegmentFromCenter = (() => {
         phi,
     }: PathArcSegmentCenterParametrization): PathArcSegment {
         // https://svgwg.org/svg2-draft/implnote.html#ArcConversionCenterToEndpoint
-        mat2.fromRotation(rotationMatrix, phi); // TODO: sign (also in sampleAt)
+        // `phi` is in degrees, as everywhere else in a PathArcSegment, while
+        // fromRotation takes radians. Rotating by phi directly puts the arc
+        // somewhere else entirely — invisibly so at phi = 0, which is why only
+        // rotated arcs were affected.
+        mat2.fromRotation(rotationMatrix, deg2rad(phi));
 
         vec2.set(xy1, rx * Math.cos(theta1), ry * Math.sin(theta1));
         vec2.transformMat2(xy1, xy1, rotationMatrix);
@@ -337,7 +379,8 @@ export const samplePathSegmentAtInto = (() => {
                     centerParametrization;
                 const theta = theta1 + t * deltaTheta;
                 vec2.set(p, rx * Math.cos(theta), ry * Math.sin(theta));
-                vec2.rotate(p, p, [0, 0], phi); // TODO: sign (also in fromCenter)
+                // Degrees to radians, as in arcSegmentFromCenter above.
+                vec2.rotate(p, p, [0, 0], deg2rad(phi));
                 vec2.add(p, p, center);
                 break;
             }
@@ -443,8 +486,8 @@ export const pathSegmentTangentAt = (() => {
 })();
 
 export const arcSegmentToCubics = (() => {
-    const fromUnit = mat2d.create();
-    const matrix = mat2d.create();
+    const fromUnit = createMat2d();
+    const matrix = createMat2d();
 
     return function arcSegmentToCubics(
         arc: PathArcSegment,
@@ -516,31 +559,47 @@ function cubicBoundingInterval(p0: number, p1: number, p2: number, p3: number) {
     let min = Math.min(p0, p3);
     let max = Math.max(p0, p3);
 
+    function consider(t: number) {
+        if (!(0 < t && t < 1)) return;
+        const x = evalCubic1d(p0, p1, p2, p3, t);
+        min = Math.min(min, x);
+        max = Math.max(max, x);
+    }
+
+    // The derivative, a*t^2 + b*t + c, whose roots are the interior extremes.
     const a = 3 * (-p0 + 3 * p1 - 3 * p2 + p3);
     const b = 6 * (p0 - 2 * p1 + p2);
     const c = 3 * (p1 - p0);
-    const D = b * b - 4 * a * c;
 
-    if (D < 0 || a === 0) {
-        // TODO: if a=0, solve linear
+    /*
+     `a` vanishes whenever 3*(p1 - p2) === p0 - p3, which every cubic that is
+     symmetric in this coordinate satisfies — p1 === p2 with p0 === p3. That is
+     an ordinary shape, not a corner case: any symmetric arch or loop.
+
+     Rounding leaves `a` at about 1e-16 rather than exactly zero, so the old
+     `a === 0` test never fired and the quadratic formula went ahead and
+     divided by the noise. For the control values -0.6, 1.4, 1.4, -0.6 it
+     returned t = 0.889 where the extreme is at 0.5, and the interval came back
+     as -0.6 .. -0.0074 for a curve reaching 0.9. Comparing `a` against the
+     other coefficients instead of against zero is what makes the test mean
+     anything; below that the derivative is linear and has one root.
+    */
+    if (Math.abs(a) <= 1e-12 * Math.max(Math.abs(b), Math.abs(c))) {
+        if (b !== 0) consider(-c / b);
         return [min, max];
     }
 
-    const sqrtD = Math.sqrt(D);
+    const D = b * b - 4 * a * c;
+    if (D < 0) return [min, max];
 
-    const t0 = (-b - sqrtD) / (2 * a);
-    if (0 < t0 && t0 < 1) {
-        const x0 = evalCubic1d(p0, p1, p2, p3, t0);
-        min = Math.min(min, x0);
-        max = Math.max(max, x0);
-    }
-
-    const t1 = (-b + sqrtD) / (2 * a);
-    if (0 < t1 && t1 < 1) {
-        const x1 = evalCubic1d(p0, p1, p2, p3, t1);
-        min = Math.min(min, x1);
-        max = Math.max(max, x1);
-    }
+    /*
+     Solved through `q` rather than by the schoolbook formula twice: taking
+     both roots as (-b +- sqrt(D)) / 2a subtracts two nearly equal numbers for
+     whichever sign opposes b, and loses most of that root's precision.
+    */
+    const q = -0.5 * (b + (b < 0 ? -1 : 1) * Math.sqrt(D));
+    consider(q / a);
+    if (q !== 0) consider(c / q);
 
     return [min, max];
 }
@@ -574,6 +633,22 @@ function quadraticBoundingInterval(p0: number, p1: number, p2: number) {
 function inInterval(x: number, x0: number, x1: number) {
     const mapped = (x - x0) / (x1 - x0);
     return 0 <= mapped && mapped <= 1;
+}
+
+/*
+ Whether an arc sweeping from `theta1` to `theta2` passes through `target`,
+ which is an angle in the same measure, up to whole turns.
+
+ A sweep is at most one full turn, so at most one representative of `target`
+ can fall inside it: lift `target` to the first one at or above the low end
+ and ask whether it is still below the high end. That replaces testing a
+ couple of hand-picked representatives, which could not cover every way a
+ sweep straddles the branch cut.
+*/
+function sweepContainsAngle(target: number, theta1: number, theta2: number) {
+    const lo = Math.min(theta1, theta2);
+    const hi = Math.max(theta1, theta2);
+    return target + TAU * Math.ceil((lo - target) / TAU) <= hi;
 }
 
 export function pathSegmentBoundingBox(seg: PathSegment): AABB {
@@ -644,42 +719,33 @@ export function pathSegmentBoundingBox(seg: PathSegment): AABB {
                     boundingBoxAroundPoint(seg[1], 0),
                     seg[7],
                 );
-                // FIXME: the following gives false positives, resulting in larger boxes
-                if (
-                    inInterval(-Math.PI, theta1, theta2) ||
-                    inInterval(Math.PI, theta1, theta2)
-                ) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0] - rx,
-                        center[1],
-                    ]);
-                }
-                if (
-                    inInterval(-Math.PI / 2, theta1, theta2) ||
-                    inInterval((3 * Math.PI) / 2, theta1, theta2)
-                ) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0],
-                        center[1] - ry,
-                    ]);
-                }
-                if (
-                    inInterval(0, theta1, theta2) ||
-                    inInterval(2 * Math.PI, theta1, theta2)
-                ) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0] + rx,
-                        center[1],
-                    ]);
-                }
-                if (
-                    inInterval(Math.PI / 2, theta1, theta2) ||
-                    inInterval((5 * Math.PI) / 2, theta1, theta2)
-                ) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0],
-                        center[1] + ry,
-                    ]);
+                /*
+                 The four axis extremes, as angles in the parametrization's
+                 own frame.
+
+                 With rx === ry the parametrization angle is measured in the
+                 ellipse's frame and only then turned by phi, so the extreme
+                 the world sees at angle a is reached at a - phi. Testing the
+                 unturned angles let a small arc claim an extreme it never
+                 goes near: written with phi = 45 a circle's arc came out with
+                 a box 8.8 times its own chord, and 20 times at phi = 135.
+                 Boxes that big are still correct, but they stop the
+                 intersection finder pruning anything.
+
+                 phi is 0 in the other case this branch handles, so the offset
+                 simply vanishes there.
+                */
+                const offset = deg2rad(phi);
+                const extremes: [number, Vector][] = [
+                    [Math.PI - offset, [center[0] - rx, center[1]]],
+                    [-Math.PI / 2 - offset, [center[0], center[1] - ry]],
+                    [-offset, [center[0] + rx, center[1]]],
+                    [Math.PI / 2 - offset, [center[0], center[1] + ry]],
+                ];
+                for (const [angle, point] of extremes) {
+                    if (sweepContainsAngle(angle, theta1, theta2)) {
+                        boundingBox = extendBoundingBox(boundingBox, point);
+                    }
                 }
                 return expandBoundingBox(boundingBox, 1e-11); // TODO: get rid of expansion
             }

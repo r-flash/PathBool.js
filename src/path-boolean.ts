@@ -14,10 +14,13 @@ import {
     ANGLE_MIN_DIFF,
     DEV_ASSERTS,
     EPS,
+    Epsilons,
+    epsilonsForExtent,
     MAX_INTERSECTION_PAIRS,
     MAX_SUBDIVISION_ITERS,
     MAX_SUBSEGMENTS_PER_ORIG_SEGMENT,
     MAX_TANGENT_SAMPLE_ITERS,
+    MAX_TIE_BREAK_PARAM_STEP,
     TANGENT_MIN_LEN_SQ,
 } from "./config";
 import { pathCubicSegmentSelfIntersection } from "./intersections/path-cubic-segment-self-intersection";
@@ -48,6 +51,8 @@ import { createVector, Vector, vectorsEqual } from "./primitives/Vector";
 import { countIf, hasOwn, memoizeWeak } from "./util/generic";
 import { map } from "./util/iterators";
 import { linMap } from "./util/math";
+
+const TAU_ANGLE = 2 * Math.PI;
 
 const INTERSECTION_TREE_DEPTH = 8;
 const POINT_TREE_DEPTH = 8;
@@ -244,6 +249,31 @@ function orBooleansInto(target: boolean[], source: boolean[]) {
     }
 }
 
+/*
+ Records how a path joining an already-created edge is oriented relative to it.
+
+ `directionFlags[i]` means "path i's own segment runs against this half-edge",
+ so the two half-edges always hold opposite values for any path on the edge.
+ `againstForward` says which way round the joining path goes.
+
+ Only the joining path's slots are written. Assigning the whole array would
+ wipe the orientations of the paths already sharing the edge, which is what
+ made Intersection and Exclusion depend on the order of the inputs wherever
+ two paths shared a collinear edge.
+*/
+function setDirectionFlags(
+    existingEdge: [MajorGraphEdgeStage2, MajorGraphEdge, MajorGraphEdge],
+    parents: boolean[],
+    againstForward: boolean,
+) {
+    const [, forward, backward] = existingEdge;
+    for (let i = 0; i < parents.length; i++) {
+        if (!parents[i]) continue;
+        forward.directionFlags[i] = againstForward;
+        backward.directionFlags[i] = !againstForward;
+    }
+}
+
 function createObjectCounter(): (obj: Object) => number {
     let i = 0;
     return memoizeWeak(() => i++);
@@ -256,7 +286,10 @@ function segmentToEdge(
     return (seg) => ({ seg, parents: makeParents(pathCount, index) });
 }
 
-function splitAtSelfIntersections(edges: MajorGraphEdgeStage1[]) {
+function splitAtSelfIntersections(
+    edges: MajorGraphEdgeStage1[],
+    eps: Epsilons,
+) {
     for (let i = 0; i < edges.length; i++) {
         const edge = edges[i];
         if (edge.seg[0] !== "C") continue;
@@ -300,7 +333,7 @@ function splitAtSelfIntersections(edges: MajorGraphEdgeStage1[]) {
     }
 }
 
-function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
+function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
     const withBoundingBox: MajorGraphEdgeStage2[] = edges.map((edge) => ({
         ...edge,
         boundingBox: pathSegmentBoundingBox(edge.seg),
@@ -339,7 +372,7 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
             const intersection = pathSegmentIntersection(
                 edge.seg,
                 candidate.seg,
-                EPS,
+                eps,
             );
             for (const [t0, t1] of intersection) {
                 addSplit(i, t0);
@@ -367,7 +400,10 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
             continue;
         }
         const splits = splitsPerEdge[i];
-        splits.sort();
+        // Numeric, not the default lexicographic sort: a parameter small
+        // enough to stringify in exponential form ("1e-7") would otherwise
+        // sort after "0.9" and the segment would be cut in the wrong order.
+        splits.sort((a, b) => a - b);
         if (splits.length + 1 > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
             splits.length = Math.max(0, MAX_SUBSEGMENTS_PER_ORIG_SEGMENT - 1);
         }
@@ -405,6 +441,7 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
 function findVertices(
     edges: MajorGraphEdgeStage2[],
     boundingBox: AABB,
+    eps: Epsilons,
 ): MajorGraph {
     const vertexTree = new QuadTree<MajorGraphVertex>(
         boundingBox,
@@ -414,7 +451,7 @@ function findVertices(
     const newVertices: MajorGraphVertex[] = [];
 
     function getVertex(point: Vector): MajorGraphVertex {
-        const box = boundingBoxAroundPoint(point, EPS.point);
+        const box = boundingBoxAroundPoint(point, eps.point);
         const existingVertices = vertexTree.find(box);
         if (existingVertices.size) {
             return firstElementOfSet(existingVertices);
@@ -464,20 +501,20 @@ function findVertices(
         const endPoint = getEndPoint(edge.seg);
 
         // discard zero-length segments before creating vertices
-        if (vectorsEqual(startPoint, endPoint, EPS.point)) {
+        if (vectorsEqual(startPoint, endPoint, eps.point)) {
             switch (edge.seg[0]) {
                 case "L":
                     return [];
                 case "C":
                     if (
-                        vectorsEqual(edge.seg[1], edge.seg[2], EPS.point) &&
-                        vectorsEqual(edge.seg[3], edge.seg[4], EPS.point)
+                        vectorsEqual(edge.seg[1], edge.seg[2], eps.point) &&
+                        vectorsEqual(edge.seg[3], edge.seg[4], eps.point)
                     ) {
                         return [];
                     }
                     break;
                 case "Q":
-                    if (vectorsEqual(edge.seg[1], edge.seg[2], EPS.point)) {
+                    if (vectorsEqual(edge.seg[1], edge.seg[2], eps.point)) {
                         return [];
                     }
                     break;
@@ -498,9 +535,15 @@ function findVertices(
         const existingEdges = getVertexPairEdges(startId, endId);
         if (existingEdges) {
             const existingEdge = existingEdges.find((other) =>
-                segmentsEqual(other[0].seg, edge.seg, EPS.point),
+                segmentsEqual(other[0].seg, edge.seg, eps.point),
             );
             if (existingEdge) {
+                // A shared edge traversed the same way round. The joining path
+                // runs along the forward half-edge and against the backward
+                // one, matching how a fresh edge pair is built below. Only the
+                // joining path's own slots are touched; the slots belonging to
+                // paths already on this edge keep their own orientation.
+                setDirectionFlags(existingEdge, edge.parents, false);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -511,7 +554,7 @@ function findVertices(
         if (existingEdgesInv) {
             const reversedSeg = reversePathSegment(edge.seg);
             const existingEdge = existingEdgesInv.find((other) =>
-                segmentsEqual(other[0].seg, reversedSeg, EPS.point),
+                segmentsEqual(other[0].seg, reversedSeg, eps.point),
             );
             if (existingEdge) {
                 if (booleanArraysEqual(existingEdge[0].parents, edge.parents)) {
@@ -519,15 +562,10 @@ function findVertices(
                     return [];
                 }
 
-                // A shared edge traversed in the opposite direction: for each
-                // path the new segment belongs to, mark membership and flag the
-                // half-edge as running against that path's orientation. This
-                // mirrors the original two-path `directionFlag{A,B} = parent ===
-                // …` assignment, which sets the per-path flag on both half-edges.
-                for (let i = 0; i < edge.parents.length; i++) {
-                    existingEdge[1].directionFlags[i] = edge.parents[i];
-                    existingEdge[2].directionFlags[i] = edge.parents[i];
-                }
+                // A shared edge traversed the opposite way round: the joining
+                // path runs along the backward half-edge and against the
+                // forward one.
+                setDirectionFlags(existingEdge, edge.parents, true);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -767,25 +805,64 @@ function removeDanglingEdges(graph: MinorGraph, pathCount: number) {
     graph.edges = graph.edges.filter(keepEdge);
 }
 
+/*
+ Parametric speed |P'| where an edge meets its vertex. Used to convert a
+ distance along the curve into a step in parameter space, so that edges whose
+ segments are parametrized at different rates can be stepped by the same arc
+ length.
+*/
+const getIncidenceSpeed = (() => {
+    const tangent = createVector();
+
+    return function getIncidenceSpeed({
+        directionFlag,
+        segments,
+    }: MinorGraphEdge) {
+        pathSegmentTangentAtInto(segments[0], directionFlag ? 1 : 0, tangent);
+        return Math.hypot(tangent[0], tangent[1]);
+    };
+})();
+
 const getIncidenceAngle = (() => {
     const p0 = createVector();
     const pNext = createVector();
     const tangent = createVector();
 
+    /*
+     `offsetDistance` breaks ties between edges that leave the vertex at the
+     same angle, by measuring the tangent a little way along the curve instead
+     of exactly at the vertex.
+
+     It is a distance, not a parameter step, and every edge at a vertex is
+     given the same one. Stepping by a fixed *parameter* cannot separate two
+     curves that are parametrized over the same angular span: two circles
+     meeting at an internal tangency are both drawn as quarter arcs, so a step
+     of EPS.param turns both tangents by exactly pi/2 * EPS.param no matter how
+     large the circles are, and the tie survives. Stepping by a fixed arc
+     length instead turns each by that length over its own radius, which is
+     precisely the curvature difference that distinguishes them.
+    */
     return function getIncidenceAngle(
-        { directionFlag, segments }: MinorGraphEdge,
-        offset = false,
+        edge: MinorGraphEdge,
+        offsetDistance = 0,
     ) {
+        const { directionFlag, segments } = edge;
         const seg = segments[0]; // TODO: explain in comment why this is always the incident one in both fwd and bwd
 
+        const tEnd = directionFlag ? 1 : 0;
+        let t0 = tEnd;
+        if (offsetDistance > 0) {
+            const speed = getIncidenceSpeed(edge);
+            // Cap the step so a slow parametrization cannot walk out of the
+            // segment and pick up an angle from somewhere else entirely.
+            const dt =
+                speed > 0
+                    ? Math.min(MAX_TIE_BREAK_PARAM_STEP, offsetDistance / speed)
+                    : EPS.param;
+            t0 = directionFlag ? 1 - dt : dt;
+        }
+
         // First attempt: analytical tangent
-        const t0 = directionFlag
-            ? offset
-                ? 1 - EPS.param
-                : 1
-            : offset
-              ? EPS.param
-              : 0;
         pathSegmentTangentAtInto(seg, t0, tangent);
         if (directionFlag) {
             tangent[0] = -tangent[0];
@@ -835,20 +912,82 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
     for (const vertex of vertices) {
         if (getOrder(vertex) > 2) {
             const angleCache = new WeakMap<MinorGraphEdge, number>();
-            for (let i = 0; i < vertex.outgoingEdges.length; i++) {
-                const edge = vertex.outgoingEdges[i];
-                angleCache.set(edge, getIncidenceAngle(edge));
+            /*
+             The tie-break step has to be one distance shared by every edge at
+             this vertex, otherwise each edge would be sampled somewhere
+             different along its own curve and the comparison would be
+             meaningless. Deriving it from the slowest parametrization keeps
+             the step at EPS.param for that edge — the size the tie-break has
+             always used — and shrinks it proportionally for the rest.
+            */
+            let minSpeed = Infinity;
+            for (const edge of vertex.outgoingEdges) {
+                const speed = getIncidenceSpeed(edge);
+                if (speed > 0) minSpeed = Math.min(minSpeed, speed);
+            }
+            const tieBreakDistance = Number.isFinite(minSpeed)
+                ? EPS.param * minSpeed
+                : EPS.param;
+
+            /*
+             Two keys per edge: the direction it leaves in, and how far it has
+             turned by the time it has gone `tieBreakDistance` along itself.
+             The turn is the curvature, and it is what orders edges that leave
+             in the same direction.
+
+             The turn is compared on its own rather than as part of the
+             offset angle, because the two share whatever error the direction
+             carries and subtracting cancels it. Where a tangency cannot be
+             located exactly — the contact between a circle and the cubic that
+             approximates it can only be pinned to about 1e-7 along the curve —
+             the directions of the two curves at the vertex differ by around
+             6e-10 while their curvatures differ by only 5e-11. Comparing
+             offset angles lets that 6e-10 decide, and it has no geometric
+             meaning: it orders the pair backwards, and the faces traced from
+             it come out wrong.
+            */
+            const turnCache = new WeakMap<MinorGraphEdge, number>();
+            for (const edge of vertex.outgoingEdges) {
+                const primary = getIncidenceAngle(edge);
+                angleCache.set(edge, primary);
+                turnCache.set(
+                    edge,
+                    normalizeAngle(
+                        getIncidenceAngle(edge, tieBreakDistance) - primary,
+                    ),
+                );
             }
             vertex.outgoingEdges.sort((a, b) => {
+                const turnA = turnCache.get(a)!;
+                const turnB = turnCache.get(b)!;
+                /*
+                 Directions count as the same when they differ by less than
+                 either edge turns over that step: below that the measurement
+                 cannot tell a genuine corner from the error in placing the
+                 vertex, and curvature is the better discriminator. Straight
+                 edges turn by nothing, so ANGLE_MIN_DIFF floors it and they
+                 are ordered by direction as before.
+                */
+                const tolerance = Math.max(
+                    ANGLE_MIN_DIFF,
+                    Math.abs(turnA),
+                    Math.abs(turnB),
+                );
                 const diff = angleCache.get(a)! - angleCache.get(b)!;
-                if (Math.abs(diff) > ANGLE_MIN_DIFF) return diff;
-                return getIncidenceAngle(a, true) - getIncidenceAngle(b, true);
+                if (Math.abs(diff) > tolerance) return diff;
+                return turnA - turnB;
             });
         }
         for (let i = 0; i < vertex.outgoingEdges.length; i++) {
             vertex.outgoingEdges[i].indexInVertex = i;
         }
     }
+}
+
+/* Into (-pi, pi], so a turn across the branch cut is not read as a full circle. */
+function normalizeAngle(angle: number): number {
+    const wrapped = (((angle + Math.PI) % TAU_ANGLE) + TAU_ANGLE) % TAU_ANGLE;
+    return wrapped - Math.PI;
 }
 
 function getNextEdge(edge: MinorGraphEdge) {
@@ -911,6 +1050,30 @@ function computePointWinding(polygon: Vector[], testedPoint: Vector) {
     }
     return winding;
 }
+
+/*
+ Which way round a face is traced, by the signed area of its sampled outline.
+
+ In a planar subdivision every inner face is traced one way and the single
+ outer face the other, so the sign identifies it. This is measured rather than
+ the winding about an interior point because a face can be far thinner than
+ the sampling: each lens between a circle and the cubic approximating it is
+ 0.785 long and 2.7e-4 wide, against a sample spacing of 0.0123. At that aspect
+ the two sampled sides cross each other, the winding about a point picked from
+ three consecutive samples is a coin toss, and three of eight identical lenses
+ came out claiming to be outer faces. The area of the same crossed-over outline
+ is still the area of the lens, to the sign that matters here.
+*/
+const faceSignedArea = memoizeWeak((face: DualGraphVertex) => {
+    const polygon = faceToPolygon(face);
+    let total = 0;
+    for (let i = 0; i < polygon.length; i++) {
+        const a = polygon[i];
+        const b = polygon[(i + 1) % polygon.length];
+        total += a[0] * b[1] - b[0] * a[1];
+    }
+    return total / 2;
+});
 
 const computeWinding = memoizeWeak((face: DualGraphVertex) => {
     const polygon = faceToPolygon(face);
@@ -1003,6 +1166,9 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
         newVertices.push(innerFace, outerFace);
     }
 
+    // Inner faces come out negative under this tracing, the outer one positive.
+    const isOuterFace = (face: DualGraphVertex) => faceSignedArea(face) > 0;
+
     const components: DualGraphComponent[] = [];
 
     const visitedVertices = new WeakSet<DualGraphVertex>();
@@ -1029,15 +1195,10 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
             }
         };
         visit(vertex);
-        const outerFace = componentVertices.find(
-            (face) => computeWinding(face).winding < 0,
-        );
+        const outerFace = componentVertices.find(isOuterFace);
         assertDefined(outerFace, "No outer face of a component found.");
         assertEqual(
-            countIf(
-                componentVertices,
-                (face) => computeWinding(face).winding < 0,
-            ),
+            countIf(componentVertices, isOuterFace),
             1,
             "Multiple outer faces found.",
         );
@@ -1064,6 +1225,7 @@ function boundingBoxIntersectsHorizontalRay(
 function pathSegmentHorizontalRayIntersectionCount(
     origSeg: PathSegment,
     point: Vector,
+    eps: Epsilons,
     totalBoundingBox: AABB = pathSegmentBoundingBox(origSeg),
 ): number {
     type IntersectionSegment = { boundingBox: AABB; seg: PathSegment };
@@ -1095,7 +1257,7 @@ function pathSegmentHorizontalRayIntersectionCount(
         for (const { boundingBox, seg } of segments) {
             if (
                 isNearlyLinearSegment(seg) ||
-                boundingBoxMaxExtent(boundingBox) < EPS.linear
+                boundingBoxMaxExtent(boundingBox) < eps.linear
             ) {
                 if (
                     lineSegmentIntersectsHorizontalRay(
@@ -1169,12 +1331,16 @@ const getComponentBoundingBox = memoizeWeak((component: DualGraphComponent) => {
     return boundingBox;
 });
 
-function boundingBoxContainsPoint(boundingBox: AABB, point: Vector): boolean {
+function boundingBoxContainsPoint(
+    boundingBox: AABB,
+    point: Vector,
+    eps: Epsilons,
+): boolean {
     return (
-        point[0] >= boundingBox.left - EPS.point &&
-        point[0] <= boundingBox.right + EPS.point &&
-        point[1] >= boundingBox.top - EPS.point &&
-        point[1] <= boundingBox.bottom + EPS.point
+        point[0] >= boundingBox.left - eps.point &&
+        point[0] <= boundingBox.right + eps.point &&
+        point[1] >= boundingBox.top - eps.point &&
+        point[1] <= boundingBox.bottom + eps.point
     );
 }
 
@@ -1185,11 +1351,18 @@ function boundingBoxArea({ top, right, bottom, left }: AABB): number {
 function findContainingFace(
     component: DualGraphComponent,
     testedPoint: Vector,
+    eps: Epsilons,
 ): DualGraphVertex | null {
     // TODO: Intersection counting will fail if a curve touches the horizontal line but doesn't go through.
     for (const face of component.vertices) {
         if (face === component.outerFace) continue;
-        if (!boundingBoxContainsPoint(getFaceBoundingBox(face), testedPoint)) {
+        if (
+            !boundingBoxContainsPoint(
+                getFaceBoundingBox(face),
+                testedPoint,
+                eps,
+            )
+        ) {
             continue;
         }
 
@@ -1201,6 +1374,7 @@ function findContainingFace(
             count += pathSegmentHorizontalRayIntersectionCount(
                 seg,
                 testedPoint,
+                eps,
                 boundingBox,
             );
         }
@@ -1210,7 +1384,10 @@ function findContainingFace(
     return null;
 }
 
-function computeNestingTree(components: DualGraphComponent[]): NestingTree[] {
+function computeNestingTree(
+    components: DualGraphComponent[],
+    eps: Epsilons,
+): NestingTree[] {
     type ComponentInfo = {
         index: number;
         component: DualGraphComponent;
@@ -1257,7 +1434,7 @@ function computeNestingTree(components: DualGraphComponent[]): NestingTree[] {
 
     for (const entry of info) {
         const point = entry.interiorPoint;
-        const queryBox = boundingBoxAroundPoint(point, EPS.point);
+        const queryBox = boundingBoxAroundPoint(point, eps.point);
         const candidateIds = componentTree.find(queryBox);
         let bestParent: ComponentInfo | null = null;
         let bestFace: DualGraphVertex | null = null;
@@ -1265,11 +1442,11 @@ function computeNestingTree(components: DualGraphComponent[]): NestingTree[] {
         for (const candidateId of candidateIds) {
             if (candidateId === entry.index) continue;
             const candidate = info[candidateId];
-            if (!boundingBoxContainsPoint(candidate.boundingBox, point)) {
+            if (!boundingBoxContainsPoint(candidate.boundingBox, point, eps)) {
                 continue;
             }
 
-            const face = findContainingFace(candidate.component, point);
+            const face = findContainingFace(candidate.component, point, eps);
             if (!face) continue;
 
             if (!bestParent || candidate.area < bestParent.area) {
@@ -1600,10 +1777,28 @@ export class PathBoolean {
             path.map(segmentToEdge(pathCount, i)),
         );
 
-        splitAtSelfIntersections(unsplitEdges);
+        /*
+         Length-valued tolerances scale with how big the geometry is; see
+         epsilonsForExtent. Measured before anything is split, so that every
+         stage of a run shares one set of values.
+        */
+        let inputBoundingBox: AABB | null = null;
+        for (const { seg } of unsplitEdges) {
+            inputBoundingBox = mergeBoundingBoxes(
+                inputBoundingBox,
+                pathSegmentBoundingBox(seg),
+            );
+        }
+        const eps = epsilonsForExtent(
+            inputBoundingBox ? boundingBoxMaxExtent(inputBoundingBox) : 0,
+        );
 
-        const { edges: splitEdges, totalBoundingBox } =
-            splitAtIntersections(unsplitEdges);
+        splitAtSelfIntersections(unsplitEdges, eps);
+
+        const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(
+            unsplitEdges,
+            eps,
+        );
 
         if (!totalBoundingBox) {
             // input geometry is empty
@@ -1611,7 +1806,7 @@ export class PathBoolean {
             return;
         }
 
-        const majorGraph = findVertices(splitEdges, totalBoundingBox);
+        const majorGraph = findVertices(splitEdges, totalBoundingBox, eps);
         assertMajorGraphInvariants(majorGraph);
         // console.log(majorGraphToDot(majorGraph));
 
@@ -1629,7 +1824,7 @@ export class PathBoolean {
         assertDualGraphInvariants(dualGraphComponents);
         // console.log(dualGraphToDot(dualGraphComponents));
 
-        const nestingTrees = computeNestingTree(dualGraphComponents);
+        const nestingTrees = computeNestingTree(dualGraphComponents, eps);
         // console.log(nestingTrees.length, nestingTreesToDot(nestingTrees));
 
         flagFaces(
