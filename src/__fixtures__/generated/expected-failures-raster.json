@@ -16,21 +16,23 @@
         "fracture": "Partition does not cover the region being partitioned at 1e6 coordinates."
     },
     "conditioning/01-overlap-circles-rotated": {
-        "difference": "Wrong pixels after an off-axis rotation of the same overlapping-circles case.",
-        "intersection": "Wrong pixels after an off-axis rotation of the same overlapping-circles case.",
-        "exclusion": "Wrong pixels after an off-axis rotation of the same overlapping-circles case.",
-        "fracture": "Fracture returns 2 overlapping faces instead of a 3-face partition (~7358 px double-covered)."
+        "union": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
+        "difference": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
+        "intersection": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
+        "exclusion": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
+        "division": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case).",
+        "fracture": "Arc subdivision degrades for rotated arcs: ~9s per operation. Output is correct (union 5.435996, intersection 0.847189, 3 fracture faces, matching the unrotated case)."
     },
     "conditioning/01-overlap-circles-small": {
         "fracture": "Fracture faces overlap at a 1e-3 scene scale: not a partition."
     },
-    "overlap/05-round-rect-x-ellipse-rot": {
-        "union": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
-        "difference": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
-        "intersection": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
-        "exclusion": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
-        "division": "Arc/arc intersection against a rotated ellipse takes ~25s per operation.",
-        "fracture": "Arc/arc intersection against a rotated ellipse takes ~25s per operation."
+    "conditioning/02-tangent-external-rotated": {
+        "union": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
+        "difference": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
+        "intersection": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
+        "exclusion": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
+        "division": "Arc subdivision degrades for rotated arcs: ~11s per operation.",
+        "fracture": "Arc subdivision degrades for rotated arcs: ~11s per operation."
     },
     "overlap/12-loop-cubic-x-circle-arc": {
         "difference": "Region around the cubic's self-intersection is omitted (~147 px).",

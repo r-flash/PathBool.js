@@ -292,7 +292,11 @@ export const arcSegmentFromCenter = (() => {
         phi,
     }: PathArcSegmentCenterParametrization): PathArcSegment {
         // https://svgwg.org/svg2-draft/implnote.html#ArcConversionCenterToEndpoint
-        mat2.fromRotation(rotationMatrix, phi); // TODO: sign (also in sampleAt)
+        // `phi` is in degrees, as everywhere else in a PathArcSegment, while
+        // fromRotation takes radians. Rotating by phi directly puts the arc
+        // somewhere else entirely — invisibly so at phi = 0, which is why only
+        // rotated arcs were affected.
+        mat2.fromRotation(rotationMatrix, deg2rad(phi));
 
         vec2.set(xy1, rx * Math.cos(theta1), ry * Math.sin(theta1));
         vec2.transformMat2(xy1, xy1, rotationMatrix);
@@ -361,7 +365,8 @@ export const samplePathSegmentAtInto = (() => {
                     centerParametrization;
                 const theta = theta1 + t * deltaTheta;
                 vec2.set(p, rx * Math.cos(theta), ry * Math.sin(theta));
-                vec2.rotate(p, p, [0, 0], phi); // TODO: sign (also in fromCenter)
+                // Degrees to radians, as in arcSegmentFromCenter above.
+                vec2.rotate(p, p, [0, 0], deg2rad(phi));
                 vec2.add(p, p, center);
                 break;
             }
