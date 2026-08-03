@@ -6,13 +6,5 @@
         "exclusion": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
         "division": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
         "fracture": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle."
-    },
-    "conditioning/01-overlap-circles-far": {
-        "union": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
-        "difference": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
-        "intersection": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
-        "exclusion": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
-        "division": "Partition does not cover the region being partitioned at 1e6 coordinates.",
-        "fracture": "Partition does not cover the region being partitioned at 1e6 coordinates."
     }
 }

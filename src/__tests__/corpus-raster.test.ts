@@ -128,19 +128,69 @@ function renderMask(svgCode: string): Mask {
 }
 
 /*
- Builds an SVG that keeps the fixture's width/height/viewBox but replaces its
- paths. Results are always filled non-zero: the pipeline is supposed to emit
- outer boundaries and holes with opposing orientation, so a hole that only
- shows up under even-odd is an orientation bug worth failing on.
+ Everything is drawn with the viewBox moved to the origin.
+
+ resvg cannot resolve geometry sitting at a large offset: rendering one
+ fixture's already-computed result at 1e6 disagreed with its own inputs on 105
+ pixels, and rendering the identical numbers translated to the origin
+ disagreed on none. That is the rasterizer, not the library, and without this
+ the oracle reports a defect that is entirely its own.
+
+ The shift is applied equally to the inputs, the result and the viewBox, so
+ what the comparison means is unchanged — and the library still does its work
+ at the original coordinates, which is the thing under test.
 */
-function withPaths(code: string, paths: Path[]): string {
+function viewBoxShift(code: string): [number, number] {
+    const vb = cheerio
+        .load(code, { xml: true })("svg")
+        .attr("viewBox")!
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number);
+    return [-vb[0], -vb[1]];
+}
+
+function shiftPath(path: Path, [dx, dy]: [number, number]): Path {
+    const at = (v: readonly number[]) =>
+        [v[0] + dx, v[1] + dy] as [number, number];
+    return path.map((seg) => {
+        switch (seg[0]) {
+            case "L":
+                return ["L", at(seg[1]), at(seg[2])];
+            case "Q":
+                return ["Q", at(seg[1]), at(seg[2]), at(seg[3])];
+            case "C":
+                return ["C", at(seg[1]), at(seg[2]), at(seg[3]), at(seg[4])];
+            case "A":
+                return [
+                    "A",
+                    at(seg[1]),
+                    seg[2],
+                    seg[3],
+                    seg[4],
+                    seg[5],
+                    seg[6],
+                    at(seg[7]),
+                ];
+        }
+    }) as Path;
+}
+
+function shiftedSvg(code: string, paths: Path[]): string {
+    const shift = viewBoxShift(code);
     const $ = cheerio.load(code, { xml: true });
     const $svg = $("svg");
+    const vb = $svg
+        .attr("viewBox")!
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number);
+    $svg.attr("viewBox", `0 0 ${vb[2]} ${vb[3]}`);
     $("path").remove();
     for (const p of paths) {
         $svg.append(
             `<path style="fill:#ff0000;fill-rule:nonzero" d="${PathBool.pathToPathData(
-                p,
+                shiftPath(p, shift),
                 1e-6,
             )}"/>`,
         );
@@ -148,10 +198,26 @@ function withPaths(code: string, paths: Path[]): string {
     return $.html();
 }
 
+/*
+ Results are always filled non-zero: the pipeline is supposed to emit outer
+ boundaries and holes with opposing orientation, so a hole that only shows up
+ under even-odd is an orientation bug worth failing on.
+*/
+function withPaths(code: string, paths: Path[]): string {
+    return shiftedSvg(code, paths);
+}
+
+/*
+ One input on its own, re-emitted through the same path so that it is shifted
+ and serialized exactly like the result it will be compared against.
+*/
 function withOnly(code: string, keepId: "a" | "b"): string {
     const $ = cheerio.load(code, { xml: true });
-    $(`#${keepId === "a" ? "b" : "a"}`).remove();
-    return $.html();
+    const d = $(`#${keepId}`).attr("d")!;
+    const fillRule = $(`#${keepId}`).css("fill-rule") ?? "nonzero";
+    const svg = shiftedSvg(code, [PathBool.pathFromPathData(d)]);
+    // Preserve the input's own fill rule; the result form always uses non-zero.
+    return svg.replace("fill-rule:nonzero", `fill-rule:${fillRule}`);
 }
 
 /* Boundary band */
