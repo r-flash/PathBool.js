@@ -61,3 +61,47 @@ export const EPS: Epsilons = {
     param: 1e-8,
     collinear: Number.MIN_VALUE * 64,
 };
+
+/*
+ `point` and `linear` are lengths, so they only mean anything relative to the
+ size of the geometry. The values above are not scale-free constants; they are
+ the right values for a scene about fifty units across, which is what the hand
+ fixtures happen to be. Shrink the same drawing and they stop working: at a
+ scene 2.2e-3 across, subdivision stopped while a chord still spanned a large
+ fraction of its arc, so intersection points landed about 1e-6 out — further
+ apart than `point`, so the vertices that should have merged did not, and the
+ output was left open by most of the width of the scene.
+
+ The two have to move together. Scaling one and not the other pulled two
+ overlapping circles into a single circle: `point` decides which endpoints are
+ the same vertex, `linear` decides how finely a curve is chopped before those
+ endpoints are computed, and the second has to stay well clear of the first.
+*/
+const REFERENCE_EXTENT = 50;
+
+/*
+ Derived from the extent of the geometry, not from how far it sits from the
+ origin. A large offset is a different problem — precision is lost in the
+ arithmetic there, and widening a tolerance conceals that rather than curing
+ it — and measurably not the one these two cause.
+
+ Only ever downwards. How fine the detail in a drawing is does not follow how
+ big the drawing is: a 900-unit logo is drawn with much the same absolute
+ precision as a 48-unit icon, so the values above are about right for both,
+ and scaling them up by eighteen swallowed the detail in the 900-unit one
+ whole. Scaling down has no such hazard — a tighter tolerance merges less —
+ and it is the only direction the failure was ever in.
+*/
+export function epsilonsForExtent(extent: number): Epsilons {
+    const scale =
+        Number.isFinite(extent) && extent > 0
+            ? Math.min(1, extent / REFERENCE_EXTENT)
+            : 1;
+    return {
+        point: EPS.point * scale,
+        linear: EPS.linear * scale,
+        // Both are dimensionless: a curve parameter and, in practice, zero.
+        param: EPS.param,
+        collinear: EPS.collinear,
+    };
+}

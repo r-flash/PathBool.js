@@ -14,8 +14,5 @@
         "exclusion": "Wrong pixels at 1e6 coordinates: a hairline seam runs along the arc boundary where the region should be solid (~105 px).",
         "division": "Partition does not cover the region being partitioned at 1e6 coordinates.",
         "fracture": "Partition does not cover the region being partitioned at 1e6 coordinates."
-    },
-    "conditioning/01-overlap-circles-small": {
-        "fracture": "Fracture faces overlap at a 1e-3 scene scale: not a partition."
     }
 }

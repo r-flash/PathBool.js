@@ -14,6 +14,8 @@ import {
     ANGLE_MIN_DIFF,
     DEV_ASSERTS,
     EPS,
+    Epsilons,
+    epsilonsForExtent,
     MAX_INTERSECTION_PAIRS,
     MAX_SUBDIVISION_ITERS,
     MAX_SUBSEGMENTS_PER_ORIG_SEGMENT,
@@ -282,7 +284,10 @@ function segmentToEdge(
     return (seg) => ({ seg, parents: makeParents(pathCount, index) });
 }
 
-function splitAtSelfIntersections(edges: MajorGraphEdgeStage1[]) {
+function splitAtSelfIntersections(
+    edges: MajorGraphEdgeStage1[],
+    eps: Epsilons,
+) {
     for (let i = 0; i < edges.length; i++) {
         const edge = edges[i];
         if (edge.seg[0] !== "C") continue;
@@ -326,7 +331,7 @@ function splitAtSelfIntersections(edges: MajorGraphEdgeStage1[]) {
     }
 }
 
-function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
+function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
     const withBoundingBox: MajorGraphEdgeStage2[] = edges.map((edge) => ({
         ...edge,
         boundingBox: pathSegmentBoundingBox(edge.seg),
@@ -365,7 +370,7 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
             const intersection = pathSegmentIntersection(
                 edge.seg,
                 candidate.seg,
-                EPS,
+                eps,
             );
             for (const [t0, t1] of intersection) {
                 addSplit(i, t0);
@@ -434,6 +439,7 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[]) {
 function findVertices(
     edges: MajorGraphEdgeStage2[],
     boundingBox: AABB,
+    eps: Epsilons,
 ): MajorGraph {
     const vertexTree = new QuadTree<MajorGraphVertex>(
         boundingBox,
@@ -443,7 +449,7 @@ function findVertices(
     const newVertices: MajorGraphVertex[] = [];
 
     function getVertex(point: Vector): MajorGraphVertex {
-        const box = boundingBoxAroundPoint(point, EPS.point);
+        const box = boundingBoxAroundPoint(point, eps.point);
         const existingVertices = vertexTree.find(box);
         if (existingVertices.size) {
             return firstElementOfSet(existingVertices);
@@ -493,20 +499,20 @@ function findVertices(
         const endPoint = getEndPoint(edge.seg);
 
         // discard zero-length segments before creating vertices
-        if (vectorsEqual(startPoint, endPoint, EPS.point)) {
+        if (vectorsEqual(startPoint, endPoint, eps.point)) {
             switch (edge.seg[0]) {
                 case "L":
                     return [];
                 case "C":
                     if (
-                        vectorsEqual(edge.seg[1], edge.seg[2], EPS.point) &&
-                        vectorsEqual(edge.seg[3], edge.seg[4], EPS.point)
+                        vectorsEqual(edge.seg[1], edge.seg[2], eps.point) &&
+                        vectorsEqual(edge.seg[3], edge.seg[4], eps.point)
                     ) {
                         return [];
                     }
                     break;
                 case "Q":
-                    if (vectorsEqual(edge.seg[1], edge.seg[2], EPS.point)) {
+                    if (vectorsEqual(edge.seg[1], edge.seg[2], eps.point)) {
                         return [];
                     }
                     break;
@@ -527,7 +533,7 @@ function findVertices(
         const existingEdges = getVertexPairEdges(startId, endId);
         if (existingEdges) {
             const existingEdge = existingEdges.find((other) =>
-                segmentsEqual(other[0].seg, edge.seg, EPS.point),
+                segmentsEqual(other[0].seg, edge.seg, eps.point),
             );
             if (existingEdge) {
                 // A shared edge traversed the same way round. The joining path
@@ -546,7 +552,7 @@ function findVertices(
         if (existingEdgesInv) {
             const reversedSeg = reversePathSegment(edge.seg);
             const existingEdge = existingEdgesInv.find((other) =>
-                segmentsEqual(other[0].seg, reversedSeg, EPS.point),
+                segmentsEqual(other[0].seg, reversedSeg, eps.point),
             );
             if (existingEdge) {
                 if (booleanArraysEqual(existingEdge[0].parents, edge.parents)) {
@@ -1153,6 +1159,7 @@ function boundingBoxIntersectsHorizontalRay(
 function pathSegmentHorizontalRayIntersectionCount(
     origSeg: PathSegment,
     point: Vector,
+    eps: Epsilons,
     totalBoundingBox: AABB = pathSegmentBoundingBox(origSeg),
 ): number {
     type IntersectionSegment = { boundingBox: AABB; seg: PathSegment };
@@ -1184,7 +1191,7 @@ function pathSegmentHorizontalRayIntersectionCount(
         for (const { boundingBox, seg } of segments) {
             if (
                 isNearlyLinearSegment(seg) ||
-                boundingBoxMaxExtent(boundingBox) < EPS.linear
+                boundingBoxMaxExtent(boundingBox) < eps.linear
             ) {
                 if (
                     lineSegmentIntersectsHorizontalRay(
@@ -1258,12 +1265,16 @@ const getComponentBoundingBox = memoizeWeak((component: DualGraphComponent) => {
     return boundingBox;
 });
 
-function boundingBoxContainsPoint(boundingBox: AABB, point: Vector): boolean {
+function boundingBoxContainsPoint(
+    boundingBox: AABB,
+    point: Vector,
+    eps: Epsilons,
+): boolean {
     return (
-        point[0] >= boundingBox.left - EPS.point &&
-        point[0] <= boundingBox.right + EPS.point &&
-        point[1] >= boundingBox.top - EPS.point &&
-        point[1] <= boundingBox.bottom + EPS.point
+        point[0] >= boundingBox.left - eps.point &&
+        point[0] <= boundingBox.right + eps.point &&
+        point[1] >= boundingBox.top - eps.point &&
+        point[1] <= boundingBox.bottom + eps.point
     );
 }
 
@@ -1274,11 +1285,18 @@ function boundingBoxArea({ top, right, bottom, left }: AABB): number {
 function findContainingFace(
     component: DualGraphComponent,
     testedPoint: Vector,
+    eps: Epsilons,
 ): DualGraphVertex | null {
     // TODO: Intersection counting will fail if a curve touches the horizontal line but doesn't go through.
     for (const face of component.vertices) {
         if (face === component.outerFace) continue;
-        if (!boundingBoxContainsPoint(getFaceBoundingBox(face), testedPoint)) {
+        if (
+            !boundingBoxContainsPoint(
+                getFaceBoundingBox(face),
+                testedPoint,
+                eps,
+            )
+        ) {
             continue;
         }
 
@@ -1290,6 +1308,7 @@ function findContainingFace(
             count += pathSegmentHorizontalRayIntersectionCount(
                 seg,
                 testedPoint,
+                eps,
                 boundingBox,
             );
         }
@@ -1299,7 +1318,10 @@ function findContainingFace(
     return null;
 }
 
-function computeNestingTree(components: DualGraphComponent[]): NestingTree[] {
+function computeNestingTree(
+    components: DualGraphComponent[],
+    eps: Epsilons,
+): NestingTree[] {
     type ComponentInfo = {
         index: number;
         component: DualGraphComponent;
@@ -1346,7 +1368,7 @@ function computeNestingTree(components: DualGraphComponent[]): NestingTree[] {
 
     for (const entry of info) {
         const point = entry.interiorPoint;
-        const queryBox = boundingBoxAroundPoint(point, EPS.point);
+        const queryBox = boundingBoxAroundPoint(point, eps.point);
         const candidateIds = componentTree.find(queryBox);
         let bestParent: ComponentInfo | null = null;
         let bestFace: DualGraphVertex | null = null;
@@ -1354,11 +1376,11 @@ function computeNestingTree(components: DualGraphComponent[]): NestingTree[] {
         for (const candidateId of candidateIds) {
             if (candidateId === entry.index) continue;
             const candidate = info[candidateId];
-            if (!boundingBoxContainsPoint(candidate.boundingBox, point)) {
+            if (!boundingBoxContainsPoint(candidate.boundingBox, point, eps)) {
                 continue;
             }
 
-            const face = findContainingFace(candidate.component, point);
+            const face = findContainingFace(candidate.component, point, eps);
             if (!face) continue;
 
             if (!bestParent || candidate.area < bestParent.area) {
@@ -1689,10 +1711,28 @@ export class PathBoolean {
             path.map(segmentToEdge(pathCount, i)),
         );
 
-        splitAtSelfIntersections(unsplitEdges);
+        /*
+         Length-valued tolerances scale with how big the geometry is; see
+         epsilonsForExtent. Measured before anything is split, so that every
+         stage of a run shares one set of values.
+        */
+        let inputBoundingBox: AABB | null = null;
+        for (const { seg } of unsplitEdges) {
+            inputBoundingBox = mergeBoundingBoxes(
+                inputBoundingBox,
+                pathSegmentBoundingBox(seg),
+            );
+        }
+        const eps = epsilonsForExtent(
+            inputBoundingBox ? boundingBoxMaxExtent(inputBoundingBox) : 0,
+        );
 
-        const { edges: splitEdges, totalBoundingBox } =
-            splitAtIntersections(unsplitEdges);
+        splitAtSelfIntersections(unsplitEdges, eps);
+
+        const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(
+            unsplitEdges,
+            eps,
+        );
 
         if (!totalBoundingBox) {
             // input geometry is empty
@@ -1700,7 +1740,7 @@ export class PathBoolean {
             return;
         }
 
-        const majorGraph = findVertices(splitEdges, totalBoundingBox);
+        const majorGraph = findVertices(splitEdges, totalBoundingBox, eps);
         assertMajorGraphInvariants(majorGraph);
         // console.log(majorGraphToDot(majorGraph));
 
@@ -1718,7 +1758,7 @@ export class PathBoolean {
         assertDualGraphInvariants(dualGraphComponents);
         // console.log(dualGraphToDot(dualGraphComponents));
 
-        const nestingTrees = computeNestingTree(dualGraphComponents);
+        const nestingTrees = computeNestingTree(dualGraphComponents, eps);
         // console.log(nestingTrees.length, nestingTreesToDot(nestingTrees));
 
         flagFaces(

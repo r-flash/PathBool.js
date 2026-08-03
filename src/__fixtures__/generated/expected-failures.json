@@ -6,13 +6,5 @@
         "exclusion": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)",
         "division": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)",
         "fracture": "Near-coincident boundaries: assertEqual 'Multiple outer faces found' (40 outer faces)"
-    },
-    "conditioning/01-overlap-circles-small": {
-        "union": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
-        "difference": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
-        "intersection": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
-        "exclusion": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
-        "division": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open",
-        "fracture": "Absolute EPS.point does not scale: at a 1e-3 scene the output loop is left ~1.2e-6 open"
     }
 }
