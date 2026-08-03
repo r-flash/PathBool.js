@@ -114,7 +114,20 @@ export function isNearlyLinearSegment(
     const b = getEndPoint(seg);
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
-    if (dx * dx + dy * dy <= eps * eps) return true;
+    /*
+     Coincident endpoints do not make a curve degenerate. A cubic that closes
+     on itself is a loop -- exactly what splitting at a self-intersection
+     produces -- and it can enclose as much area as it likes. Treating one as
+     linear collapsed it to a point everywhere: its bounding box, every sample
+     of it, its tangent, and its halves when split.
+
+     For a line and for an arc it really is degenerate, though; SVG omits an
+     arc whose endpoints coincide. The Q and C cases below need no separate
+     test, because pointLineDistance measures from the start point when the
+     chord has no length, so a curve whose control points sit on top of its
+     endpoints is still reported as linear.
+    */
+    const chordIsDegenerate = dx * dx + dy * dy <= eps * eps;
 
     switch (seg[0]) {
         case "L":
@@ -128,6 +141,7 @@ export function isNearlyLinearSegment(
             );
         case "A":
             return (
+                chordIsDegenerate ||
                 !Number.isFinite(seg[2]) ||
                 !Number.isFinite(seg[3]) ||
                 Math.abs(seg[2]) <= eps ||

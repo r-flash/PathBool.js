@@ -17,11 +17,5 @@
     },
     "conditioning/01-overlap-circles-small": {
         "fracture": "Fracture faces overlap at a 1e-3 scene scale: not a partition."
-    },
-    "overlap/12-loop-cubic-x-circle-arc": {
-        "difference": "Region around the cubic's self-intersection is omitted (~147 px).",
-        "intersection": "Region around the cubic's self-intersection is omitted (~147 px).",
-        "exclusion": "Region around the cubic's self-intersection is omitted (~147 px).",
-        "fracture": "Fracture faces overlap around the cubic's self-intersection: not a partition."
     }
 }
