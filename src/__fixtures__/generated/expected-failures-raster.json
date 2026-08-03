@@ -1,10 +1,10 @@
 {
     "coincident/04-arc-vs-cubic-circle": {
-        "union": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "difference": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "intersection": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "exclusion": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "division": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle.",
-        "fracture": "assertEqual 'Multiple outer faces found'. Ungated, so it throws here too; stripped only in the production bundle."
+        "union": "Intersections are now correct at 8 contacts, but all 8 are tangential (the kappa cubic meets the circle with matching tangents at each quadrant end and again at its midpoint) and the face tracer still finds 3 outer faces where there must be 1.",
+        "difference": "Intersections are now correct at 8 contacts, but all 8 are tangential (the kappa cubic meets the circle with matching tangents at each quadrant end and again at its midpoint) and the face tracer still finds 3 outer faces where there must be 1.",
+        "intersection": "Intersections are now correct at 8 contacts, but all 8 are tangential (the kappa cubic meets the circle with matching tangents at each quadrant end and again at its midpoint) and the face tracer still finds 3 outer faces where there must be 1.",
+        "exclusion": "Intersections are now correct at 8 contacts, but all 8 are tangential (the kappa cubic meets the circle with matching tangents at each quadrant end and again at its midpoint) and the face tracer still finds 3 outer faces where there must be 1.",
+        "division": "Intersections are now correct at 8 contacts, but all 8 are tangential (the kappa cubic meets the circle with matching tangents at each quadrant end and again at its midpoint) and the face tracer still finds 3 outer faces where there must be 1.",
+        "fracture": "Intersections are now correct at 8 contacts, but all 8 are tangential (the kappa cubic meets the circle with matching tangents at each quadrant end and again at its midpoint) and the face tracer still finds 3 outer faces where there must be 1."
     }
 }
