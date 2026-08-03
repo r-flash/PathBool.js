@@ -280,11 +280,78 @@ function groupCandidates(
         }
     }
 
-    return groups.map((group) => {
-        let best = group[0];
-        for (const c of group) if (c.gap < best.gap) best = c;
-        return [best.t0, best.t1] as [number, number];
-    });
+    return groups.map(
+        (group) => refineContact(seg0, seg1, group) as [number, number],
+    );
+}
+
+/*
+ Pins a grouped contact down to where the curves actually meet.
+
+ The reports in a group are scattered along the run the subdivision could not
+ resolve, and the nearest of them can still sit well off the true contact: on
+ the circle-against-its-own-cubic case the best report of one group was 2.4e-5
+ away from the tangency. That is small, but splitting both curves there rather
+ than at the contact leaves them crossing at a shallow angle instead of
+ touching, and the incidence angles at the resulting vertex then differ by
+ 1.4e-7 — far too much for the sort to recognize as a tie, so it orders them on
+ that instead of on curvature and traces the faces wrongly.
+
+ The group brackets the contact, so a golden-section search along the straight
+ correspondence between its outermost reports finds it. Only groups with
+ something to refine are touched: a single report comes from a leaf pair that
+ crossed squarely, where the line-line solve inside the leaf is already as good
+ as this could be.
+*/
+const REFINE_STEPS = 40;
+const INV_GOLDEN = (Math.sqrt(5) - 1) / 2;
+
+function refineContact(
+    seg0: PathSegment,
+    seg1: PathSegment,
+    group: Candidate[],
+): [number, number] {
+    let best = group[0];
+    for (const c of group) if (c.gap < best.gap) best = c;
+    if (group.length < 2) return [best.t0, best.t1];
+
+    // The group is in order of t0, so its ends bracket the contact.
+    const first = group[0];
+    const last = group[group.length - 1];
+    const at = (s: number): Candidate => {
+        const t0 = lerp(first.t0, last.t0, s);
+        const t1 = lerp(first.t1, last.t1, s);
+        const p = samplePathSegmentAt(seg0, t0);
+        const q = samplePathSegmentAt(seg1, t1);
+        return { t0, t1, gap: Math.hypot(p[0] - q[0], p[1] - q[1]) };
+    };
+
+    let lo = 0;
+    let hi = 1;
+    let c = hi - INV_GOLDEN * (hi - lo);
+    let d = lo + INV_GOLDEN * (hi - lo);
+    let fc = at(c);
+    let fd = at(d);
+    for (let i = 0; i < REFINE_STEPS; i++) {
+        if (fc.gap < fd.gap) {
+            hi = d;
+            d = c;
+            fd = fc;
+            c = hi - INV_GOLDEN * (hi - lo);
+            fc = at(c);
+        } else {
+            lo = c;
+            c = d;
+            fc = fd;
+            d = lo + INV_GOLDEN * (hi - lo);
+            fd = at(d);
+        }
+    }
+
+    const refined = fc.gap < fd.gap ? fc : fd;
+    return refined.gap < best.gap
+        ? [refined.t0, refined.t1]
+        : [best.t0, best.t1];
 }
 
 export function pathSegmentIntersection(

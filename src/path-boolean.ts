@@ -52,6 +52,8 @@ import { countIf, hasOwn, memoizeWeak } from "./util/generic";
 import { map } from "./util/iterators";
 import { linMap } from "./util/math";
 
+const TAU_ANGLE = 2 * Math.PI;
+
 const INTERSECTION_TREE_DEPTH = 8;
 const POINT_TREE_DEPTH = 8;
 
@@ -927,23 +929,65 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
                 ? EPS.param * minSpeed
                 : EPS.param;
 
-            for (let i = 0; i < vertex.outgoingEdges.length; i++) {
-                const edge = vertex.outgoingEdges[i];
-                angleCache.set(edge, getIncidenceAngle(edge));
+            /*
+             Two keys per edge: the direction it leaves in, and how far it has
+             turned by the time it has gone `tieBreakDistance` along itself.
+             The turn is the curvature, and it is what orders edges that leave
+             in the same direction.
+
+             The turn is compared on its own rather than as part of the
+             offset angle, because the two share whatever error the direction
+             carries and subtracting cancels it. Where a tangency cannot be
+             located exactly — the contact between a circle and the cubic that
+             approximates it can only be pinned to about 1e-7 along the curve —
+             the directions of the two curves at the vertex differ by around
+             6e-10 while their curvatures differ by only 5e-11. Comparing
+             offset angles lets that 6e-10 decide, and it has no geometric
+             meaning: it orders the pair backwards, and the faces traced from
+             it come out wrong.
+            */
+            const turnCache = new WeakMap<MinorGraphEdge, number>();
+            for (const edge of vertex.outgoingEdges) {
+                const primary = getIncidenceAngle(edge);
+                angleCache.set(edge, primary);
+                turnCache.set(
+                    edge,
+                    normalizeAngle(
+                        getIncidenceAngle(edge, tieBreakDistance) - primary,
+                    ),
+                );
             }
             vertex.outgoingEdges.sort((a, b) => {
-                const diff = angleCache.get(a)! - angleCache.get(b)!;
-                if (Math.abs(diff) > ANGLE_MIN_DIFF) return diff;
-                return (
-                    getIncidenceAngle(a, tieBreakDistance) -
-                    getIncidenceAngle(b, tieBreakDistance)
+                const turnA = turnCache.get(a)!;
+                const turnB = turnCache.get(b)!;
+                /*
+                 Directions count as the same when they differ by less than
+                 either edge turns over that step: below that the measurement
+                 cannot tell a genuine corner from the error in placing the
+                 vertex, and curvature is the better discriminator. Straight
+                 edges turn by nothing, so ANGLE_MIN_DIFF floors it and they
+                 are ordered by direction as before.
+                */
+                const tolerance = Math.max(
+                    ANGLE_MIN_DIFF,
+                    Math.abs(turnA),
+                    Math.abs(turnB),
                 );
+                const diff = angleCache.get(a)! - angleCache.get(b)!;
+                if (Math.abs(diff) > tolerance) return diff;
+                return turnA - turnB;
             });
         }
         for (let i = 0; i < vertex.outgoingEdges.length; i++) {
             vertex.outgoingEdges[i].indexInVertex = i;
         }
     }
+}
+
+/* Into (-pi, pi], so a turn across the branch cut is not read as a full circle. */
+function normalizeAngle(angle: number): number {
+    const wrapped = (((angle + Math.PI) % TAU_ANGLE) + TAU_ANGLE) % TAU_ANGLE;
+    return wrapped - Math.PI;
 }
 
 function getNextEdge(edge: MinorGraphEdge) {
@@ -1006,6 +1050,30 @@ function computePointWinding(polygon: Vector[], testedPoint: Vector) {
     }
     return winding;
 }
+
+/*
+ Which way round a face is traced, by the signed area of its sampled outline.
+
+ In a planar subdivision every inner face is traced one way and the single
+ outer face the other, so the sign identifies it. This is measured rather than
+ the winding about an interior point because a face can be far thinner than
+ the sampling: each lens between a circle and the cubic approximating it is
+ 0.785 long and 2.7e-4 wide, against a sample spacing of 0.0123. At that aspect
+ the two sampled sides cross each other, the winding about a point picked from
+ three consecutive samples is a coin toss, and three of eight identical lenses
+ came out claiming to be outer faces. The area of the same crossed-over outline
+ is still the area of the lens, to the sign that matters here.
+*/
+const faceSignedArea = memoizeWeak((face: DualGraphVertex) => {
+    const polygon = faceToPolygon(face);
+    let total = 0;
+    for (let i = 0; i < polygon.length; i++) {
+        const a = polygon[i];
+        const b = polygon[(i + 1) % polygon.length];
+        total += a[0] * b[1] - b[0] * a[1];
+    }
+    return total / 2;
+});
 
 const computeWinding = memoizeWeak((face: DualGraphVertex) => {
     const polygon = faceToPolygon(face);
@@ -1098,6 +1166,9 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
         newVertices.push(innerFace, outerFace);
     }
 
+    // Inner faces come out negative under this tracing, the outer one positive.
+    const isOuterFace = (face: DualGraphVertex) => faceSignedArea(face) > 0;
+
     const components: DualGraphComponent[] = [];
 
     const visitedVertices = new WeakSet<DualGraphVertex>();
@@ -1124,15 +1195,10 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
             }
         };
         visit(vertex);
-        const outerFace = componentVertices.find(
-            (face) => computeWinding(face).winding < 0,
-        );
+        const outerFace = componentVertices.find(isOuterFace);
         assertDefined(outerFace, "No outer face of a component found.");
         assertEqual(
-            countIf(
-                componentVertices,
-                (face) => computeWinding(face).winding < 0,
-            ),
+            countIf(componentVertices, isOuterFace),
             1,
             "Multiple outer faces found.",
         );
