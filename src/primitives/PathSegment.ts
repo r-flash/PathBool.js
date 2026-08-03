@@ -545,31 +545,47 @@ function cubicBoundingInterval(p0: number, p1: number, p2: number, p3: number) {
     let min = Math.min(p0, p3);
     let max = Math.max(p0, p3);
 
+    function consider(t: number) {
+        if (!(0 < t && t < 1)) return;
+        const x = evalCubic1d(p0, p1, p2, p3, t);
+        min = Math.min(min, x);
+        max = Math.max(max, x);
+    }
+
+    // The derivative, a*t^2 + b*t + c, whose roots are the interior extremes.
     const a = 3 * (-p0 + 3 * p1 - 3 * p2 + p3);
     const b = 6 * (p0 - 2 * p1 + p2);
     const c = 3 * (p1 - p0);
-    const D = b * b - 4 * a * c;
 
-    if (D < 0 || a === 0) {
-        // TODO: if a=0, solve linear
+    /*
+     `a` vanishes whenever 3*(p1 - p2) === p0 - p3, which every cubic that is
+     symmetric in this coordinate satisfies — p1 === p2 with p0 === p3. That is
+     an ordinary shape, not a corner case: any symmetric arch or loop.
+
+     Rounding leaves `a` at about 1e-16 rather than exactly zero, so the old
+     `a === 0` test never fired and the quadratic formula went ahead and
+     divided by the noise. For the control values -0.6, 1.4, 1.4, -0.6 it
+     returned t = 0.889 where the extreme is at 0.5, and the interval came back
+     as -0.6 .. -0.0074 for a curve reaching 0.9. Comparing `a` against the
+     other coefficients instead of against zero is what makes the test mean
+     anything; below that the derivative is linear and has one root.
+    */
+    if (Math.abs(a) <= 1e-12 * Math.max(Math.abs(b), Math.abs(c))) {
+        if (b !== 0) consider(-c / b);
         return [min, max];
     }
 
-    const sqrtD = Math.sqrt(D);
+    const D = b * b - 4 * a * c;
+    if (D < 0) return [min, max];
 
-    const t0 = (-b - sqrtD) / (2 * a);
-    if (0 < t0 && t0 < 1) {
-        const x0 = evalCubic1d(p0, p1, p2, p3, t0);
-        min = Math.min(min, x0);
-        max = Math.max(max, x0);
-    }
-
-    const t1 = (-b + sqrtD) / (2 * a);
-    if (0 < t1 && t1 < 1) {
-        const x1 = evalCubic1d(p0, p1, p2, p3, t1);
-        min = Math.min(min, x1);
-        max = Math.max(max, x1);
-    }
+    /*
+     Solved through `q` rather than by the schoolbook formula twice: taking
+     both roots as (-b +- sqrt(D)) / 2a subtracts two nearly equal numbers for
+     whichever sign opposes b, and loses most of that root's precision.
+    */
+    const q = -0.5 * (b + (b < 0 ? -1 : 1) * Math.sqrt(D));
+    consider(q / a);
+    if (q !== 0) consider(c / q);
 
     return [min, max];
 }
