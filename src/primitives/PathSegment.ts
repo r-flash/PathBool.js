@@ -605,6 +605,22 @@ function inInterval(x: number, x0: number, x1: number) {
     return 0 <= mapped && mapped <= 1;
 }
 
+/*
+ Whether an arc sweeping from `theta1` to `theta2` passes through `target`,
+ which is an angle in the same measure, up to whole turns.
+
+ A sweep is at most one full turn, so at most one representative of `target`
+ can fall inside it: lift `target` to the first one at or above the low end
+ and ask whether it is still below the high end. That replaces testing a
+ couple of hand-picked representatives, which could not cover every way a
+ sweep straddles the branch cut.
+*/
+function sweepContainsAngle(target: number, theta1: number, theta2: number) {
+    const lo = Math.min(theta1, theta2);
+    const hi = Math.max(theta1, theta2);
+    return target + TAU * Math.ceil((lo - target) / TAU) <= hi;
+}
+
 export function pathSegmentBoundingBox(seg: PathSegment): AABB {
     if (isNearlyLinearSegment(seg)) {
         const start = seg[1];
@@ -673,42 +689,33 @@ export function pathSegmentBoundingBox(seg: PathSegment): AABB {
                     boundingBoxAroundPoint(seg[1], 0),
                     seg[7],
                 );
-                // FIXME: the following gives false positives, resulting in larger boxes
-                if (
-                    inInterval(-Math.PI, theta1, theta2) ||
-                    inInterval(Math.PI, theta1, theta2)
-                ) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0] - rx,
-                        center[1],
-                    ]);
-                }
-                if (
-                    inInterval(-Math.PI / 2, theta1, theta2) ||
-                    inInterval((3 * Math.PI) / 2, theta1, theta2)
-                ) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0],
-                        center[1] - ry,
-                    ]);
-                }
-                if (
-                    inInterval(0, theta1, theta2) ||
-                    inInterval(2 * Math.PI, theta1, theta2)
-                ) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0] + rx,
-                        center[1],
-                    ]);
-                }
-                if (
-                    inInterval(Math.PI / 2, theta1, theta2) ||
-                    inInterval((5 * Math.PI) / 2, theta1, theta2)
-                ) {
-                    boundingBox = extendBoundingBox(boundingBox, [
-                        center[0],
-                        center[1] + ry,
-                    ]);
+                /*
+                 The four axis extremes, as angles in the parametrization's
+                 own frame.
+
+                 With rx === ry the parametrization angle is measured in the
+                 ellipse's frame and only then turned by phi, so the extreme
+                 the world sees at angle a is reached at a - phi. Testing the
+                 unturned angles let a small arc claim an extreme it never
+                 goes near: written with phi = 45 a circle's arc came out with
+                 a box 8.8 times its own chord, and 20 times at phi = 135.
+                 Boxes that big are still correct, but they stop the
+                 intersection finder pruning anything.
+
+                 phi is 0 in the other case this branch handles, so the offset
+                 simply vanishes there.
+                */
+                const offset = deg2rad(phi);
+                const extremes: [number, Vector][] = [
+                    [Math.PI - offset, [center[0] - rx, center[1]]],
+                    [-Math.PI / 2 - offset, [center[0], center[1] - ry]],
+                    [-offset, [center[0] + rx, center[1]]],
+                    [Math.PI / 2 - offset, [center[0], center[1] + ry]],
+                ];
+                for (const [angle, point] of extremes) {
+                    if (sweepContainsAngle(angle, theta1, theta2)) {
+                        boundingBox = extendBoundingBox(boundingBox, point);
+                    }
                 }
                 return expandBoundingBox(boundingBox, 1e-11); // TODO: get rid of expansion
             }
