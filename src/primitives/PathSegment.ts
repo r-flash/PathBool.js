@@ -150,6 +150,78 @@ export function isNearlyLinearSegment(
     }
 }
 
+/*
+ Rewrites a segment that draws a straight line as one.
+
+ An arc with a zero radius is a line by SVG F.6.2, and a cubic or quadratic
+ whose control points sit on its chord draws one too. Leaving them in the
+ spelling they arrived in costs twice over. `segmentsEqual` compares
+ representations, so such a segment never merges with the plain line it lies
+ exactly on top of — which is what left two identical squares, one drawn with
+ degenerate curves, unable to find an outer face between them. And a
+ zero-radius arc that survives to the output hands the caller back a segment
+ the SVG spec says is a line.
+
+ The control points have to run *along* the chord, not out past an end and
+ back: collinear controls outside the endpoints draw a zero-area spike, and
+ flattening one to a line would throw geometry away rather than restate it.
+ Written as the Bezier derivative staying single-signed, which is the same
+ condition and needs no case analysis.
+
+ Radii are tested rather than the chord. An arc whose endpoints coincide is a
+ different matter — with the large-arc flag set it is a whole ellipse, and
+ `findVertices` already knows to keep that one and drop the other — while an
+ arc whose radii are merely too small for its chord is grown to fit by F.6.6
+ and is not degenerate at all.
+*/
+export function lineariseDegenerateSegment(
+    seg: PathSegment,
+    eps: number,
+): PathSegment {
+    const a = seg[1];
+    const b = getEndPoint(seg);
+
+    if (seg[0] === "A") {
+        const degenerateRadii =
+            !isFiniteNumber(seg[2]) ||
+            !isFiniteNumber(seg[3]) ||
+            Math.abs(seg[2]) <= NEARLY_LINEAR_EPS ||
+            Math.abs(seg[3]) <= NEARLY_LINEAR_EPS;
+        return degenerateRadii ? ["L", a, b] : seg;
+    }
+
+    if (seg[0] !== "C" && seg[0] !== "Q") return seg;
+
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const chordSq = dx * dx + dy * dy;
+    // A curve that returns to where it started encloses area however flat its
+    // controls look from the chord, which has no direction to measure against.
+    if (chordSq <= eps * eps) return seg;
+
+    const along = (p: Vector) =>
+        ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / chordSq;
+    const slack = eps / Math.sqrt(chordSq);
+
+    if (seg[0] === "Q") {
+        if (pointLineDistance(seg[2], a, b, eps) > eps) return seg;
+        const t = along(seg[2]);
+        if (t < -slack || t > 1 + slack) return seg;
+        return ["L", a, b];
+    }
+
+    if (
+        pointLineDistance(seg[2], a, b, eps) > eps ||
+        pointLineDistance(seg[3], a, b, eps) > eps
+    ) {
+        return seg;
+    }
+    const t1 = along(seg[2]);
+    const t2 = along(seg[3]);
+    if (t1 < -slack || t2 - t1 < -slack || t2 > 1 + slack) return seg;
+    return ["L", a, b];
+}
+
 export function normalizeArcSegment(seg: PathArcSegment): PathArcSegment {
     const phi = normalizeArcRotationDegrees(seg[4]);
     return ["A", seg[1], seg[2], seg[3], phi, seg[5], seg[6], seg[7]];

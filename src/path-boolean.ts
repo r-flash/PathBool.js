@@ -40,6 +40,7 @@ import {
     getStartPoint,
     PathSegment,
     isNearlyLinearSegment,
+    lineariseDegenerateSegment,
     pathSegmentBoundingBox,
     pathSegmentTangentAtInto,
     reversePathSegment,
@@ -1792,6 +1793,16 @@ export class PathBoolean {
         const eps = epsilonsForExtent(
             inputBoundingBox ? boundingBoxMaxExtent(inputBoundingBox) : 0,
         );
+
+        /*
+         Before anything is measured against anything else, so that a line and
+         a curve drawing the same line are the same segment from here on. Only
+         ever shrinks what the geometry covers, so the bounding box measured
+         above still bounds it.
+        */
+        for (const edge of unsplitEdges) {
+            edge.seg = lineariseDegenerateSegment(edge.seg, eps.point);
+        }
 
         splitAtSelfIntersections(unsplitEdges, eps);
 
