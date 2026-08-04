@@ -312,7 +312,17 @@ export const arcSegmentToCenter = (() => {
         // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
         rx = Math.abs(rx);
         ry = Math.abs(ry);
-        const lambda = x1Prime2 / rx2 + y1Prime2 / ry2 + 1e-12; // small epsilon needed because of float precision
+        /*
+         No slack added here. Nudging lambda up guards the wrong thing and pays
+         for it dearly: the case it was meant to cover is lambda landing a hair
+         below 1 when the radii exactly span the chord, and the `Math.max(0,
+         ...)` on the ratio below already absorbs that. What it did instead was
+         inflate the radii of every arc that needs correcting, and the centre
+         solve takes a square root of the slack — 1e-12 of it came back out as
+         an offset of 5e-7, which put an F.6.6-corrected arc that far off the
+         circle it should have been exactly on.
+        */
+        const lambda = x1Prime2 / rx2 + y1Prime2 / ry2;
         if (lambda > 1) {
             const lambdaSqrt = Math.sqrt(lambda);
             rx *= lambdaSqrt;
