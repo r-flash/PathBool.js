@@ -17,15 +17,17 @@ import {
     boundingBoxMaxExtent,
 } from "../primitives/AABB";
 import {
+    arcSegmentToCenter,
     PathSegment,
     pathSegmentBoundingBox,
     isNearlyLinearSegment,
+    normalizeArcSegment,
     reversePathSegment,
     samplePathSegmentAt,
     splitSegmentAt,
 } from "../primitives/PathSegment";
 import { createVector, Vector, vectorsEqual } from "../primitives/Vector";
-import { lerp } from "../util/math";
+import { deg2rad, lerp } from "../util/math";
 import { lineSegmentIntersection, lineSegmentsIntersect } from "./line-segment";
 import { lineSegmentAABBIntersect } from "./line-segment-AABB";
 
@@ -257,6 +259,134 @@ function staysTogether(
         if (Math.hypot(p[0] - q[0], p[1] - q[1]) > eps.point) return false;
     }
     return true;
+}
+
+/*
+ Two arcs of one ellipse, solved rather than subdivided.
+
+ Bisection cannot resolve a shared arc. The two curves never separate, so it
+ recurses to the leaf size the whole way along the overlap and reports a hit
+ from every leaf pair it gets there. The leaf-level short-circuits below only
+ rescue the case where both sides cover the same extent and so halve into
+ matching pieces — a quarter arc against that same quarter arc, forwards or
+ reversed. A quarter arc against the 60 degrees of it a neighbour shares, or
+ against the semicircle that contains it, never lines up however far down it
+ goes, and the entire run is bisected.
+
+ The centre parametrization answers it outright. Two arcs lying on one ellipse
+ overlap over an interval of angle, which intersects in closed form, and the
+ ends of that interval convert straight back to a parameter on each arc. It is
+ what `lineSegmentsCollinear` already does for a pair of lines, and the reason
+ sharing a straight edge has always been cheap where sharing a curved one was
+ not.
+
+ Returning null means "not a common ellipse, subdivide as usual". An empty
+ array is an answer — two arcs of one ellipse whose angles do not meet — and
+ not an abstention.
+*/
+const TAU_ARC = 2 * Math.PI;
+
+function coincidentArcIntersection(
+    seg0: PathSegment,
+    seg1: PathSegment,
+    eps: Epsilons,
+): [number, number][] | null {
+    if (seg0[0] !== "A" || seg1[0] !== "A") return null;
+
+    const c0 = arcSegmentToCenter(normalizeArcSegment(seg0));
+    const c1 = arcSegmentToCenter(normalizeArcSegment(seg1));
+    if (!c0 || !c1) return null;
+
+    if (
+        Math.abs(c0.center[0] - c1.center[0]) > eps.point ||
+        Math.abs(c0.center[1] - c1.center[1]) > eps.point ||
+        Math.abs(c0.rx - c1.rx) > eps.point ||
+        Math.abs(c0.ry - c1.ry) > eps.point
+    ) {
+        return null;
+    }
+
+    const biggest = Math.max(c0.rx, c0.ry);
+    if (!(biggest > 0)) return null;
+    // How far round the rim `eps.point` reaches. Everything angular below is
+    // measured against this so the test means the same thing at any size.
+    const angleEps = eps.point / biggest;
+
+    /*
+     A circle looks the same however it is turned, an ellipse only after half a
+     turn. The remaining way to spell one ellipse — radii swapped and a quarter
+     turn applied — is left to the subdivision rather than guessed at.
+    */
+    if (Math.abs(c0.rx - c0.ry) > eps.point) {
+        const turned = Math.abs((((c0.phi - c1.phi) % 180) + 180) % 180);
+        if (Math.min(turned, 180 - turned) > (angleEps * 180) / Math.PI) {
+            return null;
+        }
+    }
+
+    if (
+        Math.abs(c0.deltaTheta) < angleEps ||
+        Math.abs(c1.deltaTheta) < angleEps
+    ) {
+        return null;
+    }
+
+    /*
+     `theta` is measured in the ellipse's own frame, the one `phi` turns it
+     into, so two arcs of the same circle written with different `phi` have
+     ranges that cannot be compared until both are brought into the world
+     frame. Adding `phi` does exactly that for a circle, where the frame is a
+     symmetry and the world angle is `theta + phi`; and it stays consistent for
+     an ellipse written half a turn around, where `phi + 180` and `theta + pi`
+     name the same point. Those are the only two spellings accepted above.
+
+     Skipping this left two drawings of one circle looking as though their
+     angles never met, and the fast path said so with confidence: it reported
+     no intersection at all, and the whole arrangement went with it.
+    */
+    const off0 = deg2rad(c0.phi);
+    const off1 = deg2rad(c1.phi);
+
+    // Each arc as an increasing interval of angle; direction is carried by
+    // `deltaTheta` and put back when converting to a parameter.
+    const span = (c: typeof c0, off: number): [number, number] => {
+        const a = c.theta1 + off;
+        const b = c.theta1 + c.deltaTheta + off;
+        return a <= b ? [a, b] : [b, a];
+    };
+    const [lo0, hi0] = span(c0, off0);
+    const [lo1, hi1] = span(c1, off1);
+
+    const paramAt = (c: typeof c0, off: number, theta: number) => {
+        const t = (theta - off - c.theta1) / c.deltaTheta;
+        return t < 0 ? 0 : t > 1 ? 1 : t;
+    };
+
+    /*
+     Neither arc spans more than a full turn, so at most two whole-turn shifts
+     of the second can meet the first, and the overlap is at most two intervals.
+    */
+    const out: [number, number][] = [];
+    const kFrom = Math.floor((lo0 - hi1) / TAU_ARC);
+    const kTo = Math.ceil((hi0 - lo1) / TAU_ARC);
+    for (let k = kFrom; k <= kTo; k++) {
+        const shift = k * TAU_ARC;
+        const from = Math.max(lo0, lo1 + shift);
+        const to = Math.min(hi0, hi1 + shift);
+        if (to < from - angleEps) continue;
+
+        if (to - from <= angleEps) {
+            // Meeting at a single angle: a contact, not an overlap.
+            const mid = (from + to) / 2;
+            out.push([paramAt(c0, off0, mid), paramAt(c1, off1, mid - shift)]);
+            continue;
+        }
+
+        out.push([paramAt(c0, off0, from), paramAt(c1, off1, from - shift)]);
+        out.push([paramAt(c0, off0, to), paramAt(c1, off1, to - shift)]);
+    }
+
+    return out;
 }
 
 /*
@@ -513,6 +643,9 @@ export function pathSegmentIntersection(
 
         return st ? [st] : [];
     }
+
+    const coincidentArcs = coincidentArcIntersection(seg0, seg1, eps);
+    if (coincidentArcs) return coincidentArcs;
 
     // https://math.stackexchange.com/questions/20321/how-can-i-tell-when-two-cubic-b%C3%A9zier-curves-intersect
 
