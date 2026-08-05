@@ -910,6 +910,69 @@ function isNearlyLinearSegment(seg, eps = NEARLY_LINEAR_EPS) {
                 Math.abs(seg[3]) <= eps);
     }
 }
+/*
+ Rewrites a segment that draws a straight line as one.
+
+ An arc with a zero radius is a line by SVG F.6.2, and a cubic or quadratic
+ whose control points sit on its chord draws one too. Leaving such a segment in
+ the spelling it arrived in costs twice over. `segmentsEqual` compares
+ representations, so it never merges with the plain line it lies exactly on top
+ of, and two paths that draw the same outline in different spellings are left
+ as two boundaries with nothing between them. And a zero-radius arc that
+ survives to the output hands the caller back a segment the SVG spec says is a
+ line.
+
+ The control points have to run *along* the chord, not out past an end and
+ back: collinear controls outside the endpoints draw a zero-area spike, and
+ flattening one to a line would throw geometry away rather than restate it.
+ Written as the Bezier derivative staying single-signed, which is the same
+ condition and needs no case analysis.
+
+ Radii are tested rather than the chord. An arc whose endpoints coincide is a
+ different matter — with the large-arc flag set it is a whole ellipse, and
+ `findVertices` already knows to keep that one and drop the other — while an
+ arc whose radii are merely too small for its chord is grown to fit by F.6.6
+ and is not degenerate at all.
+*/
+function lineariseDegenerateSegment(seg, eps) {
+    const a = seg[1];
+    const b = getEndPoint(seg);
+    if (seg[0] === "A") {
+        const degenerateRadii = !isFiniteNumber(seg[2]) ||
+            !isFiniteNumber(seg[3]) ||
+            Math.abs(seg[2]) <= NEARLY_LINEAR_EPS ||
+            Math.abs(seg[3]) <= NEARLY_LINEAR_EPS;
+        return degenerateRadii ? ["L", a, b] : seg;
+    }
+    if (seg[0] !== "C" && seg[0] !== "Q")
+        return seg;
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const chordSq = dx * dx + dy * dy;
+    // A curve that returns to where it started encloses area however flat its
+    // controls look from the chord, which has no direction to measure against.
+    if (chordSq <= eps * eps)
+        return seg;
+    const along = (p) => ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / chordSq;
+    const slack = eps / Math.sqrt(chordSq);
+    if (seg[0] === "Q") {
+        if (pointLineDistance(seg[2], a, b, eps) > eps)
+            return seg;
+        const t = along(seg[2]);
+        if (t < -slack || t > 1 + slack)
+            return seg;
+        return ["L", a, b];
+    }
+    if (pointLineDistance(seg[2], a, b, eps) > eps ||
+        pointLineDistance(seg[3], a, b, eps) > eps) {
+        return seg;
+    }
+    const t1 = along(seg[2]);
+    const t2 = along(seg[3]);
+    if (t1 < -slack || t2 - t1 < -slack || t2 > 1 + slack)
+        return seg;
+    return ["L", a, b];
+}
 function normalizeArcSegment(seg) {
     const phi = normalizeArcRotationDegrees(seg[4]);
     return ["A", seg[1], seg[2], seg[3], phi, seg[5], seg[6], seg[7]];
@@ -979,7 +1042,18 @@ const arcSegmentToCenter = (() => {
         // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
         rx = Math.abs(rx);
         ry = Math.abs(ry);
-        const lambda = x1Prime2 / rx2 + y1Prime2 / ry2 + 1e-12; // small epsilon needed because of float precision
+        /*
+         No epsilon is added to lambda, deliberately. The rounding it might
+         seem to call for is lambda landing a hair below 1 when the radii
+         exactly span the chord, and the `Math.max(0, ...)` on the ratio below
+         already absorbs that. Slack here instead inflates the radii of every
+         arc that genuinely needs the F.6.6 correction, and the centre solve
+         takes a square root of it, so it comes back out magnified: 1e-12 of
+         slack displaces the centre by 5e-7, far enough that a corrected arc no
+         longer lies on the circle it was corrected onto and no longer counts
+         as coincident with it.
+        */
+        const lambda = x1Prime2 / rx2 + y1Prime2 / ry2;
         if (lambda > 1) {
             const lambdaSqrt = Math.sqrt(lambda);
             rx *= lambdaSqrt;
@@ -1650,6 +1724,221 @@ function staysTogether(seg0, seg1, a, b, eps) {
     }
     return true;
 }
+/*
+ Two arcs of one ellipse, solved rather than subdivided.
+
+ Bisection cannot resolve a shared arc: the two curves never separate, so it
+ recurses to the leaf size the whole way along the overlap and reports a hit
+ from every leaf pair that reaches the bottom. The leaf-level short-circuits
+ further down only rescue the case where both sides cover the same extent and
+ so halve into matching pieces — a quarter arc against that same quarter arc,
+ forwards or reversed. A quarter arc against the 60 degrees of it a neighbour
+ shares, or against the semicircle that contains it, never lines up however far
+ down the recursion goes, and the entire run is bisected.
+
+ The centre parametrization answers it outright. Two arcs lying on one ellipse
+ overlap over an interval of angle, which intersects in closed form, and the
+ ends of that interval convert straight back to a parameter on each arc. It is
+ the curved counterpart of what `lineSegmentsCollinear` does for a pair of
+ lines, and the reason sharing a straight edge is cheap where sharing a curved
+ one is not.
+
+ Returning null means "not a common ellipse, subdivide as usual". An empty
+ array is an answer — two arcs of one ellipse whose angles do not meet — and
+ not an abstention.
+*/
+const TAU_ARC = 2 * Math.PI;
+function coincidentArcIntersection(seg0, seg1, eps) {
+    if (seg0[0] !== "A" || seg1[0] !== "A")
+        return null;
+    const c0 = arcSegmentToCenter(normalizeArcSegment(seg0));
+    const c1 = arcSegmentToCenter(normalizeArcSegment(seg1));
+    if (!c0 || !c1)
+        return null;
+    if (Math.abs(c0.center[0] - c1.center[0]) > eps.point ||
+        Math.abs(c0.center[1] - c1.center[1]) > eps.point ||
+        Math.abs(c0.rx - c1.rx) > eps.point ||
+        Math.abs(c0.ry - c1.ry) > eps.point) {
+        return null;
+    }
+    const biggest = Math.max(c0.rx, c0.ry);
+    if (!(biggest > 0))
+        return null;
+    // How far round the rim `eps.point` reaches. Everything angular below is
+    // measured against this so the test means the same thing at any size.
+    const angleEps = eps.point / biggest;
+    /*
+     A circle looks the same however it is turned, an ellipse only after half a
+     turn. The remaining way to spell one ellipse — radii swapped and a quarter
+     turn applied — is left to the subdivision rather than guessed at.
+    */
+    if (Math.abs(c0.rx - c0.ry) > eps.point) {
+        const turned = Math.abs((((c0.phi - c1.phi) % 180) + 180) % 180);
+        if (Math.min(turned, 180 - turned) > (angleEps * 180) / Math.PI) {
+            return null;
+        }
+    }
+    if (Math.abs(c0.deltaTheta) < angleEps ||
+        Math.abs(c1.deltaTheta) < angleEps) {
+        return null;
+    }
+    /*
+     `theta` is measured in the ellipse's own frame, the one `phi` turns it
+     into, so two arcs of the same circle written with different `phi` have
+     ranges that cannot be compared until both are brought into the world
+     frame. Adding `phi` does exactly that for a circle, where the frame is a
+     symmetry and the world angle is `theta + phi`; and it stays consistent for
+     an ellipse written half a turn around, where `phi + 180` and `theta + pi`
+     name the same point. Those are the only two spellings accepted above.
+
+     Comparing the two ranges without this makes two drawings of one circle
+     look as though their angles never meet. There is no safety net for that:
+     this function is authoritative when it returns an array, so the pair would
+     be reported as not intersecting at all.
+    */
+    const off0 = deg2rad(c0.phi);
+    const off1 = deg2rad(c1.phi);
+    // Each arc as an increasing interval of angle; direction is carried by
+    // `deltaTheta` and put back when converting to a parameter.
+    const span = (c, off) => {
+        const a = c.theta1 + off;
+        const b = c.theta1 + c.deltaTheta + off;
+        return a <= b ? [a, b] : [b, a];
+    };
+    const [lo0, hi0] = span(c0, off0);
+    const [lo1, hi1] = span(c1, off1);
+    const paramAt = (c, off, theta) => {
+        const t = (theta - off - c.theta1) / c.deltaTheta;
+        return t < 0 ? 0 : t > 1 ? 1 : t;
+    };
+    /*
+     Neither arc spans more than a full turn, so at most two whole-turn shifts
+     of the second can meet the first, and the overlap is at most two intervals.
+    */
+    const out = [];
+    const kFrom = Math.floor((lo0 - hi1) / TAU_ARC);
+    const kTo = Math.ceil((hi0 - lo1) / TAU_ARC);
+    for (let k = kFrom; k <= kTo; k++) {
+        const shift = k * TAU_ARC;
+        const from = Math.max(lo0, lo1 + shift);
+        const to = Math.min(hi0, hi1 + shift);
+        if (to < from - angleEps)
+            continue;
+        if (to - from <= angleEps) {
+            // Meeting at a single angle: a contact, not an overlap.
+            const mid = (from + to) / 2;
+            out.push([paramAt(c0, off0, mid), paramAt(c1, off1, mid - shift)]);
+            continue;
+        }
+        out.push([paramAt(c0, off0, from), paramAt(c1, off1, from - shift)]);
+        out.push([paramAt(c0, off0, to), paramAt(c1, off1, to - shift)]);
+    }
+    return out;
+}
+/*
+ Whether two pieces of curve are the same piece traversed opposite ways.
+
+ Reversing allocates, and this sits in the subdivision's innermost loop, so the
+ endpoints are checked first: they have to cross-match before it is worth
+ building the reversed segment at all.
+*/
+function segmentEndPoint(seg) {
+    switch (seg[0]) {
+        case "L":
+            return seg[2];
+        case "C":
+            return seg[4];
+        case "Q":
+            return seg[3];
+        case "A":
+            return seg[7];
+    }
+}
+function leavesCoincideReversed(seg0, seg1, eps) {
+    if (seg0[0] !== seg1[0])
+        return false;
+    // `seg[1]` is the start point whatever the type. Read the endpoints in
+    // place rather than through `pathSegmentToLineSegment`, which builds a
+    // pair: this runs on every surviving leaf pair of every subdivision.
+    if (!vectorsEqual(seg0[1], segmentEndPoint(seg1), eps.point) ||
+        !vectorsEqual(segmentEndPoint(seg0), seg1[1], eps.point)) {
+        return false;
+    }
+    return segmentsEqual(seg0, reversePathSegment(seg1), eps.point);
+}
+/*
+ Recovers the stretch a group of reports covers, when it covers one at all.
+
+ A group whose members stay together over a run is not one crossing seen many
+ times over; it is an overlap, and collapsing it to a point dissolves a shared
+ boundary. How many reports the group holds says nothing about which of the two
+ it is: a coincident pair can come out of grouping as a single report, while
+ two curves that merely run close together and cross repeatedly leave several.
+ The run's *extent* is the signal, and it is what this reads.
+
+ Two segments of the same type that coincide do so under a linear
+ correspondence between their parameters: the same arc of the same circle, the
+ same stretch of the same line. So the ends of the run are wherever that
+ correspondence first leaves either segment's [0, 1] range, and can be solved
+ for rather than searched. The outermost reports are no use on their own —
+ each sits somewhere inside the last leaf that still overlapped, which is
+ `eps.linear` across, where the split has to land within `eps.point` of its
+ partner or `findVertices` will not merge the two into one vertex.
+
+ Returns null when the group turns out not to describe an overlap, and the
+ caller falls back to treating it as a single contact. Every reason to bail is
+ checked against the geometry rather than assumed: the correspondence has to be
+ well conditioned, the run has to be longer than `eps.point` — otherwise it is
+ a point contact wearing a group's clothes — and the two curves have to stay
+ within `eps.point` of each other all along the stretch that comes back. The
+ correspondence is fitted from two reports, so that last check is what stops a
+ bad fit from splitting where there is nothing to split.
+*/
+const OVERLAP_VERIFY_SAMPLES = 16;
+function overlapEnds(seg0, seg1, group, eps) {
+    if (group.length < 2)
+        return null;
+    const first = group[0];
+    const last = group[group.length - 1];
+    const dt0 = last.t0 - first.t0;
+    const dt1 = last.t1 - first.t1;
+    if (Math.abs(dt0) < eps.param || Math.abs(dt1) < eps.param)
+        return null;
+    const slope = dt1 / dt0;
+    if (!Number.isFinite(slope))
+        return null;
+    const t1At = (t0) => first.t1 + (t0 - first.t0) * slope;
+    const t0At = (t1) => first.t0 + (t1 - first.t1) / slope;
+    // Where the correspondence keeps both parameters inside their own segment.
+    const bound0 = t0At(0);
+    const bound1 = t0At(1);
+    let lo = Math.max(0, Math.min(bound0, bound1));
+    let hi = Math.min(1, Math.max(bound0, bound1));
+    if (!(hi > lo))
+        return null;
+    const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
+    // Land exactly on the ends rather than a hair inside them, so that
+    // `splitAtIntersections` recognizes and drops a split it should not make.
+    const snap = (t) => (t < eps.param ? 0 : t > 1 - eps.param ? 1 : t);
+    lo = snap(lo);
+    hi = snap(hi);
+    const ends = [
+        [lo, snap(clamp01(t1At(lo)))],
+        [hi, snap(clamp01(t1At(hi)))],
+    ];
+    const a = samplePathSegmentAt(seg0, ends[0][0]);
+    const b = samplePathSegmentAt(seg0, ends[1][0]);
+    if (Math.hypot(a[0] - b[0], a[1] - b[1]) <= eps.point)
+        return null;
+    for (let k = 0; k <= OVERLAP_VERIFY_SAMPLES; k++) {
+        const s = k / OVERLAP_VERIFY_SAMPLES;
+        const p = samplePathSegmentAt(seg0, lerp(ends[0][0], ends[1][0], s));
+        const q = samplePathSegmentAt(seg1, lerp(ends[0][1], ends[1][1], s));
+        if (Math.hypot(p[0] - q[0], p[1] - q[1]) > eps.point)
+            return null;
+    }
+    return ends;
+}
 function groupCandidates(seg0, seg1, candidates, eps) {
     if (candidates.length <= 1) {
         return candidates.map((c) => [c.t0, c.t1]);
@@ -1666,7 +1955,25 @@ function groupCandidates(seg0, seg1, candidates, eps) {
             groups.push([sorted[i]]);
         }
     }
-    return groups.map((group) => refineContact(seg0, seg1, group));
+    /*
+     Only same-type pairs are considered for overlap. `findVertices` merges
+     coincident edges with `segmentsEqual`, which compares representations and
+     rejects two spellings of the same curve out of hand — a line against a
+     zero-radius arc, or against a cubic whose controls are collinear, are
+     identical to the last bit and still report as different. Splitting a pair
+     the merge will then refuse to join would leave two edges lying on top of
+     each other bounding nothing between them, which is worse than reporting a
+     single contact where an overlap exists. `lineariseDegenerateSegment` is
+     what brings such pairs to a common spelling early enough for this test to
+     accept them.
+    */
+    const sameType = seg0[0] === seg1[0];
+    return groups.flatMap((group) => {
+        const ends = sameType ? overlapEnds(seg0, seg1, group, eps) : null;
+        if (ends)
+            return ends;
+        return [refineContact(seg0, seg1, group)];
+    });
 }
 /*
  Pins a grouped contact down to where the curves actually meet.
@@ -1744,6 +2051,9 @@ function pathSegmentIntersection(origSeg0, origSeg1, eps) {
         const st = lineSegmentIntersection(segLine0, segLine1, eps);
         return st ? [st] : [];
     }
+    const coincidentArcs = coincidentArcIntersection(seg0, seg1, eps);
+    if (coincidentArcs)
+        return coincidentArcs;
     // https://math.stackexchange.com/questions/20321/how-can-i-tell-when-two-cubic-b%C3%A9zier-curves-intersect
     let pairs = [
         [
@@ -1762,20 +2072,21 @@ function pathSegmentIntersection(origSeg0, origSeg1, eps) {
         ],
     ];
     const candidates = [];
+    function pushCandidate(t0, t1) {
+        const p = samplePathSegmentAt(origSeg0, t0);
+        const q = samplePathSegmentAt(origSeg1, t1);
+        candidates.push({
+            t0,
+            t1,
+            gap: Math.hypot(p[0] - q[0], p[1] - q[1]),
+        });
+    }
     function pushLineSegmentIntersection(seg0, seg1) {
         const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
         const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
         const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps);
         if (st) {
-            const t0 = lerp(seg0.startParam, seg0.endParam, st[0]);
-            const t1 = lerp(seg1.startParam, seg1.endParam, st[1]);
-            const p = samplePathSegmentAt(origSeg0, t0);
-            const q = samplePathSegmentAt(origSeg1, t1);
-            candidates.push({
-                t0,
-                t1,
-                gap: Math.hypot(p[0] - q[0], p[1] - q[1]),
-            });
+            pushCandidate(lerp(seg0.startParam, seg0.endParam, st[0]), lerp(seg1.startParam, seg1.endParam, st[1]));
         }
     }
     function isLinear(seg) {
@@ -1795,8 +2106,33 @@ function pathSegmentIntersection(origSeg0, origSeg1, eps) {
         let capHit = false;
         for (const [seg0, seg1] of pairs) {
             if (segmentsEqual(seg0.seg, seg1.seg, eps.point)) {
-                // TODO: move this outside of this loop?
-                continue; // TODO: what to do?
+                /*
+                 The two leaves are the same piece of curve. Record how far the
+                 run reaches rather than dropping the pair: `groupCandidates`
+                 recovers the shared stretch from the ends of the reports, so
+                 with nothing recorded here a boundary shared exactly — one
+                 whose parametrizations line up leaf for leaf — yields no
+                 reports along its whole length. Subdividing further is
+                 pointless either way, so the pair stops here.
+                */
+                pushCandidate(seg0.startParam, seg1.startParam);
+                pushCandidate(seg0.endParam, seg1.endParam);
+                continue;
+            }
+            if (leavesCoincideReversed(seg0.seg, seg1.seg, eps)) {
+                /*
+                 The same, for a leaf traversed the other way round. It needs a
+                 test of its own because `segmentsEqual` compares endpoints in
+                 order and so never fires on a reversed pair; without it the
+                 subdivision grinds the whole coincident run down to
+                 `eps.linear`, which for a pair sharing a long stretch is
+                 thousands of leaf pairs and seconds of work. The
+                 correspondence crosses over: the start of one leaf is the end
+                 of the other.
+                */
+                pushCandidate(seg0.startParam, seg1.endParam);
+                pushCandidate(seg0.endParam, seg1.startParam);
+                continue;
             }
             const isLinear0 = isLinear(seg0);
             const isLinear1 = isLinear(seg1);
@@ -1920,6 +2256,15 @@ function booleanArraysEqual(a, b) {
     }
     return true;
 }
+function numberArraysEqual(a, b) {
+    if (a.length !== b.length)
+        return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i])
+            return false;
+    }
+    return true;
+}
 function orBooleansInto(target, source) {
     for (let i = 0; i < source.length; i++) {
         if (source[i])
@@ -1927,24 +2272,30 @@ function orBooleansInto(target, source) {
     }
 }
 /*
- Records how a path joining an already-created edge is oriented relative to it.
+ Records a path joining an already-created edge, and which way round it runs.
 
- `directionFlags[i]` means "path i's own segment runs against this half-edge",
- so the two half-edges always hold opposite values for any path on the edge.
+ `windings[i]` is the signed number of times path i traverses this half-edge in
+ the half-edge's own direction, so the two half-edges always hold opposite
+ values and crossing one moves path i's winding number by exactly that much.
  `againstForward` says which way round the joining path goes.
 
- Only the joining path's slots are written. Assigning the whole array would
- wipe the orientations of the paths already sharing the edge, which is what
- made Intersection and Exclusion depend on the order of the inputs wherever
- two paths shared a collinear edge.
+ It accumulates rather than assigns, for two reasons. Only the joining path's
+ own slots are touched, so the orientations of the paths already sharing the
+ edge survive; assigning the whole array would wipe them, and Intersection and
+ Exclusion would then depend on the order of the inputs wherever two paths
+ share a collinear edge. And a path is free to run along the same edge more
+ than once — a subpath that goes round twice covers its interior with a winding
+ number of two, which non-zero and even-odd disagree about — so a count is
+ needed where a flag would report both traversals as one.
 */
-function setDirectionFlags(existingEdge, parents, againstForward) {
+function addWinding(existingEdge, parents, againstForward) {
     const [, forward, backward] = existingEdge;
+    const step = againstForward ? -1 : 1;
     for (let i = 0; i < parents.length; i++) {
         if (!parents[i])
             continue;
-        forward.directionFlags[i] = againstForward;
-        backward.directionFlags[i] = !againstForward;
+        forward.windings[i] += step;
+        backward.windings[i] -= step;
     }
 }
 function createObjectCounter() {
@@ -2155,7 +2506,7 @@ function findVertices(edges, boundingBox, eps) {
                 // one, matching how a fresh edge pair is built below. Only the
                 // joining path's own slots are touched; the slots belonging to
                 // paths already on this edge keep their own orientation.
-                setDirectionFlags(existingEdge, edge.parents, false);
+                addWinding(existingEdge, edge.parents, false);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -2173,7 +2524,7 @@ function findVertices(edges, boundingBox, eps) {
                 // A shared edge traversed the opposite way round: the joining
                 // path runs along the backward half-edge and against the
                 // forward one.
-                setDirectionFlags(existingEdge, edge.parents, true);
+                addWinding(existingEdge, edge.parents, true);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -2184,7 +2535,7 @@ function findVertices(edges, boundingBox, eps) {
             parents: edge.parents.slice(),
             incidentVertices: [startVertex, endVertex],
             directionFlag: false,
-            directionFlags: new Array(edge.parents.length).fill(false),
+            windings: edge.parents.map((p) => (p ? 1 : 0)),
             twin: null,
         };
         const bwdEdge = {
@@ -2192,9 +2543,9 @@ function findVertices(edges, boundingBox, eps) {
             parents: edge.parents.slice(),
             incidentVertices: [endVertex, startVertex],
             directionFlag: true,
-            // directionFlags[p] = parents[p]: on the backward half-edge the
-            // originating path runs against its own orientation.
-            directionFlags: edge.parents.slice(),
+            // Negated: on the backward half-edge the originating path runs
+            // against its own orientation.
+            windings: edge.parents.map((p) => (p ? -1 : 0)),
             twin: fwdEdge,
         };
         fwdEdge.twin = bwdEdge;
@@ -2244,7 +2595,7 @@ function computeMinor({ vertices }) {
             let edge = startEdge;
             while (booleanArraysEqual(edge.parents, startEdge.parents) &&
                 edge.directionFlag === startEdge.directionFlag &&
-                booleanArraysEqual(edge.directionFlags, startEdge.directionFlags) &&
+                numberArraysEqual(edge.windings, startEdge.windings) &&
                 getOrder(edge.incidentVertices[1]) === 2) {
                 segments.push(edge.seg);
                 visited.add(edge.incidentVertices[1]);
@@ -2263,7 +2614,7 @@ function computeMinor({ vertices }) {
                 parents: startEdge.parents,
                 incidentVertices: [startVertex, endVertex],
                 directionFlag: startEdge.directionFlag,
-                directionFlags: startEdge.directionFlags,
+                windings: startEdge.windings,
                 twin: twin,
                 id: nextEdgeId++,
             };
@@ -2285,7 +2636,7 @@ function computeMinor({ vertices }) {
             segments: [],
             parents: edge.parents,
             directionFlag: edge.directionFlag,
-            directionFlags: edge.directionFlags,
+            windings: edge.windings,
         };
         do {
             cycle.segments.push(edge.seg);
@@ -2617,7 +2968,7 @@ function computeDual({ edges, cycles }) {
                 parents: edge.parents,
                 incidentVertex: face,
                 directionFlag: edge.directionFlag,
-                directionFlags: edge.directionFlags,
+                windings: edge.windings,
                 twin,
             };
             if (twin) {
@@ -2639,7 +2990,7 @@ function computeDual({ edges, cycles }) {
             parents: cycle.parents,
             incidentVertex: innerFace,
             directionFlag: cycle.directionFlag,
-            directionFlags: cycle.directionFlags,
+            windings: cycle.windings,
             twin: null,
         };
         const outerFace = {
@@ -2651,7 +3002,7 @@ function computeDual({ edges, cycles }) {
             parents: cycle.parents,
             incidentVertex: outerFace,
             directionFlag: !cycle.directionFlag,
-            directionFlags: cycle.directionFlags.map((f) => !f),
+            windings: cycle.windings.map((w) => -w),
             twin: innerHalfEdge,
         };
         innerHalfEdge.twin = outerHalfEdge;
@@ -2886,9 +3237,7 @@ function flagFaces(nestingTrees, fillRules) {
                 const twin = edge.twin;
                 const nextCounts = runningCounts.slice();
                 for (let i = 0; i < pathCount; i++) {
-                    if (edge.parents[i]) {
-                        nextCounts[i] += edge.directionFlags[i] ? -1 : 1;
-                    }
+                    nextCounts[i] += edge.windings[i];
                 }
                 visitFace(twin.incidentVertex, nextCounts);
             }
@@ -3071,6 +3420,18 @@ class PathBoolean {
             inputBoundingBox = mergeBoundingBoxes(inputBoundingBox, pathSegmentBoundingBox(seg));
         }
         const eps = epsilonsForExtent(inputBoundingBox ? boundingBoxMaxExtent(inputBoundingBox) : 0);
+        /*
+         Rewrite curves that draw a straight line as lines, before anything is
+         measured against anything else, so that from here on a line and a
+         curve drawing the same line are one segment rather than two spellings
+         that never compare equal. It runs after the epsilons because it needs
+         `eps.point`, and safely so: replacing a segment by its chord only ever
+         shrinks the geometry, so the bounding box measured above still bounds
+         it.
+        */
+        for (const edge of unsplitEdges) {
+            edge.seg = lineariseDegenerateSegment(edge.seg, eps.point);
+        }
         splitAtSelfIntersections(unsplitEdges);
         const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(unsplitEdges, eps);
         if (!totalBoundingBox) {
