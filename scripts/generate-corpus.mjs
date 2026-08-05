@@ -26,7 +26,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const GENERATOR_VERSION = 1;
+const GENERATOR_VERSION = 2;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_ROOT = path.join(ROOT, "src", "__fixtures__", "generated");
@@ -274,6 +274,195 @@ const SHAPES = {
                 ["Q", [-1, 1], [-1, 0]],
                 ["Q", [-1, -1], [0, -1]],
                 ["Q", [1, -1], [1, 0]],
+            ],
+        },
+    ],
+
+    // Two disjoint squares in a single path: one input, two components, no
+    // nesting between them. Distinct from `annulus`, whose two subpaths do
+    // nest.
+    "two-islands": () => [
+        ...polygon([
+            [-1.4, -0.6],
+            [-0.4, -0.6],
+            [-0.4, 0.6],
+            [-1.4, 0.6],
+        ]),
+        ...polygon([
+            [0.4, -0.6],
+            [1.4, -0.6],
+            [1.4, 0.6],
+            [0.4, 0.6],
+        ]),
+    ],
+
+    // Three rings of alternating winding: filled, hole, filled again. Two
+    // levels of nesting inside one input, where `annulus` has one.
+    bullseye: () => [
+        circleOfArcs(1, true),
+        circleOfArcs(0.7, false),
+        circleOfArcs(0.35, true),
+    ],
+
+    // Two overlapping discs wound the same way, in one path. The lens where
+    // they overlap is wound twice, so this is the pair where non-zero and
+    // even-odd genuinely disagree without any single subpath being
+    // self-intersecting.
+    "two-discs": () => [
+        ...applyShape([circleOfArcs(0.9)], sim(1, 0, -0.5, 0)),
+        ...applyShape([circleOfArcs(0.9)], sim(1, 0, 0.5, 0)),
+    ],
+
+    // The unit circle traversed twice round in a single subpath. Every edge
+    // is exactly coincident with another edge of the same path, so it stresses
+    // `splitAtSelfIntersections` with total rather than transversal overlap.
+    "double-circle": () => {
+        const c = circleOfArcs(1);
+        return [{ start: c.start, segs: [...c.segs, ...c.segs] }];
+    },
+
+    // Self-crossing quadrilateral whose two lobes wind oppositely, so the
+    // fill rules agree that both are filled but the winding numbers differ.
+    bowtie: () =>
+        polygon([
+            [-1, -1],
+            [1, 1],
+            [1, -1],
+            [-1, 1],
+        ]),
+
+    // Twelve teeth: the same pressure `comb` puts on sorting and face tracing,
+    // an order of magnitude more of it, and radially rather than in parallel.
+    gear: () => {
+        const teeth = 12;
+        const pts = [];
+        for (let i = 0; i < teeth * 2; i++) {
+            const a = (i * Math.PI) / teeth;
+            const r = i % 2 === 0 ? 1 : 0.62;
+            pts.push([r * Math.cos(a), r * Math.sin(a)]);
+        }
+        return polygon(pts);
+    },
+
+    // The unit square again, with a midpoint vertex on every edge. Paired with
+    // `square` it gives coincident edges that disagree about where the
+    // vertices are.
+    "subdivided-square": () =>
+        polygon([
+            [-1, -1],
+            [0, -1],
+            [1, -1],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [-1, 1],
+            [-1, 0],
+        ]),
+
+    // The unit square once more, this time drawn with curve segments that are
+    // all degenerate: a zero-length cubic, a cubic whose controls are
+    // collinear with its endpoints, and a quadratic whose control sits on its
+    // chord. Geometrically identical to `square`, structurally nothing like it.
+    "degenerate-curves": () => [
+        {
+            start: [-1, -1],
+            segs: [
+                ["C", [-1, -1], [-1, -1], [-1, -1]],
+                ["C", [-1 / 3, -1], [1 / 3, -1], [1, -1]],
+                ["Q", [1, 0], [1, 1]],
+                ["L", [-1, 1]],
+                ["L", [-1, -1]],
+            ],
+        },
+    ],
+
+    // A wedge 0.002 across at its widest. The corpus renders at 512px over a
+    // scene about two units across, so this is under half a pixel everywhere:
+    // deliberately below what the raster tier can resolve and squarely within
+    // what the area oracle can.
+    sliver: () =>
+        polygon([
+            [-1, 0],
+            [1, 0],
+            [-1, 0.002],
+        ]),
+
+    // Arc closed by its chord, so the boundary is half curve and half line.
+    "half-disc": () => [
+        {
+            start: [-1, 0],
+            segs: [
+                ["A", 1, 1, 0, false, true, [1, 0]],
+                ["L", [-1, 0]],
+            ],
+        },
+    ],
+
+    // An annular sector just outside the unit circle, sharing 60 degrees of
+    // its rim exactly. The shared stretch is *curved* and its ends fall in the
+    // interior of `circle-arc`'s quarter arcs, where the existing
+    // `edge-shared-*` cases only ever share straight edges at whole vertices.
+    "rim-wedge": () => {
+        const at = (r, deg) => {
+            const a = (deg * Math.PI) / 180;
+            return [r * Math.cos(a), r * Math.sin(a)];
+        };
+        return [
+            {
+                start: at(1, -30),
+                segs: [
+                    ["A", 1, 1, 0, false, true, at(1, 30)],
+                    ["L", at(1.6, 30)],
+                    ["A", 1.6, 1.6, 0, false, false, at(1.6, -30)],
+                    ["L", at(1, -30)],
+                ],
+            },
+        ];
+    },
+
+    // Annulus whose inner boundary is the unit circle traced backwards, so it
+    // coincides with the whole of `circle-arc`'s boundary rather than part of
+    // it.
+    "ring-outside": () => [circleOfArcs(1.5, true), circleOfArcs(1, false)],
+
+    // Two arcs that both take the long way round, so `largeArc` is set on
+    // every segment. The two supporting circles meet only at the waist points,
+    // giving a closed curve shaped like an upright peanut.
+    "lens-large": () => [
+        {
+            start: [-0.6, 0],
+            segs: [
+                ["A", 1, 1, 0, true, true, [0.6, 0]],
+                ["A", 1, 1, 0, true, true, [-0.6, 0]],
+            ],
+        },
+    ],
+
+    // Two semicircles whose radii are too small for the chord they span. SVG
+    // F.6.6 says to scale both radii up by sqrt(lambda) — here a factor of
+    // two — rather than reject the path, which makes this *exactly* the unit
+    // circle after correction, and a coincidence case with `circle-arc`.
+    "arc-overlong": () => [
+        {
+            start: [-1, 0],
+            segs: [
+                ["A", 0.5, 0.5, 0, false, true, [1, 0]],
+                ["A", 0.5, 0.5, 0, false, true, [-1, 0]],
+            ],
+        },
+    ],
+
+    // The unit square with a zero-radius arc for its bottom edge. SVG F.6.2
+    // says an arc with a zero radius is drawn as a straight line, so this too
+    // is geometrically the plain square.
+    "zero-radius-arc": () => [
+        {
+            start: [-1, -1],
+            segs: [
+                ["A", 0, 0, 0, false, true, [1, -1]],
+                ["L", [1, 1]],
+                ["L", [-1, 1]],
+                ["L", [-1, -1]],
             ],
         },
     ],
@@ -563,6 +752,12 @@ const OVERLAP = sim(1, 0, 1.1, 0.55);
     ["pentagram", "circle-arc"],
     ["cusp-cubic", "square"],
     ["loop-cubic", "circle-arc"],
+    ["two-islands", "circle-arc"],
+    ["bullseye", "square"],
+    ["bowtie", "circle-arc"],
+    ["lens-large", "square"],
+    ["degenerate-curves", "triangle"],
+    ["half-disc", "quad-blob"],
 ].forEach(([sa, sb], i) =>
     add({
         category: "overlap",
@@ -621,6 +816,39 @@ const HALF_DIAGONAL = 0.5 * Math.SQRT2;
         b: { shape: "square", sim: sim(0.5, 0, 1.5, 0) },
         note: "B's whole left edge lies strictly inside A's right edge",
     },
+    {
+        name: "arc-shared-partial",
+        a: { shape: "circle-arc" },
+        b: { shape: "rim-wedge" },
+        note: "B shares 60 degrees of A's rim: a coincident stretch that is curved, and whose ends fall inside A's quarter arcs rather than on its vertices",
+    },
+    {
+        name: "arc-shared-full",
+        a: { shape: "circle-arc" },
+        b: { shape: "ring-outside" },
+        note: "B's inner ring is the whole of A's boundary traced backwards",
+    },
+    {
+        name: "circle-tangent-to-edge",
+        a: { shape: "square" },
+        b: { shape: "circle-arc", sim: sim(0.5, 0, 1.5, 0) },
+        note: "curve meets line tangentially, where 01/02 have curve meeting curve",
+    },
+    {
+        name: "circle-inscribed",
+        a: { shape: "square" },
+        b: { shape: "circle-arc" },
+        note: "B is tangent to all four of A's edges at once, from inside",
+    },
+    {
+        name: "vertex-on-arc",
+        a: { shape: "circle-arc" },
+        b: {
+            shape: "square",
+            sim: sim(0.5, 0, Math.SQRT1_2 + 0.5, Math.SQRT1_2 + 0.5),
+        },
+        note: "B's corner rests on A's rim at 45 degrees, strictly inside one of A's quarter arcs rather than on a vertex of either",
+    },
 ].forEach((c, i) =>
     add({
         category: "touching",
@@ -670,6 +898,30 @@ const HALF_DIAGONAL = 0.5 * Math.SQRT2;
         a: { shape: "annulus" },
         b: { shape: "circle-arc", sim: sim(0.75, 0, 0.6, 0) },
         note: "B crosses both rings of the annulus",
+    },
+    {
+        name: "circle-in-bullseye-core",
+        a: { shape: "bullseye" },
+        b: { shape: "circle-arc", sim: sim(0.2) },
+        note: "B sits in A's innermost filled disc: three levels of nesting to walk through before reaching it",
+    },
+    {
+        name: "circle-in-bullseye-gap",
+        a: { shape: "bullseye" },
+        b: { shape: "circle-arc", sim: sim(0.15, 0, 0.52, 0) },
+        note: "B sits in A's empty ring, so it is nested inside A and yet outside it",
+    },
+    {
+        name: "two-islands-in-circle",
+        a: { shape: "circle-arc", sim: sim(2) },
+        b: { shape: "two-islands" },
+        note: "both of B's components are contained, and neither contains the other",
+    },
+    {
+        name: "annulus-in-annulus-hole",
+        a: { shape: "annulus" },
+        b: { shape: "annulus", sim: sim(0.4) },
+        note: "a hole inside a hole inside a hole: four levels of alternating containment",
     },
 ].forEach((c, i) =>
     add({
@@ -722,6 +974,42 @@ const HALF_DIAGONAL = 0.5 * Math.SQRT2;
         b: { shape: "circle-arc", sim: sim(1, 0, 0, 1e-12) },
         note: "offset at the edge of double precision for unit coordinates",
     },
+    {
+        name: "identical-circle-rotated-start",
+        a: { shape: "circle-arc" },
+        b: { shape: "circle-arc", sim: sim(1, 45) },
+        note: "the same circle drawn from a different starting angle: the boundaries coincide but not one vertex of A meets a vertex of B",
+    },
+    {
+        name: "identical-annulus",
+        a: { shape: "annulus" },
+        b: { shape: "annulus" },
+        note: "coincident on both rings at once, with the two winding oppositely",
+    },
+    {
+        name: "square-vs-subdivided-square",
+        a: { shape: "square" },
+        b: { shape: "subdivided-square" },
+        note: "the same square with twice as many vertices, so every coincident edge has a vertex of B in its interior",
+    },
+    {
+        name: "square-vs-degenerate-curves",
+        a: { shape: "square" },
+        b: { shape: "degenerate-curves" },
+        note: "the same square drawn with a zero-length cubic, a collinear cubic and a collinear quadratic: identical geometry, no shared segment type",
+    },
+    {
+        name: "circle-vs-overlong-radii",
+        a: { shape: "circle-arc" },
+        b: { shape: "arc-overlong" },
+        note: "identical only if the SVG F.6.6 radius correction is applied; B's radii are half what its chords need",
+    },
+    {
+        name: "square-vs-zero-radius-arc",
+        a: { shape: "square" },
+        b: { shape: "zero-radius-arc" },
+        note: "identical only if a zero-radius arc is read as the straight line SVG F.6.2 says it is",
+    },
 ].forEach((c, i) =>
     add({
         category: "coincident",
@@ -748,6 +1036,18 @@ const HALF_DIAGONAL = 0.5 * Math.SQRT2;
         a: { shape: "annulus" },
         b: { shape: "square", sim: sim(1, 0, 5, 0) },
         note: "a hole-bearing component alongside a separate solid one",
+    },
+    {
+        name: "two-islands-and-bullseye",
+        a: { shape: "two-islands" },
+        b: { shape: "bullseye", sim: sim(1, 0, 5, 0) },
+        note: "two multi-component inputs, five components between them, no contact anywhere",
+    },
+    {
+        name: "island-between-islands",
+        a: { shape: "two-islands" },
+        b: { shape: "circle-arc", sim: sim(0.3) },
+        note: "B fits in the gap between A's two components: disjoint from both, and contained by neither",
     },
 ].forEach((c, i) =>
     add({
@@ -790,6 +1090,50 @@ for (const fa of ["nonzero", "evenodd"]) {
     });
 }
 
+/*
+ The pentagram and annulus cases above have their windings decided by a single
+ self-intersecting subpath or by two subpaths that oppose each other. These two
+ groups cover the remaining ways to reach a winding number the rules disagree
+ about: two separate subpaths wound the *same* way and overlapping, and one
+ subpath that simply goes round twice.
+*/
+
+for (const fa of ["nonzero", "evenodd"]) {
+    add({
+        category: "fill-rule",
+        name: `${num(fillRuleIndex++)}-two-discs-x-square-${fa}`,
+        a: { shape: "two-discs" },
+        b: { shape: "square", sim: sim(0.8, 0, 0, 0.9) },
+        fill: [fa, "nonzero"],
+        placement: "overlap",
+        note: `two same-winding subpaths overlapping in a doubly-wound lens, read as ${fa}: the lens is filled under non-zero and empty under even-odd`,
+    });
+}
+
+for (const fa of ["nonzero", "evenodd"]) {
+    add({
+        category: "fill-rule",
+        name: `${num(fillRuleIndex++)}-double-circle-x-square-${fa}`,
+        a: { shape: "double-circle" },
+        b: { shape: "square", sim: sim(0.8, 0, 0.9, 0.4) },
+        fill: [fa, "nonzero"],
+        placement: "overlap",
+        note: `a circle traversed twice round in one subpath, read as ${fa}: the disc is filled under non-zero and wholly empty under even-odd`,
+    });
+}
+
+for (const fa of ["nonzero", "evenodd"]) {
+    add({
+        category: "fill-rule",
+        name: `${num(fillRuleIndex++)}-bowtie-x-circle-${fa}`,
+        a: { shape: "bowtie" },
+        b: { shape: "circle-arc", sim: sim(0.8, 0, 0.6, 0.3) },
+        fill: [fa, "nonzero"],
+        placement: "overlap",
+        note: `opposite-winding lobes meeting at a self-crossing, read as ${fa}: both rules fill both lobes, so this pins that the rules agree where they should`,
+    });
+}
+
 /* -- degenerate: zero-area geometry -- */
 
 [
@@ -817,9 +1161,121 @@ for (const fa of ["nonzero", "evenodd"]) {
         b: { shape: "zero-area-line", sim: sim(1, 90, 0, 0) },
         note: "two wholly zero-area paths crossing at the origin",
     },
+    {
+        name: "degenerate-curves-x-circle",
+        a: { shape: "degenerate-curves" },
+        b: { shape: "circle-arc", sim: sim(1, 0, 1.1, 0.55) },
+        note: "a zero-length cubic, a collinear cubic and a collinear quadratic all cut by an ordinary curve",
+    },
+    {
+        name: "sliver-x-square",
+        a: { shape: "sliver" },
+        b: { shape: "square", sim: sim(1, 0, 1.1, 0.55) },
+        note: "a wedge under half a pixel thick crossing an ordinary edge: the area oracle can see the result, the raster oracle cannot",
+    },
+    {
+        name: "crossing-slivers",
+        a: { shape: "sliver" },
+        b: { shape: "sliver", sim: sim(1, 90) },
+        note: "two sub-pixel wedges crossing, so the intersection has an area of order 1e-6 and four vertices within 0.002 of each other",
+    },
+    {
+        name: "spike-along-edge",
+        a: { shape: "degenerate-spike" },
+        b: { shape: "square", sim: sim(1, 0, 0, 3) },
+        note: "the zero-area spike ends exactly on B's boundary, so the out-and-back pair terminates at a vertex it has to share",
+    },
 ].forEach((c, i) =>
     add({
         category: "degenerate",
+        name: `${num(i)}-${c.name}`,
+        a: c.a,
+        b: c.b,
+        placement: c.name,
+        note: c.note,
+    }),
+);
+
+/* -- arcs: the corners of the SVG arc parametrization -- */
+
+[
+    {
+        name: "large-arc-x-square",
+        a: { shape: "lens-large" },
+        b: { shape: "square", sim: sim(1, 0, 0.6, 0.8) },
+        note: "every arc of A takes the long way round (largeArc set), which is the flag combination nothing else in the corpus uses",
+    },
+    {
+        name: "overlong-radii-x-square",
+        a: { shape: "arc-overlong" },
+        b: { shape: "square", sim: sim(1, 0, 1.1, 0.55) },
+        note: "A's radii are half what its chords need, so the F.6.6 correction has to fire before anything else can be right",
+    },
+    {
+        name: "zero-radius-x-circle",
+        a: { shape: "zero-radius-arc" },
+        b: { shape: "circle-arc", sim: sim(1, 0, 1.1, 0.55) },
+        note: "A's bottom edge is an arc of radius zero, which F.6.2 says to draw as a straight line",
+    },
+    {
+        name: "ellipse-x-ellipse-crossed",
+        a: { shape: "ellipse-rot" },
+        b: { shape: "ellipse-rot", sim: sim(1, 70, 0.15, 0) },
+        note: "two rotated ellipses at 70 degrees to each other: four transversal crossings, none of them on an axis of either",
+    },
+    {
+        name: "half-disc-x-half-disc",
+        a: { shape: "half-disc" },
+        b: { shape: "half-disc", sim: sim(1, 180, 0, -0.5) },
+        note: "each half-disc's chord crosses the other's arc, so all four crossings are curve-against-line and the two chords stay parallel",
+    },
+    {
+        name: "sweep-flags-x-square",
+        a: { shape: "c-shape" },
+        b: { shape: "square", sim: sim(0.6, 0, 0.9, 0.5) },
+        note: "A's outer and inner arcs run with opposite sweep flags and both have largeArc set",
+    },
+].forEach((c, i) =>
+    add({
+        category: "arcs",
+        name: `${num(i)}-${c.name}`,
+        a: c.a,
+        b: c.b,
+        placement: c.name,
+        note: c.note,
+    }),
+);
+
+/* -- stress: many intersections at once -- */
+
+[
+    {
+        name: "gear-x-circle",
+        a: { shape: "gear" },
+        b: { shape: "circle-arc", sim: sim(0.8) },
+        note: "the circle cuts every one of the twelve teeth: 24 intersections spread over four arcs",
+    },
+    {
+        name: "gear-x-gear",
+        a: { shape: "gear" },
+        b: { shape: "gear", sim: sim(1, 15) },
+        note: "two gears offset by half a tooth, so the teeth interlock and every one of them crosses two of the other's edges",
+    },
+    {
+        name: "comb-x-comb",
+        a: { shape: "comb" },
+        b: { shape: "comb", sim: sim(1, 90) },
+        note: "two combs at right angles: the teeth of each cross the teeth of the other in a grid",
+    },
+    {
+        name: "gear-x-annulus",
+        a: { shape: "gear" },
+        b: { shape: "annulus", sim: sim(0.9) },
+        note: "both rings of the annulus cut the teeth, so the result is a ring of alternating faces",
+    },
+].forEach((c, i) =>
+    add({
+        category: "stress",
         name: `${num(i)}-${c.name}`,
         a: c.a,
         b: c.b,
@@ -835,6 +1291,8 @@ const CONDITIONING = {
     small: sim(1e-3),
     large: sim(1e3),
     rotated: sim(1, 21.2),
+    tiny: sim(1e-6),
+    "small-and-far": sim(1e-3, 0, 1e6, 1e6),
 };
 
 const CONDITIONING_NOTES = {
@@ -842,6 +1300,9 @@ const CONDITIONING_NOTES = {
     small: "scaled to 1e-3, where features are smaller than EPS.linear",
     large: "scaled to 1e3",
     rotated: "rotated off-axis, so nothing is axis-aligned any more",
+    tiny: "scaled to 1e-6, three more orders of magnitude down than `small`, where the whole scene is the size of the unscaled EPS.point",
+    "small-and-far":
+        "scaled to 1e-3 *and* translated to 1e6: the two hard conditionings at once, where the scene is nine orders of magnitude smaller than its own offset and neighbouring doubles are ~2e-10 apart",
 };
 
 [
@@ -859,6 +1320,14 @@ const CONDITIONING_NOTES = {
         name: "edge-shared-full",
         a: { shape: "square" },
         b: { shape: "square", sim: sim(1, 0, 2, 0) },
+    },
+    {
+        // The one placement here whose coincident stretch is curved, and the
+        // one most likely to come apart when the tolerances move relative to
+        // the geometry.
+        name: "arc-shared-full",
+        a: { shape: "circle-arc" },
+        b: { shape: "ring-outside" },
     },
 ].forEach((base, i) => {
     for (const [cond, condSim] of Object.entries(CONDITIONING)) {

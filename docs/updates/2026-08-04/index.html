@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>path-bool — coincident geometry, 4 August 2026</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #16181d;
+    --muted: #5c6370;
+    --rule: #e3e6ea;
+    --panel: #f7f8fa;
+    --accent: #c8102e;
+    --good: #1a7f37;
+    --bad: #b42318;
+    --code-bg: #f2f4f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --fg: #e6e8eb;
+      --muted: #99a1ad;
+      --rule: #262b33;
+      --panel: #161a21;
+      --accent: #ff5b73;
+      --good: #4ac26b;
+      --bad: #ff7b72;
+      --code-bg: #1a1f27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 96px; }
+  header { border-bottom: 2px solid var(--fg); padding-bottom: 24px; margin-bottom: 40px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+  h2 {
+    font-size: 22px; margin: 56px 0 6px; letter-spacing: -0.01em;
+    padding-bottom: 8px; border-bottom: 1px solid var(--rule);
+  }
+  h3 { font-size: 17px; margin: 36px 0 4px; }
+  h3 .tag {
+    font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 3px 6px; margin-left: 8px; vertical-align: 2px; letter-spacing: 0.04em;
+  }
+  p { margin: 12px 0; }
+  .lede { font-size: 17px; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 18px 0; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  td.num, th.num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  tr.total td { border-top: 2px solid var(--fg); border-bottom: none; font-weight: 700; }
+  .scroll { overflow-x: auto; }
+  .good { color: var(--good); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 600; }
+  figure { margin: 20px 0 8px; }
+  .trip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .trip.two { grid-template-columns: repeat(2, 1fr); max-width: 640px; }
+  @media (max-width: 700px) { .trip, .trip.two { grid-template-columns: 1fr; } }
+  .shot { border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: #fff; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot .cap {
+    font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 7px 10px; border-top: 1px solid var(--rule);
+    background: var(--panel); color: var(--muted);
+  }
+  .shot .cap.before { color: var(--bad); }
+  .shot .cap.after { color: var(--good); }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 8px; padding: 14px 18px; margin: 18px 0;
+  }
+  .panel p:first-child { margin-top: 0; }
+  .panel p:last-child { margin-bottom: 0; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  .note { border-left: 3px solid var(--accent); padding-left: 14px; color: var(--muted); font-size: 14.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Coincident geometry in <span class="mono">path-bool</span></h1>
+</header>
+
+<p class="lede">
+  Two shapes can meet without crossing. Where their outlines run along the same line or the same
+  curve for a stretch — a disc sitting exactly inside a ring, two tiles snapped edge to edge, the
+  same circle drawn twice — the shared piece of boundary belongs to both of them, and every
+  operation depends on recognising it as one boundary rather than two. This branch makes that work
+  for curves as well as straight edges, and four more defects came out with it: silently wrong
+  regions, two crashes out of the shipped bundle, and arrangements doing several hundred times more
+  work than they need to. All five were found by doubling the generated test corpus and reading
+  what it reported.
+</p>
+
+<div class="panel">
+  <p>
+    <b>How an operation runs</b>, for reading what follows. Both inputs are cut into pieces
+    wherever they meet each other; the pieces are joined up into the regions they enclose; each
+    region is labelled with which of the two inputs it lies inside; and the operation keeps the
+    regions whose labels it wants — both for intersection, either for union, and so on. Every
+    defect below is a failure in the first step, deciding where and how the two outlines meet, and
+    every symptom is a wrong region much later on.
+  </p>
+</div>
+
+<h2>Summary</h2>
+
+<div class="scroll">
+<table>
+  <thead>
+    <tr><th>Defect</th><th>Trigger</th><th>Symptom</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Shared curve collapsed to a point</td><td>Two paths running along the same arc</td><td>264 zero-area faces where one disc belongs; two regions merged into one</td></tr>
+    <tr><td>Curve spelled as a line</td><td>Zero-radius arc, collinear cubic or quadratic</td><td>Threw; a zero-radius arc also reached the caller's output</td></tr>
+    <tr><td>Winding multiplicity lost</td><td>A subpath that goes round twice</td><td>Even-odd and non-zero returned identical output</td></tr>
+    <tr><td>Radius correction displaced the arc</td><td>Any arc whose radii need F.6.6 growing</td><td>Arc sat 5e-7 off the circle it was corrected onto</td></tr>
+    <tr><td>Arcs bisected instead of solved</td><td>Two arcs of one ellipse, unequal extents</td><td>Up to 926× slower than necessary</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Performance</h2>
+
+<p>
+  Both sides come from production bundles — the previous release and the branch head — run through
+  one harness, best of five per case, all six operations each. The <b>real-world set</b> is the 24
+  hand-made fixtures that predate this branch: ordinary icon and logo artwork, untouched by the
+  work. The <b>generated corpus</b> is the machine-built one described further down, which is where
+  the coincident cases live.
+</p>
+
+<div class="panel">
+  <dl class="kv">
+    <dt>Real-world set, total</dt><dd>139.6 ms → 137.7 ms &nbsp;(<span class="good">0.99×</span>)</dd>
+    <dt>Generated corpus, total</dt><dd>9360.7 ms → 1333.3 ms &nbsp;(<span class="good">7.0×</span>)</dd>
+    <dt>Cases that threw</dt><dd>5 → 2</dd>
+  </dl>
+</div>
+
+<p class="note">
+  The corpus total covers the 105 cases both bundles could complete. Three of the five that threw
+  before now run; the remaining two are a deliberately hostile placement — a drawing a couple of
+  thousandths of a unit across, sitting a million units from the origin — which is a floating-point
+  limit rather than a defect, and is listed under known issues.
+</p>
+
+<h3>Extremes</h3>
+
+<p>Everything that moves is coincident geometry. Ordinary artwork is unchanged.</p>
+
+<div class="scroll">
+<table>
+  <thead><tr><th>Case</th><th class="num">Before</th><th class="num">After</th><th class="num">Ratio</th></tr></thead>
+  <tbody>
+    <tr><td>Circle vs. the same circle drawn with undersized radii <span class="mono">coincident/11</span></td><td class="num">940.6 ms</td><td class="num">1.0 ms</td><td class="num good">926×</td></tr>
+    <tr><td>Whole rim shared, drawing far from the origin <span class="mono">conditioning/04</span></td><td class="num">909.2 ms</td><td class="num">1.1 ms</td><td class="num good">809×</td></tr>
+    <tr><td>Whole rim shared, drawing a few microns across <span class="mono">conditioning/04</span></td><td class="num">1137.5 ms</td><td class="num">1.5 ms</td><td class="num good">745×</td></tr>
+    <tr><td>Whole rim shared <span class="mono">touching/09</span></td><td class="num">1041.4 ms</td><td class="num">1.5 ms</td><td class="num good">688×</td></tr>
+    <tr><td>60° of rim shared <span class="mono">touching/08</span></td><td class="num">537.0 ms</td><td class="num">1.4 ms</td><td class="num good">386×</td></tr>
+    <tr><td>Circle vs. the cubic curve approximating it <span class="mono">coincident/04</span></td><td class="num">1394.0 ms</td><td class="num">1197.2 ms</td><td class="num">1.2×</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p class="note">
+  The last row is the one that stays slow, and deliberately so. An arc and the cubic approximating
+  it run 2.7e-4 apart — close, but not the same curve — so the new fast path correctly declines to
+  treat them as one and the general method does the work as before. The 1.2× is incidental, not the
+  point; welding curves that merely nearly coincide would change what the library means by
+  coincident, rather than fix anything.
+</p>
+
+<h2>Defects</h2>
+
+<h3>1 · A boundary shared as a curve came apart<span class="tag">bdd7d8c</span></h3>
+<p>
+  Two paths running along the same arc did not survive the cutting step. Where two outlines
+  coincide, the search for meeting points reports a whole run of them, all along the shared
+  stretch. Those reports were condensed into one point — the right thing to do when a single
+  crossing gets detected several times over, and the wrong thing for an overlap, because an overlap
+  has two ends and replacing it with one point leaves the shared rim as no boundary at all. A disc
+  against a ring whose inner boundary is the same circle came out as 264 faces enclosing nothing,
+  with 123 of them claiming to be the outermost.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-arc-shared-full.png" alt="A disc and a ring sharing the unit circle"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-arc-shared-full.png" alt="An outline enclosing no area"><div class="cap before">Before — 264 faces, no area</div></div>
+    <div class="shot"><img src="img/after-arc-shared-full.png" alt="A single disc"><div class="cap after">After — 1 face</div></div>
+  </div>
+  <figcaption>
+    <code>division(A, B)</code>, which keeps the regions of A and returns them separately. A is the
+    disc, so the answer is one face. The 264 faces before are slivers strung along the shared rim,
+    which is why they render as a bare outline.
+  </figcaption>
+</figure>
+<p>
+  The same defect the other way round merged two regions into one. Where the sharing is partial —
+  a disc and a wedge outside it sharing 60° of rim — fracture returned a single face for what are
+  plainly two.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-arc-shared-partial.png" alt="A disc and a wedge sharing part of the rim"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-arc-shared-partial.png" alt="Disc and wedge as one region"><div class="cap before">Before — 1 face</div></div>
+    <div class="shot"><img src="img/after-arc-shared-partial.png" alt="Disc and wedge as two regions"><div class="cap after">After — 2 faces</div></div>
+  </div>
+  <figcaption>
+    <code>fracture(A, B)</code>, which returns every region either input covers. The shared rim is
+    a boundary between two of them, not something to dissolve.
+  </figcaption>
+</figure>
+<p>
+  How <i>many</i> meeting points get reported cannot tell the two situations apart: a pair of
+  coincident curves can produce a single report, and two curves that genuinely cross several times
+  produce several, so any threshold on the count would weld exactly the wrong case. The
+  <b>extent</b> of the run is the signal. Reports that stretch further than the library's
+  point-tolerance describe an overlap, and its two ends are used as cut points instead of one
+  averaged midpoint.
+</p>
+
+<h3>2 · A curve spelled as a line was not a line<span class="tag">9b35795</span></h3>
+<p>
+  A square drawn with a zero-length cubic, collinear control points and a control sitting on its
+  chord did not match the identical plain square; nor did a square whose bottom edge is an arc of
+  zero radius, which SVG defines as a straight line. Both threw. Two pieces of outline are matched
+  by comparing their descriptions, and a different spelling of the same curve is rejected before any
+  geometry is measured — a line and a zero-radius arc lying exactly on top of each other, no gap at
+  all, still come out different.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-zero-radius-arc.png" alt="Two identical squares, one drawn with a zero-radius arc"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-zero-radius-arc.png" alt="An exception"><div class="cap before">Before — threw</div></div>
+    <div class="shot"><img src="img/after-zero-radius-arc.png" alt="A single square"><div class="cap after">After — 1 face</div></div>
+  </div>
+  <figcaption>
+    Two spellings of one square. Unable to pair the outlines, the assembly step found no region and
+    gave up. Development builds report that as a failed assertion; the shipped bundle strips
+    assertions, so it surfaced as <code>TypeError: Cannot read properties of undefined</code>.
+  </figcaption>
+</figure>
+<p>
+  Strictness in that comparison is what stops two pieces of outline being treated as one when they
+  are not, so the fix removes the difference rather than weakening the test: a segment that draws a
+  straight line is rewritten as one before anything is measured. Two guards keep that honest.
+  Control points lying on the chord but <i>outside</i> the endpoints draw a zero-area spike rather
+  than a plain line, so the test is that the curve never doubles back, not merely that its controls
+  are collinear. And an arc is judged by its radii rather than by its chord, because an arc that
+  returns to its own starting point is a whole ellipse when the large-arc flag is set. A
+  zero-radius arc also used to travel all the way through to the caller's output, handing back a
+  segment the spec says is a line.
+</p>
+
+<h3>3 · Even-odd and non-zero gave the same answer<span class="tag">f4c0469</span></h3>
+<p>
+  An SVG path decides which regions it fills by a winding rule. Count the signed number of times
+  the outline wraps around a point: under <i>non-zero</i> the point is filled whenever that count is
+  anything but zero, and under <i>even-odd</i> only when it is odd. The two rules therefore
+  disagree about anything wound twice — and a subpath that simply goes round twice is filled by
+  the first rule and empty under the second. The library filled it either way.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-double-circle-evenodd.png" alt="A doubly-traversed circle and a square"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-double-circle-evenodd.png" alt="Union including the disc"><div class="cap before">Before — disc filled</div></div>
+    <div class="shot"><img src="img/after-double-circle-evenodd.png" alt="Union of the square alone"><div class="cap after">After — square alone</div></div>
+  </div>
+  <figcaption>
+    <code>union(A, B)</code> with A read as even-odd. A is the unit circle traversed twice in one
+    subpath, so A is empty and the union is B alone. Before, this came out pixel-identical to the
+    non-zero reading — 11% to 17% of compared pixels wrong against the reference renderer.
+  </figcaption>
+</figure>
+<p>
+  Merging the two traversals into a single piece of boundary is correct; they are the same piece of
+  boundary. What was lost is that the path runs along it twice. Each piece recorded one flag per
+  input — "this input runs along here, this way round" — which can say no more than yes or no, so
+  crossing the boundary moved the winding count by one however many times the path had actually
+  gone round. It is now a signed count of traversals, and the multiplicity survives to where the
+  winding rule is applied.
+</p>
+
+<h3>4 · A corrected arc missed its own circle<span class="tag">c7b47f4</span></h3>
+<p>
+  When an arc's radii are too small to reach from one endpoint to the other, SVG does not reject
+  the path: rule F.6.6 grows both radii by the smallest factor that makes them fit. The routine
+  that recovers an arc's centre added a slack of 1e-12 to that decision, marked "needed because of
+  float precision" — but it guards the wrong thing. The case it looks meant for is the test landing
+  a hair under its threshold when the radii exactly span the gap, and a clamp further down already
+  absorbs that. What the slack actually did was inflate the radii of every arc that genuinely needs
+  correcting, and the centre calculation takes a square root of what is left over, so a slack of
+  1e-12 came back out magnified into a displacement of 5e-7.
+</p>
+<div class="panel">
+  <dl class="kv">
+    <dt>Before — semicircle, radii 0.5, chord 2</dt><dd>centre (0, 5.0e-7), radii 1.000000000000125</dd>
+    <dt>After</dt><dd>centre (0, 0), radii 1</dd>
+  </dl>
+</div>
+<p>
+  A corrected arc therefore did not quite lie on the circle it had been corrected onto, and nothing
+  downstream could see the two as the same curve — 5e-7 is far outside the tolerances that decide
+  whether two outlines coincide. On its own this clears no corpus case, which is worth being plain
+  about: what kept its target case slow was the next defect.
+</p>
+
+<h3>5 · Two arcs of one ellipse were bisected, not solved<span class="tag">d297069</span></h3>
+<p>
+  Meeting points between two curves are normally found by halving both curves repeatedly and
+  throwing away pairs of pieces whose bounding boxes do not touch, until what is left is small
+  enough to treat as a pair of straight lines. That method has nothing to bite on when the two
+  curves coincide: the pieces never separate, so it divides all the way down along the entire
+  shared stretch and reports a meeting point from every pair that gets there — thousands of them,
+  and seconds of work, for a single shared quarter of a circle. There are shortcuts for two pieces
+  that turn out to be identical, but the halving splits both curves in step, so they only line up
+  when the two arcs cover the same extent to begin with. A quarter arc against the 60° of it a
+  neighbour shares, or against the semicircle that contains it, never lines up however far down it
+  goes.
+</p>
+<p>
+  Two arcs that lie on one ellipse do not need any of that. They overlap over a range of angle
+  around the shared centre, ranges of angle intersect in closed form, and the ends of the result
+  convert straight back into positions along each arc. Straight edges have always had this — two
+  lines on the same infinite line are handled by intersecting intervals, which is why sharing a
+  straight edge was cheap where sharing a curved one was not — and this is its counterpart for
+  arcs. It is what turns the 900 ms cases in the table above into 1 ms.
+</p>
+<figure>
+  <div class="trip">
+    <div class="shot"><img src="img/inputs-circle-rotated-start.png" alt="One circle drawn twice from different starting angles"><div class="cap">Inputs</div></div>
+    <div class="shot"><img src="img/before-circle-rotated-start.png" alt="An exception"><div class="cap before">Before — threw</div></div>
+    <div class="shot"><img src="img/after-circle-rotated-start.png" alt="A single disc"><div class="cap after">After — 1 face</div></div>
+  </div>
+  <figcaption>
+    One circle drawn twice, the second starting 45° round from the first, so no corner of either
+    drawing meets a corner of the other and the two have to be recognised as coincident by geometry
+    alone.
+  </figcaption>
+</figure>
+
+<h2>Testing</h2>
+
+<p>
+  The generated corpus went from 55 cases to 110, and every defect above came out of the additions.
+  Each case is a pair of SVG paths built by a script, run through all six operations and checked by
+  three independent oracles: one on the structure of the output, one on exact areas computed by
+  Green's theorem, and one on rendered pixels against a reference renderer. No expected output is
+  committed anywhere, so there is nothing to bless and no way to freeze a bug into the fixtures.
+</p>
+<p>
+  Two categories are new — one for the corners of the SVG arc parametrization, one for arrangements
+  with a great many crossings at once — but the gap that mattered was in the existing category for
+  shapes that touch without crossing. Every case there shared <i>straight</i> edges meeting corner
+  to corner, and nothing covered two paths running along the same curve. That single omission hid
+  three of the five defects.
+</p>
+<div class="scroll">
+<table>
+  <thead><tr><th>Added</th><th>Covers</th></tr></thead>
+  <tbody>
+    <tr><td>A whole rim shared, and 60° of one</td><td>Coincident curves, shared ends falling mid-segment</td></tr>
+    <tr><td>Same circle from a different starting angle</td><td>Coincident curves whose corners interleave</td></tr>
+    <tr><td>A square drawn with degenerate curves</td><td>One shape, several spellings</td></tr>
+    <tr><td>A subpath traversed twice; two overlapping subpaths</td><td>Winding counts the two fill rules disagree about</td></tr>
+    <tr><td>Micron-scale and far-from-origin placements</td><td>Tolerances against drawing size and offset together</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The three oracles stayed complementary in practice, not just in principle. Only the pixel oracle
+  can catch an operation that returns nothing at all, because an empty result satisfies every
+  algebraic identity you can write about it — that is how a mistake in the new arc solver was
+  caught while it was being written, when it briefly declared two drawings of one circle to be
+  disjoint. Only the area oracle could see defect 3 coming, since a doubly-wound disc that fills
+  when it should be empty is a perfectly well-formed shape and renders as one. And only the
+  structural oracle noticed the zero-radius arc travelling through into the output, which is
+  invisible to both of the others.
+</p>
+<p>
+  Cases that are known to fail are listed with a written reason rather than skipped, and the suites
+  treat a listed case that starts <i>passing</i> as an error too, so the lists cannot quietly rot.
+  That is what drove this work: each fix named exactly which entries to delete, and the lists went
+  from 19 cases and 345 entries to 7 and 98.
+</p>
+
+<h2>Known issues</h2>
+<p>
+  Seven cases remain listed, and none of them is now a defect the corpus is pointing at.
+</p>
+<ul>
+  <li>
+    <b>A circle against its cubic approximation</b> still takes about 1.2 s. The two outlines run
+    2.7e-4 apart along their whole length — genuinely distinct curves, correctly handled, and the
+    general subdivision has to work for it. Making this fast means deciding that near-coincident
+    curves should be welded together, which is a change in meaning rather than a fix.
+  </li>
+  <li>
+    <b>Three cases at micron scale</b>, where the whole drawing is 2e-6 across. Partly this is a
+    limitation of the structural oracle rather than of the library: its own tolerance has an
+    absolute floor of 1e-6, larger than the entire drawing, so at that size every arc reads as
+    having a zero radius and every check it makes sits below its own resolution. Making that floor
+    scale with the drawing touches all 110 cases and is a separate decision. Two of the three also
+    render 0.3% to 0.9% of pixels differently from the reference: the library scales its tolerances
+    down from a 50-unit reference drawing, which at this size puts them near 4e-14, and the cut
+    points land further apart than that. The regions themselves come out right.
+  </li>
+  <li>
+    <b>Three cases at small-and-far</b> — a drawing 2e-3 across sitting at an offset of 1e6, where
+    consecutive representable numbers are 2e-10 apart. Two of them fail to find an outer boundary
+    and throw; the third treats two plainly overlapping circles as disjoint. Small drawings pass,
+    and distant drawings pass; it is the combination that runs out of precision. The library's
+    configuration already records that a large offset is a separate problem which widening
+    tolerances would conceal rather than cure, and that still holds.
+  </li>
+</ul>
+
+</div>
+</body>
+</html>

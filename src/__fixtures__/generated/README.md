@@ -24,6 +24,21 @@ npm run gen-corpus
 Regenerating clears the category directories but leaves the files at this
 level (`README.md`, `expected-failures.json`) alone.
 
+## Categories
+
+| Category       | What the cases in it are for                                                                                                      |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `overlap`      | Generic transversal crossings, one per pair drawn from the shape vocabulary                                                       |
+| `touching`     | Contact without crossing: tangency, vertex on vertex, vertex on edge, and edges — straight or curved — shared in whole or in part |
+| `nesting`      | Containment with no boundary contact, up to four levels of alternating inside/outside                                             |
+| `coincident`   | Boundaries that are identical, identical up to representation, or a few nanometres apart                                          |
+| `disjoint`     | No contact at all, including multi-component inputs interleaved with each other                                                   |
+| `fill-rule`    | The same geometry read under each winding rule, once per way of reaching a winding number the two rules disagree about            |
+| `degenerate`   | Zero-area and sub-pixel geometry: spikes, bare lines, slivers, and curve segments that are secretly straight                      |
+| `arcs`         | The corners of the SVG arc parametrization: `largeArc`, opposing sweeps, the F.6.6 radius correction, a zero radius               |
+| `stress`       | Many intersections at once, where the quad tree, the angular sort and the face trace all have to work at scale                    |
+| `conditioning` | A few of the above placements re-emitted at other positions, scales and angles, since `EPS.point` and `EPS.linear` are lengths    |
+
 ## No ground truth here
 
 These fixtures deliberately ship with only `original.svg` and no committed

@@ -40,6 +40,7 @@ import {
     getStartPoint,
     PathSegment,
     isNearlyLinearSegment,
+    lineariseDegenerateSegment,
     pathSegmentBoundingBox,
     pathSegmentTangentAtInto,
     reversePathSegment,
@@ -83,7 +84,7 @@ type MajorGraphEdgeStage2 = MajorGraphEdgeStage1 & {
 type MajorGraphEdge = MajorGraphEdgeStage2 & {
     incidentVertices: [MajorGraphVertex, MajorGraphVertex];
     directionFlag: boolean;
-    directionFlags: boolean[];
+    windings: number[];
     twin: MajorGraphEdge | null;
 };
 
@@ -102,7 +103,7 @@ type MinorGraphEdge = {
     parents: boolean[];
     incidentVertices: [MinorGraphVertex, MinorGraphVertex];
     directionFlag: boolean;
-    directionFlags: boolean[];
+    windings: number[];
     twin: MinorGraphEdge | null;
     id: number;
     indexInVertex?: number;
@@ -116,7 +117,7 @@ type MinorGraphCycle = {
     segments: PathSegment[];
     parents: boolean[];
     directionFlag: boolean;
-    directionFlags: boolean[];
+    windings: number[];
 };
 
 type MinorGraph = {
@@ -130,7 +131,7 @@ type DualGraphHalfEdge = {
     parents: boolean[];
     incidentVertex: DualGraphVertex;
     directionFlag: boolean;
-    directionFlags: boolean[];
+    windings: number[];
     twin: DualGraphHalfEdge | null;
 };
 
@@ -243,6 +244,14 @@ function booleanArraysEqual(a: boolean[], b: boolean[]): boolean {
     return true;
 }
 
+function numberArraysEqual(a: number[], b: number[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
 function orBooleansInto(target: boolean[], source: boolean[]) {
     for (let i = 0; i < source.length; i++) {
         if (source[i]) target[i] = true;
@@ -250,27 +259,33 @@ function orBooleansInto(target: boolean[], source: boolean[]) {
 }
 
 /*
- Records how a path joining an already-created edge is oriented relative to it.
+ Records a path joining an already-created edge, and which way round it runs.
 
- `directionFlags[i]` means "path i's own segment runs against this half-edge",
- so the two half-edges always hold opposite values for any path on the edge.
+ `windings[i]` is the signed number of times path i traverses this half-edge in
+ the half-edge's own direction, so the two half-edges always hold opposite
+ values and crossing one moves path i's winding number by exactly that much.
  `againstForward` says which way round the joining path goes.
 
- Only the joining path's slots are written. Assigning the whole array would
- wipe the orientations of the paths already sharing the edge, which is what
- made Intersection and Exclusion depend on the order of the inputs wherever
- two paths shared a collinear edge.
+ It accumulates rather than assigns, for two reasons. Only the joining path's
+ own slots are touched, so the orientations of the paths already sharing the
+ edge survive; assigning the whole array would wipe them, and Intersection and
+ Exclusion would then depend on the order of the inputs wherever two paths
+ share a collinear edge. And a path is free to run along the same edge more
+ than once — a subpath that goes round twice covers its interior with a winding
+ number of two, which non-zero and even-odd disagree about — so a count is
+ needed where a flag would report both traversals as one.
 */
-function setDirectionFlags(
+function addWinding(
     existingEdge: [MajorGraphEdgeStage2, MajorGraphEdge, MajorGraphEdge],
     parents: boolean[],
     againstForward: boolean,
 ) {
     const [, forward, backward] = existingEdge;
+    const step = againstForward ? -1 : 1;
     for (let i = 0; i < parents.length; i++) {
         if (!parents[i]) continue;
-        forward.directionFlags[i] = againstForward;
-        backward.directionFlags[i] = !againstForward;
+        forward.windings[i] += step;
+        backward.windings[i] -= step;
     }
 }
 
@@ -543,7 +558,7 @@ function findVertices(
                 // one, matching how a fresh edge pair is built below. Only the
                 // joining path's own slots are touched; the slots belonging to
                 // paths already on this edge keep their own orientation.
-                setDirectionFlags(existingEdge, edge.parents, false);
+                addWinding(existingEdge, edge.parents, false);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -565,7 +580,7 @@ function findVertices(
                 // A shared edge traversed the opposite way round: the joining
                 // path runs along the backward half-edge and against the
                 // forward one.
-                setDirectionFlags(existingEdge, edge.parents, true);
+                addWinding(existingEdge, edge.parents, true);
                 orBooleansInto(existingEdge[1].parents, edge.parents);
                 orBooleansInto(existingEdge[2].parents, edge.parents);
                 return [];
@@ -577,7 +592,7 @@ function findVertices(
             parents: edge.parents.slice(),
             incidentVertices: [startVertex, endVertex],
             directionFlag: false,
-            directionFlags: new Array<boolean>(edge.parents.length).fill(false),
+            windings: edge.parents.map((p) => (p ? 1 : 0)),
             twin: null,
         };
 
@@ -586,9 +601,9 @@ function findVertices(
             parents: edge.parents.slice(),
             incidentVertices: [endVertex, startVertex],
             directionFlag: true,
-            // directionFlags[p] = parents[p]: on the backward half-edge the
-            // originating path runs against its own orientation.
-            directionFlags: edge.parents.slice(),
+            // Negated: on the backward half-edge the originating path runs
+            // against its own orientation.
+            windings: edge.parents.map((p) => (p ? -1 : 0)),
             twin: fwdEdge,
         };
 
@@ -655,10 +670,7 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
             while (
                 booleanArraysEqual(edge.parents, startEdge.parents) &&
                 edge.directionFlag === startEdge.directionFlag &&
-                booleanArraysEqual(
-                    edge.directionFlags,
-                    startEdge.directionFlags,
-                ) &&
+                numberArraysEqual(edge.windings, startEdge.windings) &&
                 getOrder(edge.incidentVertices[1]) === 2
             ) {
                 segments.push(edge.seg);
@@ -684,7 +696,7 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
                 parents: startEdge.parents,
                 incidentVertices: [startVertex, endVertex],
                 directionFlag: startEdge.directionFlag,
-                directionFlags: startEdge.directionFlags,
+                windings: startEdge.windings,
                 twin: twin,
                 id: nextEdgeId++,
             };
@@ -706,7 +718,7 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
             segments: [],
             parents: edge.parents,
             directionFlag: edge.directionFlag,
-            directionFlags: edge.directionFlags,
+            windings: edge.windings,
         };
         do {
             cycle.segments.push(edge.seg);
@@ -1117,7 +1129,7 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
                 parents: edge.parents,
                 incidentVertex: face,
                 directionFlag: edge.directionFlag,
-                directionFlags: edge.directionFlags,
+                windings: edge.windings,
                 twin,
             };
             if (twin) {
@@ -1141,7 +1153,7 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
             parents: cycle.parents,
             incidentVertex: innerFace,
             directionFlag: cycle.directionFlag,
-            directionFlags: cycle.directionFlags,
+            windings: cycle.windings,
             twin: null,
         };
 
@@ -1155,7 +1167,7 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
             parents: cycle.parents,
             incidentVertex: outerFace,
             directionFlag: !cycle.directionFlag,
-            directionFlags: cycle.directionFlags.map((f) => !f),
+            windings: cycle.windings.map((w) => -w),
             twin: innerHalfEdge,
         };
 
@@ -1499,9 +1511,7 @@ function flagFaces(nestingTrees: NestingTree[], fillRules: FillRule[]) {
                 assertDefined(twin, "Edge doesn't have a twin.");
                 const nextCounts = runningCounts.slice();
                 for (let i = 0; i < pathCount; i++) {
-                    if (edge.parents[i]) {
-                        nextCounts[i] += edge.directionFlags[i] ? -1 : 1;
-                    }
+                    nextCounts[i] += edge.windings[i];
                 }
                 visitFace(twin.incidentVertex, nextCounts);
             }
@@ -1792,6 +1802,19 @@ export class PathBoolean {
         const eps = epsilonsForExtent(
             inputBoundingBox ? boundingBoxMaxExtent(inputBoundingBox) : 0,
         );
+
+        /*
+         Rewrite curves that draw a straight line as lines, before anything is
+         measured against anything else, so that from here on a line and a
+         curve drawing the same line are one segment rather than two spellings
+         that never compare equal. It runs after the epsilons because it needs
+         `eps.point`, and safely so: replacing a segment by its chord only ever
+         shrinks the geometry, so the bounding box measured above still bounds
+         it.
+        */
+        for (const edge of unsplitEdges) {
+            edge.seg = lineariseDegenerateSegment(edge.seg, eps.point);
+        }
 
         splitAtSelfIntersections(unsplitEdges, eps);
 

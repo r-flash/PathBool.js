@@ -17,14 +17,17 @@ import {
     boundingBoxMaxExtent,
 } from "../primitives/AABB";
 import {
+    arcSegmentToCenter,
     PathSegment,
     pathSegmentBoundingBox,
     isNearlyLinearSegment,
+    normalizeArcSegment,
+    reversePathSegment,
     samplePathSegmentAt,
     splitSegmentAt,
 } from "../primitives/PathSegment";
 import { createVector, Vector, vectorsEqual } from "../primitives/Vector";
-import { lerp } from "../util/math";
+import { deg2rad, lerp } from "../util/math";
 import { lineSegmentIntersection, lineSegmentsIntersect } from "./line-segment";
 import { lineSegmentAABBIntersect } from "./line-segment-AABB";
 
@@ -258,6 +261,260 @@ function staysTogether(
     return true;
 }
 
+/*
+ Two arcs of one ellipse, solved rather than subdivided.
+
+ Bisection cannot resolve a shared arc: the two curves never separate, so it
+ recurses to the leaf size the whole way along the overlap and reports a hit
+ from every leaf pair that reaches the bottom. The leaf-level short-circuits
+ further down only rescue the case where both sides cover the same extent and
+ so halve into matching pieces — a quarter arc against that same quarter arc,
+ forwards or reversed. A quarter arc against the 60 degrees of it a neighbour
+ shares, or against the semicircle that contains it, never lines up however far
+ down the recursion goes, and the entire run is bisected.
+
+ The centre parametrization answers it outright. Two arcs lying on one ellipse
+ overlap over an interval of angle, which intersects in closed form, and the
+ ends of that interval convert straight back to a parameter on each arc. It is
+ the curved counterpart of what `lineSegmentsCollinear` does for a pair of
+ lines, and the reason sharing a straight edge is cheap where sharing a curved
+ one is not.
+
+ Returning null means "not a common ellipse, subdivide as usual". An empty
+ array is an answer — two arcs of one ellipse whose angles do not meet — and
+ not an abstention.
+*/
+const TAU_ARC = 2 * Math.PI;
+
+function coincidentArcIntersection(
+    seg0: PathSegment,
+    seg1: PathSegment,
+    eps: Epsilons,
+): [number, number][] | null {
+    if (seg0[0] !== "A" || seg1[0] !== "A") return null;
+
+    const c0 = arcSegmentToCenter(normalizeArcSegment(seg0));
+    const c1 = arcSegmentToCenter(normalizeArcSegment(seg1));
+    if (!c0 || !c1) return null;
+
+    if (
+        Math.abs(c0.center[0] - c1.center[0]) > eps.point ||
+        Math.abs(c0.center[1] - c1.center[1]) > eps.point ||
+        Math.abs(c0.rx - c1.rx) > eps.point ||
+        Math.abs(c0.ry - c1.ry) > eps.point
+    ) {
+        return null;
+    }
+
+    const biggest = Math.max(c0.rx, c0.ry);
+    if (!(biggest > 0)) return null;
+    // How far round the rim `eps.point` reaches. Everything angular below is
+    // measured against this so the test means the same thing at any size.
+    const angleEps = eps.point / biggest;
+
+    /*
+     A circle looks the same however it is turned, an ellipse only after half a
+     turn. The remaining way to spell one ellipse — radii swapped and a quarter
+     turn applied — is left to the subdivision rather than guessed at.
+    */
+    if (Math.abs(c0.rx - c0.ry) > eps.point) {
+        const turned = Math.abs((((c0.phi - c1.phi) % 180) + 180) % 180);
+        if (Math.min(turned, 180 - turned) > (angleEps * 180) / Math.PI) {
+            return null;
+        }
+    }
+
+    if (
+        Math.abs(c0.deltaTheta) < angleEps ||
+        Math.abs(c1.deltaTheta) < angleEps
+    ) {
+        return null;
+    }
+
+    /*
+     `theta` is measured in the ellipse's own frame, the one `phi` turns it
+     into, so two arcs of the same circle written with different `phi` have
+     ranges that cannot be compared until both are brought into the world
+     frame. Adding `phi` does exactly that for a circle, where the frame is a
+     symmetry and the world angle is `theta + phi`; and it stays consistent for
+     an ellipse written half a turn around, where `phi + 180` and `theta + pi`
+     name the same point. Those are the only two spellings accepted above.
+
+     Comparing the two ranges without this makes two drawings of one circle
+     look as though their angles never meet. There is no safety net for that:
+     this function is authoritative when it returns an array, so the pair would
+     be reported as not intersecting at all.
+    */
+    const off0 = deg2rad(c0.phi);
+    const off1 = deg2rad(c1.phi);
+
+    // Each arc as an increasing interval of angle; direction is carried by
+    // `deltaTheta` and put back when converting to a parameter.
+    const span = (c: typeof c0, off: number): [number, number] => {
+        const a = c.theta1 + off;
+        const b = c.theta1 + c.deltaTheta + off;
+        return a <= b ? [a, b] : [b, a];
+    };
+    const [lo0, hi0] = span(c0, off0);
+    const [lo1, hi1] = span(c1, off1);
+
+    const paramAt = (c: typeof c0, off: number, theta: number) => {
+        const t = (theta - off - c.theta1) / c.deltaTheta;
+        return t < 0 ? 0 : t > 1 ? 1 : t;
+    };
+
+    /*
+     Neither arc spans more than a full turn, so at most two whole-turn shifts
+     of the second can meet the first, and the overlap is at most two intervals.
+    */
+    const out: [number, number][] = [];
+    const kFrom = Math.floor((lo0 - hi1) / TAU_ARC);
+    const kTo = Math.ceil((hi0 - lo1) / TAU_ARC);
+    for (let k = kFrom; k <= kTo; k++) {
+        const shift = k * TAU_ARC;
+        const from = Math.max(lo0, lo1 + shift);
+        const to = Math.min(hi0, hi1 + shift);
+        if (to < from - angleEps) continue;
+
+        if (to - from <= angleEps) {
+            // Meeting at a single angle: a contact, not an overlap.
+            const mid = (from + to) / 2;
+            out.push([paramAt(c0, off0, mid), paramAt(c1, off1, mid - shift)]);
+            continue;
+        }
+
+        out.push([paramAt(c0, off0, from), paramAt(c1, off1, from - shift)]);
+        out.push([paramAt(c0, off0, to), paramAt(c1, off1, to - shift)]);
+    }
+
+    return out;
+}
+
+/*
+ Whether two pieces of curve are the same piece traversed opposite ways.
+
+ Reversing allocates, and this sits in the subdivision's innermost loop, so the
+ endpoints are checked first: they have to cross-match before it is worth
+ building the reversed segment at all.
+*/
+function segmentEndPoint(seg: PathSegment): Vector {
+    switch (seg[0]) {
+        case "L":
+            return seg[2];
+        case "C":
+            return seg[4];
+        case "Q":
+            return seg[3];
+        case "A":
+            return seg[7];
+    }
+}
+
+function leavesCoincideReversed(
+    seg0: PathSegment,
+    seg1: PathSegment,
+    eps: Epsilons,
+): boolean {
+    if (seg0[0] !== seg1[0]) return false;
+
+    // `seg[1]` is the start point whatever the type. Read the endpoints in
+    // place rather than through `pathSegmentToLineSegment`, which builds a
+    // pair: this runs on every surviving leaf pair of every subdivision.
+    if (
+        !vectorsEqual(seg0[1], segmentEndPoint(seg1), eps.point) ||
+        !vectorsEqual(segmentEndPoint(seg0), seg1[1], eps.point)
+    ) {
+        return false;
+    }
+
+    return segmentsEqual(seg0, reversePathSegment(seg1), eps.point);
+}
+
+/*
+ Recovers the stretch a group of reports covers, when it covers one at all.
+
+ A group whose members stay together over a run is not one crossing seen many
+ times over; it is an overlap, and collapsing it to a point dissolves a shared
+ boundary. How many reports the group holds says nothing about which of the two
+ it is: a coincident pair can come out of grouping as a single report, while
+ two curves that merely run close together and cross repeatedly leave several.
+ The run's *extent* is the signal, and it is what this reads.
+
+ Two segments of the same type that coincide do so under a linear
+ correspondence between their parameters: the same arc of the same circle, the
+ same stretch of the same line. So the ends of the run are wherever that
+ correspondence first leaves either segment's [0, 1] range, and can be solved
+ for rather than searched. The outermost reports are no use on their own —
+ each sits somewhere inside the last leaf that still overlapped, which is
+ `eps.linear` across, where the split has to land within `eps.point` of its
+ partner or `findVertices` will not merge the two into one vertex.
+
+ Returns null when the group turns out not to describe an overlap, and the
+ caller falls back to treating it as a single contact. Every reason to bail is
+ checked against the geometry rather than assumed: the correspondence has to be
+ well conditioned, the run has to be longer than `eps.point` — otherwise it is
+ a point contact wearing a group's clothes — and the two curves have to stay
+ within `eps.point` of each other all along the stretch that comes back. The
+ correspondence is fitted from two reports, so that last check is what stops a
+ bad fit from splitting where there is nothing to split.
+*/
+const OVERLAP_VERIFY_SAMPLES = 16;
+
+function overlapEnds(
+    seg0: PathSegment,
+    seg1: PathSegment,
+    group: Candidate[],
+    eps: Epsilons,
+): [[number, number], [number, number]] | null {
+    if (group.length < 2) return null;
+
+    const first = group[0];
+    const last = group[group.length - 1];
+
+    const dt0 = last.t0 - first.t0;
+    const dt1 = last.t1 - first.t1;
+    if (Math.abs(dt0) < eps.param || Math.abs(dt1) < eps.param) return null;
+
+    const slope = dt1 / dt0;
+    if (!Number.isFinite(slope)) return null;
+
+    const t1At = (t0: number) => first.t1 + (t0 - first.t0) * slope;
+    const t0At = (t1: number) => first.t0 + (t1 - first.t1) / slope;
+
+    // Where the correspondence keeps both parameters inside their own segment.
+    const bound0 = t0At(0);
+    const bound1 = t0At(1);
+    let lo = Math.max(0, Math.min(bound0, bound1));
+    let hi = Math.min(1, Math.max(bound0, bound1));
+    if (!(hi > lo)) return null;
+
+    const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
+    // Land exactly on the ends rather than a hair inside them, so that
+    // `splitAtIntersections` recognizes and drops a split it should not make.
+    const snap = (t: number) => (t < eps.param ? 0 : t > 1 - eps.param ? 1 : t);
+
+    lo = snap(lo);
+    hi = snap(hi);
+
+    const ends: [[number, number], [number, number]] = [
+        [lo, snap(clamp01(t1At(lo)))],
+        [hi, snap(clamp01(t1At(hi)))],
+    ];
+
+    const a = samplePathSegmentAt(seg0, ends[0][0]);
+    const b = samplePathSegmentAt(seg0, ends[1][0]);
+    if (Math.hypot(a[0] - b[0], a[1] - b[1]) <= eps.point) return null;
+
+    for (let k = 0; k <= OVERLAP_VERIFY_SAMPLES; k++) {
+        const s = k / OVERLAP_VERIFY_SAMPLES;
+        const p = samplePathSegmentAt(seg0, lerp(ends[0][0], ends[1][0], s));
+        const q = samplePathSegmentAt(seg1, lerp(ends[0][1], ends[1][1], s));
+        if (Math.hypot(p[0] - q[0], p[1] - q[1]) > eps.point) return null;
+    }
+
+    return ends;
+}
+
 function groupCandidates(
     seg0: PathSegment,
     seg1: PathSegment,
@@ -280,9 +537,25 @@ function groupCandidates(
         }
     }
 
-    return groups.map(
-        (group) => refineContact(seg0, seg1, group) as [number, number],
-    );
+    /*
+     Only same-type pairs are considered for overlap. `findVertices` merges
+     coincident edges with `segmentsEqual`, which compares representations and
+     rejects two spellings of the same curve out of hand — a line against a
+     zero-radius arc, or against a cubic whose controls are collinear, are
+     identical to the last bit and still report as different. Splitting a pair
+     the merge will then refuse to join would leave two edges lying on top of
+     each other bounding nothing between them, which is worse than reporting a
+     single contact where an overlap exists. `lineariseDegenerateSegment` is
+     what brings such pairs to a common spelling early enough for this test to
+     accept them.
+    */
+    const sameType = seg0[0] === seg1[0];
+
+    return groups.flatMap((group) => {
+        const ends = sameType ? overlapEnds(seg0, seg1, group, eps) : null;
+        if (ends) return ends as [number, number][];
+        return [refineContact(seg0, seg1, group) as [number, number]];
+    });
 }
 
 /*
@@ -374,6 +647,9 @@ export function pathSegmentIntersection(
         return st ? [st] : [];
     }
 
+    const coincidentArcs = coincidentArcIntersection(seg0, seg1, eps);
+    if (coincidentArcs) return coincidentArcs;
+
     // https://math.stackexchange.com/questions/20321/how-can-i-tell-when-two-cubic-b%C3%A9zier-curves-intersect
 
     let pairs: [IntersectionSegment, IntersectionSegment][] = [
@@ -395,6 +671,16 @@ export function pathSegmentIntersection(
 
     const candidates: Candidate[] = [];
 
+    function pushCandidate(t0: number, t1: number) {
+        const p = samplePathSegmentAt(origSeg0, t0);
+        const q = samplePathSegmentAt(origSeg1, t1);
+        candidates.push({
+            t0,
+            t1,
+            gap: Math.hypot(p[0] - q[0], p[1] - q[1]),
+        });
+    }
+
     function pushLineSegmentIntersection(
         seg0: IntersectionSegment,
         seg1: IntersectionSegment,
@@ -403,15 +689,10 @@ export function pathSegmentIntersection(
         const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
         const st = lineSegmentIntersection(lineSegment0, lineSegment1, eps);
         if (st) {
-            const t0 = lerp(seg0.startParam, seg0.endParam, st[0]);
-            const t1 = lerp(seg1.startParam, seg1.endParam, st[1]);
-            const p = samplePathSegmentAt(origSeg0, t0);
-            const q = samplePathSegmentAt(origSeg1, t1);
-            candidates.push({
-                t0,
-                t1,
-                gap: Math.hypot(p[0] - q[0], p[1] - q[1]),
-            });
+            pushCandidate(
+                lerp(seg0.startParam, seg0.endParam, st[0]),
+                lerp(seg1.startParam, seg1.endParam, st[1]),
+            );
         }
     }
 
@@ -436,8 +717,34 @@ export function pathSegmentIntersection(
 
         for (const [seg0, seg1] of pairs) {
             if (segmentsEqual(seg0.seg, seg1.seg, eps.point)) {
-                // TODO: move this outside of this loop?
-                continue; // TODO: what to do?
+                /*
+                 The two leaves are the same piece of curve. Record how far the
+                 run reaches rather than dropping the pair: `groupCandidates`
+                 recovers the shared stretch from the ends of the reports, so
+                 with nothing recorded here a boundary shared exactly — one
+                 whose parametrizations line up leaf for leaf — yields no
+                 reports along its whole length. Subdividing further is
+                 pointless either way, so the pair stops here.
+                */
+                pushCandidate(seg0.startParam, seg1.startParam);
+                pushCandidate(seg0.endParam, seg1.endParam);
+                continue;
+            }
+
+            if (leavesCoincideReversed(seg0.seg, seg1.seg, eps)) {
+                /*
+                 The same, for a leaf traversed the other way round. It needs a
+                 test of its own because `segmentsEqual` compares endpoints in
+                 order and so never fires on a reversed pair; without it the
+                 subdivision grinds the whole coincident run down to
+                 `eps.linear`, which for a pair sharing a long stretch is
+                 thousands of leaf pairs and seconds of work. The
+                 correspondence crosses over: the start of one leaf is the end
+                 of the other.
+                */
+                pushCandidate(seg0.startParam, seg1.endParam);
+                pushCandidate(seg0.endParam, seg1.startParam);
+                continue;
             }
 
             const isLinear0 = isLinear(seg0);
