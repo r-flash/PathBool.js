@@ -154,13 +154,13 @@ export function isNearlyLinearSegment(
  Rewrites a segment that draws a straight line as one.
 
  An arc with a zero radius is a line by SVG F.6.2, and a cubic or quadratic
- whose control points sit on its chord draws one too. Leaving them in the
- spelling they arrived in costs twice over. `segmentsEqual` compares
- representations, so such a segment never merges with the plain line it lies
- exactly on top of — which is what left two identical squares, one drawn with
- degenerate curves, unable to find an outer face between them. And a
- zero-radius arc that survives to the output hands the caller back a segment
- the SVG spec says is a line.
+ whose control points sit on its chord draws one too. Leaving such a segment in
+ the spelling it arrived in costs twice over. `segmentsEqual` compares
+ representations, so it never merges with the plain line it lies exactly on top
+ of, and two paths that draw the same outline in different spellings are left
+ as two boundaries with nothing between them. And a zero-radius arc that
+ survives to the output hands the caller back a segment the SVG spec says is a
+ line.
 
  The control points have to run *along* the chord, not out past an end and
  back: collinear controls outside the endpoints draw a zero-area spike, and
@@ -313,14 +313,15 @@ export const arcSegmentToCenter = (() => {
         rx = Math.abs(rx);
         ry = Math.abs(ry);
         /*
-         No slack added here. Nudging lambda up guards the wrong thing and pays
-         for it dearly: the case it was meant to cover is lambda landing a hair
-         below 1 when the radii exactly span the chord, and the `Math.max(0,
-         ...)` on the ratio below already absorbs that. What it did instead was
-         inflate the radii of every arc that needs correcting, and the centre
-         solve takes a square root of the slack — 1e-12 of it came back out as
-         an offset of 5e-7, which put an F.6.6-corrected arc that far off the
-         circle it should have been exactly on.
+         No epsilon is added to lambda, deliberately. The rounding it might
+         seem to call for is lambda landing a hair below 1 when the radii
+         exactly span the chord, and the `Math.max(0, ...)` on the ratio below
+         already absorbs that. Slack here instead inflates the radii of every
+         arc that genuinely needs the F.6.6 correction, and the centre solve
+         takes a square root of it, so it comes back out magnified: 1e-12 of
+         slack displaces the centre by 5e-7, far enough that a corrected arc no
+         longer lies on the circle it was corrected onto and no longer counts
+         as coincident with it.
         */
         const lambda = x1Prime2 / rx2 + y1Prime2 / ry2;
         if (lambda > 1) {

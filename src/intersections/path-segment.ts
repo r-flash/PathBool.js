@@ -264,21 +264,21 @@ function staysTogether(
 /*
  Two arcs of one ellipse, solved rather than subdivided.
 
- Bisection cannot resolve a shared arc. The two curves never separate, so it
+ Bisection cannot resolve a shared arc: the two curves never separate, so it
  recurses to the leaf size the whole way along the overlap and reports a hit
- from every leaf pair it gets there. The leaf-level short-circuits below only
- rescue the case where both sides cover the same extent and so halve into
- matching pieces — a quarter arc against that same quarter arc, forwards or
- reversed. A quarter arc against the 60 degrees of it a neighbour shares, or
- against the semicircle that contains it, never lines up however far down it
- goes, and the entire run is bisected.
+ from every leaf pair that reaches the bottom. The leaf-level short-circuits
+ further down only rescue the case where both sides cover the same extent and
+ so halve into matching pieces — a quarter arc against that same quarter arc,
+ forwards or reversed. A quarter arc against the 60 degrees of it a neighbour
+ shares, or against the semicircle that contains it, never lines up however far
+ down the recursion goes, and the entire run is bisected.
 
  The centre parametrization answers it outright. Two arcs lying on one ellipse
  overlap over an interval of angle, which intersects in closed form, and the
  ends of that interval convert straight back to a parameter on each arc. It is
- what `lineSegmentsCollinear` already does for a pair of lines, and the reason
- sharing a straight edge has always been cheap where sharing a curved one was
- not.
+ the curved counterpart of what `lineSegmentsCollinear` does for a pair of
+ lines, and the reason sharing a straight edge is cheap where sharing a curved
+ one is not.
 
  Returning null means "not a common ellipse, subdivide as usual". An empty
  array is an answer — two arcs of one ellipse whose angles do not meet — and
@@ -340,9 +340,10 @@ function coincidentArcIntersection(
      an ellipse written half a turn around, where `phi + 180` and `theta + pi`
      name the same point. Those are the only two spellings accepted above.
 
-     Skipping this left two drawings of one circle looking as though their
-     angles never met, and the fast path said so with confidence: it reported
-     no intersection at all, and the whole arrangement went with it.
+     Comparing the two ranges without this makes two drawings of one circle
+     look as though their angles never meet. There is no safety net for that:
+     this function is authoritative when it returns an array, so the pair would
+     be reported as not intersecting at all.
     */
     const off0 = deg2rad(c0.phi);
     const off1 = deg2rad(c1.phi);
@@ -433,11 +434,11 @@ function leavesCoincideReversed(
  Recovers the stretch a group of reports covers, when it covers one at all.
 
  A group whose members stay together over a run is not one crossing seen many
- times over; it is an overlap, and collapsing it to a point is what dissolves a
- shared boundary. The count of reports says nothing about which it is — a
- coincident pair reports one split after grouping and a circle against the
- cubic approximating it reports three — so the run's *extent* is the signal,
- and it is what this reads.
+ times over; it is an overlap, and collapsing it to a point dissolves a shared
+ boundary. How many reports the group holds says nothing about which of the two
+ it is: a coincident pair can come out of grouping as a single report, while
+ two curves that merely run close together and cross repeatedly leave several.
+ The run's *extent* is the signal, and it is what this reads.
 
  Two segments of the same type that coincide do so under a linear
  correspondence between their parameters: the same arc of the same circle, the
@@ -541,10 +542,12 @@ function groupCandidates(
      coincident edges with `segmentsEqual`, which compares representations and
      rejects two spellings of the same curve out of hand — a line against a
      zero-radius arc, or against a cubic whose controls are collinear, are
-     identical to the last bit and still report as different. Splitting those
-     at a stretch it will then refuse to merge would leave two edges lying on
-     top of each other bounding nothing between them, which is a worse failure
-     than the spurious split this replaces.
+     identical to the last bit and still report as different. Splitting a pair
+     the merge will then refuse to join would leave two edges lying on top of
+     each other bounding nothing between them, which is worse than reporting a
+     single contact where an overlap exists. `lineariseDegenerateSegment` is
+     what brings such pairs to a common spelling early enough for this test to
+     accept them.
     */
     const sameType = seg0[0] === seg1[0];
 
@@ -715,13 +718,13 @@ export function pathSegmentIntersection(
         for (const [seg0, seg1] of pairs) {
             if (segmentsEqual(seg0.seg, seg1.seg, eps.point)) {
                 /*
-                 The two leaves are the same piece of curve. Record where the
-                 run reaches rather than dropping it: `groupCandidates` needs
-                 the ends to recover the shared stretch, and discarding them
-                 was why a boundary shared with the parametrizations lined up
-                 produced almost no reports at all — one stray contact for a
-                 whole coincident half-arc. Subdividing further is still
-                 pointless, so the pair stops here either way.
+                 The two leaves are the same piece of curve. Record how far the
+                 run reaches rather than dropping the pair: `groupCandidates`
+                 recovers the shared stretch from the ends of the reports, so
+                 with nothing recorded here a boundary shared exactly — one
+                 whose parametrizations line up leaf for leaf — yields no
+                 reports along its whole length. Subdividing further is
+                 pointless either way, so the pair stops here.
                 */
                 pushCandidate(seg0.startParam, seg1.startParam);
                 pushCandidate(seg0.endParam, seg1.endParam);
@@ -730,13 +733,14 @@ export function pathSegmentIntersection(
 
             if (leavesCoincideReversed(seg0.seg, seg1.seg, eps)) {
                 /*
-                 The same, for a leaf traversed the other way round. Worth its
-                 own test because `segmentsEqual` compares endpoints in order
-                 and so never fires on it, leaving the subdivision to grind the
-                 whole coincident run down to `eps.linear` — 8449 leaf pairs
-                 for one quarter arc against its own reverse, and the seconds
-                 that go with them. The correspondence crosses over: the start
-                 of one leaf is the end of the other.
+                 The same, for a leaf traversed the other way round. It needs a
+                 test of its own because `segmentsEqual` compares endpoints in
+                 order and so never fires on a reversed pair; without it the
+                 subdivision grinds the whole coincident run down to
+                 `eps.linear`, which for a pair sharing a long stretch is
+                 thousands of leaf pairs and seconds of work. The
+                 correspondence crosses over: the start of one leaf is the end
+                 of the other.
                 */
                 pushCandidate(seg0.startParam, seg1.endParam);
                 pushCandidate(seg0.endParam, seg1.startParam);

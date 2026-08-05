@@ -267,13 +267,13 @@ function orBooleansInto(target: boolean[], source: boolean[]) {
  `againstForward` says which way round the joining path goes.
 
  It accumulates rather than assigns, for two reasons. Only the joining path's
- slots are touched, so the orientations of paths already sharing the edge
- survive — assigning the whole array wiped them, which is what made
- Intersection and Exclusion depend on the order of the inputs wherever two
- paths shared a collinear edge. And a path is free to run along the same edge
- more than once: a subpath that goes round twice covers its interior with a
- winding number of two, which non-zero and even-odd disagree about. A boolean
- could not tell that from once round, so both rules gave the same answer.
+ own slots are touched, so the orientations of the paths already sharing the
+ edge survive; assigning the whole array would wipe them, and Intersection and
+ Exclusion would then depend on the order of the inputs wherever two paths
+ share a collinear edge. And a path is free to run along the same edge more
+ than once — a subpath that goes round twice covers its interior with a winding
+ number of two, which non-zero and even-odd disagree about — so a count is
+ needed where a flag would report both traversals as one.
 */
 function addWinding(
     existingEdge: [MajorGraphEdgeStage2, MajorGraphEdge, MajorGraphEdge],
@@ -1804,10 +1804,13 @@ export class PathBoolean {
         );
 
         /*
-         Before anything is measured against anything else, so that a line and
-         a curve drawing the same line are the same segment from here on. Only
-         ever shrinks what the geometry covers, so the bounding box measured
-         above still bounds it.
+         Rewrite curves that draw a straight line as lines, before anything is
+         measured against anything else, so that from here on a line and a
+         curve drawing the same line are one segment rather than two spellings
+         that never compare equal. It runs after the epsilons because it needs
+         `eps.point`, and safely so: replacing a segment by its chord only ever
+         shrinks the geometry, so the bounding box measured above still bounds
+         it.
         */
         for (const edge of unsplitEdges) {
             edge.seg = lineariseDegenerateSegment(edge.seg, eps.point);
