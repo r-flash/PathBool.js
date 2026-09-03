@@ -15,8 +15,7 @@ type LineSegment = [Vector, Vector];
 
 export class QuadTree<T> {
     protected subtrees:
-        | [QuadTree<T>, QuadTree<T>, QuadTree<T>, QuadTree<T>]
-        | null = null;
+        [QuadTree<T>, QuadTree<T>, QuadTree<T>, QuadTree<T>] | null = null;
     protected pairs: [AABB, T][] = [];
 
     constructor(

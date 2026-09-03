@@ -35,10 +35,7 @@ export type PathArcSegment = [
 ];
 
 export type PathSegment =
-    | PathLineSegment
-    | PathCubicSegment
-    | PathQuadraticSegment
-    | PathArcSegment;
+    PathLineSegment | PathCubicSegment | PathQuadraticSegment | PathArcSegment;
 
 type PathArcSegmentCenterParametrization = {
     center: Vector;
