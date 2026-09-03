@@ -753,12 +753,40 @@ export function pathSegmentIntersection(
             if (isLinear0 && isLinear1) {
                 pushLineSegmentIntersection(seg0, seg1);
             } else {
-                const subdivided0 = isLinear0
-                    ? [seg0]
-                    : subdivideIntersectionSegment(seg0);
-                const subdivided1 = isLinear1
-                    ? [seg1]
-                    : subdivideIntersectionSegment(seg1);
+                let subdivided0: IntersectionSegment[];
+                let subdivided1: IntersectionSegment[];
+
+                if (!isLinear0 && !isLinear1) {
+                    /*
+                     Split only the larger piece when their boxes differ. In
+                     addition to avoiding an unnecessary four-way product,
+                     this lets an exact De Casteljau child meet the unsplit
+                     copy of that child on the next iteration, where
+                     `segmentsEqual` recognizes the coincident run outright.
+                     Splitting both sides forever preserves their 2:1
+                     parameter-size ratio and reduces an identical curve to
+                     thousands of leaves before discovering the same fact.
+                    */
+                    const extent0 = boundingBoxMaxExtent(seg0.boundingBox);
+                    const extent1 = boundingBoxMaxExtent(seg1.boundingBox);
+                    if (extent0 > extent1) {
+                        subdivided0 = subdivideIntersectionSegment(seg0);
+                        subdivided1 = [seg1];
+                    } else if (extent1 > extent0) {
+                        subdivided0 = [seg0];
+                        subdivided1 = subdivideIntersectionSegment(seg1);
+                    } else {
+                        subdivided0 = subdivideIntersectionSegment(seg0);
+                        subdivided1 = subdivideIntersectionSegment(seg1);
+                    }
+                } else {
+                    subdivided0 = isLinear0
+                        ? [seg0]
+                        : subdivideIntersectionSegment(seg0);
+                    subdivided1 = isLinear1
+                        ? [seg1]
+                        : subdivideIntersectionSegment(seg1);
+                }
 
                 for (const seg0 of subdivided0) {
                     for (const seg1 of subdivided1) {

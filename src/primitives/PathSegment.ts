@@ -165,11 +165,10 @@ export function isNearlyLinearSegment(
  Written as the Bezier derivative staying single-signed, which is the same
  condition and needs no case analysis.
 
- Radii are tested rather than the chord. An arc whose endpoints coincide is a
- different matter — with the large-arc flag set it is a whole ellipse, and
- `findVertices` already knows to keep that one and drop the other — while an
- arc whose radii are merely too small for its chord is grown to fit by F.6.6
- and is not degenerate at all.
+ Radii are tested rather than the chord. An arc whose endpoints coincide is
+ omitted by SVG regardless of its flags, and `findVertices` drops it; an arc
+ whose radii are merely too small for its chord is instead grown to fit by
+ F.6.6 and is not degenerate at all.
 */
 export function lineariseDegenerateSegment(
     seg: PathSegment,
@@ -184,7 +183,7 @@ export function lineariseDegenerateSegment(
             !isFiniteNumber(seg[3]) ||
             Math.abs(seg[2]) <= NEARLY_LINEAR_EPS ||
             Math.abs(seg[3]) <= NEARLY_LINEAR_EPS;
-        return degenerateRadii ? ["L", a, b] : seg;
+        return degenerateRadii ? ["L", a, b] : normalizeArcSegment(seg);
     }
 
     if (seg[0] !== "C" && seg[0] !== "Q") return seg;
@@ -220,8 +219,29 @@ export function lineariseDegenerateSegment(
 }
 
 export function normalizeArcSegment(seg: PathArcSegment): PathArcSegment {
-    const phi = normalizeArcRotationDegrees(seg[4]);
-    return ["A", seg[1], seg[2], seg[3], phi, seg[5], seg[6], seg[7]];
+    let rx = Math.abs(seg[2]);
+    let ry = Math.abs(seg[3]);
+    let phi = seg[4];
+
+    /*
+     The same ellipse can be written with its radii exchanged and its frame
+     turned by a quarter turn. Pick one spelling before segments are compared:
+     otherwise the intersection solver can prove that two arcs share a rim,
+     only for the graph builder to reject the resulting pieces as different
+     edges. A half turn is another symmetry, and a circle has no meaningful
+     frame at all.
+    */
+    if (rx < ry) {
+        [rx, ry] = [ry, rx];
+        phi += 90;
+    }
+    if (rx === ry) {
+        phi = 0;
+    } else {
+        phi = ((normalizeArcRotationDegrees(phi) % 180) + 180) % 180;
+    }
+
+    return ["A", seg[1], rx, ry, phi, seg[5], seg[6], seg[7]];
 }
 
 export function getStartPoint(seg: PathSegment): Vector {
@@ -583,12 +603,13 @@ export const arcSegmentToCubics = (() => {
             return [["L", arc[1], arc[7]]];
         }
 
-        const { center, theta1, deltaTheta, rx, ry } = centerParametrization;
+        const { center, theta1, deltaTheta, rx, ry, phi } =
+            centerParametrization;
 
         const count = Math.ceil(Math.abs(deltaTheta) / maxDeltaTheta);
 
         mat2d.fromTranslation(fromUnit, center);
-        mat2d.rotate(fromUnit, fromUnit, deg2rad(arc[4]));
+        mat2d.rotate(fromUnit, fromUnit, deg2rad(phi));
         mat2d.scale(fromUnit, fromUnit, [rx, ry]);
 
         // https://pomax.github.io/bezierinfo/#circles_cubic

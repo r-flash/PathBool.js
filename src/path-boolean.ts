@@ -534,11 +534,9 @@ function findVertices(
                     }
                     break;
                 case "A":
-                    // Check large-arc-flag
-                    if (edge.seg[5] === false) {
-                        return [];
-                    }
-                    break;
+                    // SVG omits an arc whose endpoints coincide, regardless
+                    // of the large-arc and sweep flags.
+                    return [];
             }
         }
 
@@ -572,11 +570,6 @@ function findVertices(
                 segmentsEqual(other[0].seg, reversedSeg, eps.point),
             );
             if (existingEdge) {
-                if (booleanArraysEqual(existingEdge[0].parents, edge.parents)) {
-                    // discard "there and back" pairs
-                    return [];
-                }
-
                 // A shared edge traversed the opposite way round: the joining
                 // path runs along the backward half-edge and against the
                 // forward one.
@@ -617,9 +610,30 @@ function findVertices(
         return [fwdEdge, bwdEdge];
     });
 
+    /*
+     Opposite traversals by one input cancel rather than making the second
+     traversal disappear while the first remains. Keep parent membership in
+     step with the accumulated signed winding, then remove edges which no
+     input contributes to at all before they can create zero-winding faces.
+    */
+    for (const edge of newEdges) {
+        for (let i = 0; i < edge.parents.length; i++) {
+            edge.parents[i] = edge.windings[i] !== 0;
+        }
+    }
+
+    const contributesToBoundary = (edge: MajorGraphEdge): boolean =>
+        edge.windings.some((winding) => winding !== 0);
+    const keptEdges = newEdges.filter(contributesToBoundary);
+    for (const vertex of newVertices) {
+        vertex.outgoingEdges = vertex.outgoingEdges.filter(
+            contributesToBoundary,
+        );
+    }
+
     return {
-        edges: newEdges,
-        vertices: newVertices,
+        edges: keptEdges,
+        vertices: newVertices.filter((vertex) => vertex.outgoingEdges.length),
     };
 }
 

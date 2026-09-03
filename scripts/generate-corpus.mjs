@@ -26,7 +26,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const GENERATOR_VERSION = 2;
+const GENERATOR_VERSION = 3;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_ROOT = path.join(ROOT, "src", "__fixtures__", "generated");
@@ -86,6 +86,17 @@ function circleOfArcs(r, sweep = true) {
         start: pts[0],
         segs: pts.slice(1).map((p) => ["A", r, r, 0, false, sweep, p]),
     };
+}
+
+function ellipsePoint(rx, ry, phiDeg, thetaDeg) {
+    const phi = (phiDeg * Math.PI) / 180;
+    const theta = (thetaDeg * Math.PI) / 180;
+    const x = rx * Math.cos(theta);
+    const y = ry * Math.sin(theta);
+    return [
+        x * Math.cos(phi) - y * Math.sin(phi),
+        x * Math.sin(phi) + y * Math.cos(phi),
+    ];
 }
 
 const SHAPES = {
@@ -461,6 +472,212 @@ const SHAPES = {
             segs: [
                 ["A", 0, 0, 0, false, true, [1, -1]],
                 ["L", [1, 1]],
+                ["L", [-1, 1]],
+                ["L", [-1, -1]],
+            ],
+        },
+    ],
+
+    // `ellipse-rot` in the other exact SVG spelling of the same ellipse:
+    // exchange the radii and turn the local frame by a quarter turn.
+    "ellipse-rot-swapped": () => {
+        const p0 = ellipsePoint(1.4, 0.7, 30, 0);
+        const p1 = ellipsePoint(1.4, 0.7, 30, 180);
+        return [
+            {
+                start: p0,
+                segs: [
+                    ["A", 0.7, 1.4, 120, false, true, p1],
+                    ["A", 0.7, 1.4, 120, false, true, p0],
+                ],
+            },
+        ];
+    },
+
+    // SVG takes the absolute values of arc radii. This is the unit circle in
+    // that input spelling, paired with `circle-arc` below.
+    "circle-negative-radii": () => {
+        const circle = circleOfArcs(1);
+        return [
+            {
+                start: circle.start,
+                segs: circle.segs.map((seg) => [
+                    "A",
+                    -seg[1],
+                    seg[2],
+                    seg[3],
+                    seg[4],
+                    seg[5],
+                    seg[6],
+                ]),
+            },
+        ];
+    },
+
+    // `quad-blob` with each quadratic split exactly at t = 0.5 by De
+    // Casteljau. The geometry is unchanged but none of its vertices line up
+    // one-for-one with the original representation.
+    "quad-blob-subdivided": () => [
+        {
+            start: [1, 0],
+            segs: [
+                ["Q", [1, 0.5], [0.75, 0.75]],
+                ["Q", [0.5, 1], [0, 1]],
+                ["Q", [-0.5, 1], [-0.75, 0.75]],
+                ["Q", [-1, 0.5], [-1, 0]],
+                ["Q", [-1, -0.5], [-0.75, -0.75]],
+                ["Q", [-0.5, -1], [0, -1]],
+                ["Q", [0.5, -1], [0.75, -0.75]],
+                ["Q", [1, -0.5], [1, 0]],
+            ],
+        },
+    ],
+
+    // The cubic approximation of a circle, again split at t = 0.5 on every
+    // quarter so the coincident run has interleaved vertices.
+    "circle-cubic-subdivided": () => {
+        const k = KAPPA;
+        const h = (a, b) => (a + b) / 2;
+        const split = (p0, p1, p2, p3) => {
+            const p01 = [h(p0[0], p1[0]), h(p0[1], p1[1])];
+            const p12 = [h(p1[0], p2[0]), h(p1[1], p2[1])];
+            const p23 = [h(p2[0], p3[0]), h(p2[1], p3[1])];
+            const p012 = [h(p01[0], p12[0]), h(p01[1], p12[1])];
+            const p123 = [h(p12[0], p23[0]), h(p12[1], p23[1])];
+            const p = [h(p012[0], p123[0]), h(p012[1], p123[1])];
+            return [
+                ["C", p01, p012, p],
+                ["C", p123, p23, p3],
+            ];
+        };
+        const quarters = [
+            [
+                [1, 0],
+                [1, k],
+                [k, 1],
+                [0, 1],
+            ],
+            [
+                [0, 1],
+                [-k, 1],
+                [-1, k],
+                [-1, 0],
+            ],
+            [
+                [-1, 0],
+                [-1, -k],
+                [-k, -1],
+                [0, -1],
+            ],
+            [
+                [0, -1],
+                [k, -1],
+                [1, -k],
+                [1, 0],
+            ],
+        ];
+        return [
+            {
+                start: [1, 0],
+                segs: quarters.flatMap((points) => split(...points)),
+            },
+        ];
+    },
+
+    // An annular sector outside `ellipse-rot`. Its inner rim uses the
+    // radii-swapped spelling and shares a 60-degree stretch whose ends lie in
+    // the interiors of A's two half-ellipse arcs.
+    "ellipse-rim-wedge-swapped": () => {
+        const inner0 = ellipsePoint(1.4, 0.7, 30, -30);
+        const inner1 = ellipsePoint(1.4, 0.7, 30, 30);
+        const outer0 = ellipsePoint(2.1, 1.05, 30, -30);
+        const outer1 = ellipsePoint(2.1, 1.05, 30, 30);
+        return [
+            {
+                start: inner0,
+                segs: [
+                    ["A", 0.7, 1.4, 120, false, true, inner1],
+                    ["L", outer1],
+                    ["A", 2.1, 1.05, 30, false, false, outer0],
+                    ["L", inner0],
+                ],
+            },
+        ];
+    },
+
+    "same-endpoint-small-arc": () => [
+        {
+            start: [-1, -1],
+            segs: [
+                ["L", [1, -1]],
+                ["A", 1, 1, 0, false, true, [1, -1]],
+                ["L", [1, 1]],
+                ["L", [-1, 1]],
+                ["L", [-1, -1]],
+            ],
+        },
+    ],
+
+    "same-endpoint-large-arc": () => [
+        {
+            start: [-1, -1],
+            segs: [
+                ["L", [1, -1]],
+                ["A", 1, 1, 0, true, true, [1, -1]],
+                ["L", [1, 1]],
+                ["L", [-1, 1]],
+                ["L", [-1, -1]],
+            ],
+        },
+    ],
+
+    // Two identical circles traversed in opposite directions. Both fill
+    // rules see an empty region when their signed/parity contributions cancel.
+    "cancelled-circle": () => [circleOfArcs(1, true), circleOfArcs(1, false)],
+
+    "zero-length-line-in-square": () =>
+        polygon([
+            [-1, -1],
+            [-1, -1],
+            [1, -1],
+            [1, 1],
+            [-1, 1],
+        ]),
+
+    "point-and-square": () => [
+        { start: [0, 0], segs: [["L", [0, 0]]] },
+        ...polygon([
+            [-1, -1],
+            [1, -1],
+            [1, 1],
+            [-1, 1],
+        ]),
+    ],
+
+    "quadratic-spike": () => [
+        {
+            start: [-1, -1],
+            segs: [
+                ["L", [1, -1]],
+                ["L", [1, 1]],
+                ["L", [0, 1]],
+                ["Q", [0.6, 2], [0, 3]],
+                ["Q", [0.6, 2], [0, 1]],
+                ["L", [-1, 1]],
+                ["L", [-1, -1]],
+            ],
+        },
+    ],
+
+    "cubic-spike": () => [
+        {
+            start: [-1, -1],
+            segs: [
+                ["L", [1, -1]],
+                ["L", [1, 1]],
+                ["L", [0, 1]],
+                ["C", [0.6, 1.5], [0.6, 2.5], [0, 3]],
+                ["C", [0.6, 2.5], [0.6, 1.5], [0, 1]],
                 ["L", [-1, 1]],
                 ["L", [-1, -1]],
             ],
@@ -849,6 +1066,36 @@ const HALF_DIAGONAL = 0.5 * Math.SQRT2;
         },
         note: "B's corner rests on A's rim at 45 degrees, strictly inside one of A's quarter arcs rather than on a vertex of either",
     },
+    {
+        name: "ellipse-arc-shared-swapped-partial",
+        a: { shape: "ellipse-rot" },
+        b: { shape: "ellipse-rim-wedge-swapped" },
+        note: "B shares a 60-degree stretch of A's rotated ellipse but spells that rim with exchanged radii and a quarter-turned frame",
+    },
+    {
+        name: "tangent-external-mid-arcs",
+        a: { shape: "circle-arc" },
+        b: {
+            shape: "circle-arc",
+            sim: sim(1, 0, Math.SQRT2, Math.SQRT2),
+        },
+        note: "equal circles touch externally at 45 degrees, in the interior of an arc on both paths",
+    },
+    {
+        name: "tangent-internal-mid-arcs",
+        a: { shape: "circle-arc" },
+        b: {
+            shape: "circle-arc",
+            sim: sim(0.5, 0, 0.5 * Math.SQRT1_2, 0.5 * Math.SQRT1_2),
+        },
+        note: "the smaller circle touches A internally at 45 degrees, in the interior of an arc on both paths",
+    },
+    {
+        name: "four-vertices-on-edges",
+        a: { shape: "square" },
+        b: { shape: "square", sim: sim(Math.SQRT2, 45) },
+        note: "every vertex of A lands in the interior of an edge of B, producing four simultaneous vertex-on-edge crossings",
+    },
 ].forEach((c, i) =>
     add({
         category: "touching",
@@ -1010,6 +1257,42 @@ const HALF_DIAGONAL = 0.5 * Math.SQRT2;
         b: { shape: "zero-radius-arc" },
         note: "identical only if a zero-radius arc is read as the straight line SVG F.6.2 says it is",
     },
+    {
+        name: "ellipse-vs-swapped-radii",
+        a: { shape: "ellipse-rot" },
+        b: { shape: "ellipse-rot-swapped" },
+        note: "the same rotated ellipse with rx/ry exchanged and phi advanced by 90 degrees",
+    },
+    {
+        name: "ellipse-vs-half-turn",
+        a: { shape: "ellipse-rot" },
+        b: { shape: "ellipse-rot", sim: sim(1, 180) },
+        note: "the same ellipse with its frame and starting point advanced by half a turn",
+    },
+    {
+        name: "circle-vs-negative-radius",
+        a: { shape: "circle-arc" },
+        b: { shape: "circle-negative-radii" },
+        note: "the same circle with a negative rx, which SVG normalizes to its absolute value",
+    },
+    {
+        name: "quadratic-vs-subdivided",
+        a: { shape: "quad-blob" },
+        b: { shape: "quad-blob-subdivided" },
+        note: "the same quadratic boundary with every segment split at t = 0.5",
+    },
+    {
+        name: "cubic-vs-subdivided",
+        a: { shape: "circle-cubic" },
+        b: { shape: "circle-cubic-subdivided" },
+        note: "the same cubic boundary with every segment split at t = 0.5",
+    },
+    {
+        name: "cubic-vs-reversed",
+        a: { shape: "circle-cubic" },
+        b: { shape: "circle-cubic", reversed: true },
+        note: "the same cubic boundary traversed in the opposite direction",
+    },
 ].forEach((c, i) =>
     add({
         category: "coincident",
@@ -1134,6 +1417,30 @@ for (const fa of ["nonzero", "evenodd"]) {
     });
 }
 
+for (const fa of ["nonzero", "evenodd"]) {
+    add({
+        category: "fill-rule",
+        name: `${num(fillRuleIndex++)}-cancelled-circle-x-square-${fa}`,
+        a: { shape: "cancelled-circle" },
+        b: { shape: "square" },
+        fill: [fa, "nonzero"],
+        placement: "coincident-opposite-winding",
+        note: `two coincident circles traversed in opposite directions cancel under ${fa}, so A contributes no filled region`,
+    });
+}
+
+for (const fill of ["nonzero", "evenodd"]) {
+    add({
+        category: "fill-rule",
+        name: `${num(fillRuleIndex++)}-crossed-two-discs-${fill}`,
+        a: { shape: "two-discs" },
+        b: { shape: "two-discs", sim: sim(1, 90) },
+        fill: [fill, fill],
+        placement: "crossed-overlapping-subpaths",
+        note: `two horizontal overlapping discs against two vertical ones, with both multiply-wound inputs read as ${fill}`,
+    });
+}
+
 /* -- degenerate: zero-area geometry -- */
 
 [
@@ -1185,6 +1492,30 @@ for (const fa of ["nonzero", "evenodd"]) {
         b: { shape: "square", sim: sim(1, 0, 0, 3) },
         note: "the zero-area spike ends exactly on B's boundary, so the out-and-back pair terminates at a vertex it has to share",
     },
+    {
+        name: "zero-length-line-in-square",
+        a: { shape: "zero-length-line-in-square" },
+        b: { shape: "circle-arc", sim: OVERLAP },
+        note: "an ordinary square contains a repeated vertex and therefore an explicit zero-length line",
+    },
+    {
+        name: "point-subpath-and-square",
+        a: { shape: "point-and-square" },
+        b: { shape: "circle-arc", sim: OVERLAP },
+        note: "a point-only closed subpath sits alongside an ordinary filled component",
+    },
+    {
+        name: "quadratic-spike-x-square",
+        a: { shape: "quadratic-spike" },
+        b: { shape: "square", sim: sim(0.8, 0, 0, 2.4) },
+        note: "a quadratic is followed by its exact reverse and the retraced curve is crossed by B",
+    },
+    {
+        name: "cubic-spike-x-square",
+        a: { shape: "cubic-spike" },
+        b: { shape: "square", sim: sim(0.8, 0, 0, 2.4) },
+        note: "a cubic is followed by its exact reverse and the retraced curve is crossed by B",
+    },
 ].forEach((c, i) =>
     add({
         category: "degenerate",
@@ -1235,6 +1566,18 @@ for (const fa of ["nonzero", "evenodd"]) {
         b: { shape: "square", sim: sim(0.6, 0, 0.9, 0.5) },
         note: "A's outer and inner arcs run with opposite sweep flags and both have largeArc set",
     },
+    {
+        name: "same-endpoint-small-arc",
+        a: { shape: "same-endpoint-small-arc" },
+        b: { shape: "circle-arc", sim: OVERLAP },
+        note: "an arc whose endpoints coincide is omitted, with largeArc clear",
+    },
+    {
+        name: "same-endpoint-large-arc",
+        a: { shape: "same-endpoint-large-arc" },
+        b: { shape: "circle-arc", sim: OVERLAP },
+        note: "an arc whose endpoints coincide is still omitted when largeArc is set",
+    },
 ].forEach((c, i) =>
     add({
         category: "arcs",
@@ -1272,6 +1615,48 @@ for (const fa of ["nonzero", "evenodd"]) {
         a: { shape: "gear" },
         b: { shape: "annulus", sim: sim(0.9) },
         note: "both rings of the annulus cut the teeth, so the result is a ring of alternating faces",
+    },
+    {
+        name: "gear-tangent-circle",
+        a: { shape: "gear" },
+        b: { shape: "circle-arc" },
+        note: "the circle contains the gear and touches all twelve tooth tips at once",
+    },
+    {
+        name: "bowtie-x-bowtie",
+        a: { shape: "bowtie" },
+        b: { shape: "bowtie", sim: sim(1, 45) },
+        note: "two self-crossing polygons share their central crossing, creating an eight-way vertex",
+    },
+    {
+        name: "pentagram-x-pentagram",
+        a: { shape: "pentagram" },
+        b: { shape: "pentagram", sim: sim(1, 36) },
+        note: "two self-intersecting stars interleave at half a point step",
+    },
+    {
+        name: "loop-cubic-x-loop-cubic",
+        a: { shape: "loop-cubic" },
+        b: { shape: "loop-cubic", sim: sim(1, 90) },
+        note: "two self-crossing cubic loops collide with their singular structure centred together",
+    },
+    {
+        name: "annulus-x-annulus",
+        a: { shape: "annulus", sim: sim(1, 0, -0.45, 0) },
+        b: { shape: "annulus", sim: sim(1, 0, 0.45, 0) },
+        note: "both inner and outer rings of two offset annuli cross, producing nested alternating faces",
+    },
+    {
+        name: "bullseye-x-annulus",
+        a: { shape: "bullseye" },
+        b: { shape: "annulus", sim: sim(0.9, 0, 0.5, 0.1) },
+        note: "five nested rings across two inputs intersect away from their symmetry axes",
+    },
+    {
+        name: "two-islands-x-two-islands",
+        a: { shape: "two-islands" },
+        b: { shape: "two-islands", sim: sim(1, 90) },
+        note: "horizontal and vertical pairs of disconnected components overlap in four separate regions",
     },
 ].forEach((c, i) =>
     add({

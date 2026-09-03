@@ -1,8 +1,8 @@
 {
-    "generatorVersion": 2,
+    "generatorVersion": 3,
     "generator": "scripts/generate-corpus.mjs",
     "renderSize": 512,
-    "caseCount": 110,
+    "caseCount": 137,
     "cases": [
         {
             "id": "overlap/01-circle-arc-x-circle-arc",
@@ -485,6 +485,70 @@
             "note": "B's corner rests on A's rim at 45 degrees, strictly inside one of A's quarter arcs rather than on a vertex of either"
         },
         {
+            "id": "touching/13-ellipse-arc-shared-swapped-partial",
+            "category": "touching",
+            "name": "13-ellipse-arc-shared-swapped-partial",
+            "shapes": [
+                "ellipse-rot",
+                "ellipse-rim-wedge-swapped"
+            ],
+            "placement": "ellipse-arc-shared-swapped-partial",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "B shares a 60-degree stretch of A's rotated ellipse but spells that rim with exchanged radii and a quarter-turned frame"
+        },
+        {
+            "id": "touching/14-tangent-external-mid-arcs",
+            "category": "touching",
+            "name": "14-tangent-external-mid-arcs",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "tangent-external-mid-arcs",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "equal circles touch externally at 45 degrees, in the interior of an arc on both paths"
+        },
+        {
+            "id": "touching/15-tangent-internal-mid-arcs",
+            "category": "touching",
+            "name": "15-tangent-internal-mid-arcs",
+            "shapes": [
+                "circle-arc",
+                "circle-arc"
+            ],
+            "placement": "tangent-internal-mid-arcs",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the smaller circle touches A internally at 45 degrees, in the interior of an arc on both paths"
+        },
+        {
+            "id": "touching/16-four-vertices-on-edges",
+            "category": "touching",
+            "name": "16-four-vertices-on-edges",
+            "shapes": [
+                "square",
+                "square"
+            ],
+            "placement": "four-vertices-on-edges",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "every vertex of A lands in the interior of an edge of B, producing four simultaneous vertex-on-edge crossings"
+        },
+        {
             "id": "nesting/01-circle-in-circle",
             "category": "nesting",
             "name": "01-circle-in-circle",
@@ -837,6 +901,102 @@
             "note": "identical only if a zero-radius arc is read as the straight line SVG F.6.2 says it is"
         },
         {
+            "id": "coincident/13-ellipse-vs-swapped-radii",
+            "category": "coincident",
+            "name": "13-ellipse-vs-swapped-radii",
+            "shapes": [
+                "ellipse-rot",
+                "ellipse-rot-swapped"
+            ],
+            "placement": "ellipse-vs-swapped-radii",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the same rotated ellipse with rx/ry exchanged and phi advanced by 90 degrees"
+        },
+        {
+            "id": "coincident/14-ellipse-vs-half-turn",
+            "category": "coincident",
+            "name": "14-ellipse-vs-half-turn",
+            "shapes": [
+                "ellipse-rot",
+                "ellipse-rot"
+            ],
+            "placement": "ellipse-vs-half-turn",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the same ellipse with its frame and starting point advanced by half a turn"
+        },
+        {
+            "id": "coincident/15-circle-vs-negative-radius",
+            "category": "coincident",
+            "name": "15-circle-vs-negative-radius",
+            "shapes": [
+                "circle-arc",
+                "circle-negative-radii"
+            ],
+            "placement": "circle-vs-negative-radius",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the same circle with a negative rx, which SVG normalizes to its absolute value"
+        },
+        {
+            "id": "coincident/16-quadratic-vs-subdivided",
+            "category": "coincident",
+            "name": "16-quadratic-vs-subdivided",
+            "shapes": [
+                "quad-blob",
+                "quad-blob-subdivided"
+            ],
+            "placement": "quadratic-vs-subdivided",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the same quadratic boundary with every segment split at t = 0.5"
+        },
+        {
+            "id": "coincident/17-cubic-vs-subdivided",
+            "category": "coincident",
+            "name": "17-cubic-vs-subdivided",
+            "shapes": [
+                "circle-cubic",
+                "circle-cubic-subdivided"
+            ],
+            "placement": "cubic-vs-subdivided",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the same cubic boundary with every segment split at t = 0.5"
+        },
+        {
+            "id": "coincident/18-cubic-vs-reversed",
+            "category": "coincident",
+            "name": "18-cubic-vs-reversed",
+            "shapes": [
+                "circle-cubic",
+                "circle-cubic"
+            ],
+            "placement": "cubic-vs-reversed",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the same cubic boundary traversed in the opposite direction"
+        },
+        {
             "id": "disjoint/01-square-and-circle",
             "category": "disjoint",
             "name": "01-square-and-circle",
@@ -1093,6 +1253,70 @@
             "note": "opposite-winding lobes meeting at a self-crossing, read as evenodd: both rules fill both lobes, so this pins that the rules agree where they should"
         },
         {
+            "id": "fill-rule/13-cancelled-circle-x-square-nonzero",
+            "category": "fill-rule",
+            "name": "13-cancelled-circle-x-square-nonzero",
+            "shapes": [
+                "cancelled-circle",
+                "square"
+            ],
+            "placement": "coincident-opposite-winding",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "two coincident circles traversed in opposite directions cancel under nonzero, so A contributes no filled region"
+        },
+        {
+            "id": "fill-rule/14-cancelled-circle-x-square-evenodd",
+            "category": "fill-rule",
+            "name": "14-cancelled-circle-x-square-evenodd",
+            "shapes": [
+                "cancelled-circle",
+                "square"
+            ],
+            "placement": "coincident-opposite-winding",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "two coincident circles traversed in opposite directions cancel under evenodd, so A contributes no filled region"
+        },
+        {
+            "id": "fill-rule/15-crossed-two-discs-nonzero",
+            "category": "fill-rule",
+            "name": "15-crossed-two-discs-nonzero",
+            "shapes": [
+                "two-discs",
+                "two-discs"
+            ],
+            "placement": "crossed-overlapping-subpaths",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "two horizontal overlapping discs against two vertical ones, with both multiply-wound inputs read as nonzero"
+        },
+        {
+            "id": "fill-rule/16-crossed-two-discs-evenodd",
+            "category": "fill-rule",
+            "name": "16-crossed-two-discs-evenodd",
+            "shapes": [
+                "two-discs",
+                "two-discs"
+            ],
+            "placement": "crossed-overlapping-subpaths",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "conditioning": "origin",
+            "note": "two horizontal overlapping discs against two vertical ones, with both multiply-wound inputs read as evenodd"
+        },
+        {
             "id": "degenerate/01-spike-vs-square",
             "category": "degenerate",
             "name": "01-spike-vs-square",
@@ -1221,6 +1445,70 @@
             "note": "the zero-area spike ends exactly on B's boundary, so the out-and-back pair terminates at a vertex it has to share"
         },
         {
+            "id": "degenerate/09-zero-length-line-in-square",
+            "category": "degenerate",
+            "name": "09-zero-length-line-in-square",
+            "shapes": [
+                "zero-length-line-in-square",
+                "circle-arc"
+            ],
+            "placement": "zero-length-line-in-square",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "an ordinary square contains a repeated vertex and therefore an explicit zero-length line"
+        },
+        {
+            "id": "degenerate/10-point-subpath-and-square",
+            "category": "degenerate",
+            "name": "10-point-subpath-and-square",
+            "shapes": [
+                "point-and-square",
+                "circle-arc"
+            ],
+            "placement": "point-subpath-and-square",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "a point-only closed subpath sits alongside an ordinary filled component"
+        },
+        {
+            "id": "degenerate/11-quadratic-spike-x-square",
+            "category": "degenerate",
+            "name": "11-quadratic-spike-x-square",
+            "shapes": [
+                "quadratic-spike",
+                "square"
+            ],
+            "placement": "quadratic-spike-x-square",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "a quadratic is followed by its exact reverse and the retraced curve is crossed by B"
+        },
+        {
+            "id": "degenerate/12-cubic-spike-x-square",
+            "category": "degenerate",
+            "name": "12-cubic-spike-x-square",
+            "shapes": [
+                "cubic-spike",
+                "square"
+            ],
+            "placement": "cubic-spike-x-square",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "a cubic is followed by its exact reverse and the retraced curve is crossed by B"
+        },
+        {
             "id": "arcs/01-large-arc-x-square",
             "category": "arcs",
             "name": "01-large-arc-x-square",
@@ -1317,6 +1605,38 @@
             "note": "A's outer and inner arcs run with opposite sweep flags and both have largeArc set"
         },
         {
+            "id": "arcs/07-same-endpoint-small-arc",
+            "category": "arcs",
+            "name": "07-same-endpoint-small-arc",
+            "shapes": [
+                "same-endpoint-small-arc",
+                "circle-arc"
+            ],
+            "placement": "same-endpoint-small-arc",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "an arc whose endpoints coincide is omitted, with largeArc clear"
+        },
+        {
+            "id": "arcs/08-same-endpoint-large-arc",
+            "category": "arcs",
+            "name": "08-same-endpoint-large-arc",
+            "shapes": [
+                "same-endpoint-large-arc",
+                "circle-arc"
+            ],
+            "placement": "same-endpoint-large-arc",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "an arc whose endpoints coincide is still omitted when largeArc is set"
+        },
+        {
             "id": "stress/01-gear-x-circle",
             "category": "stress",
             "name": "01-gear-x-circle",
@@ -1379,6 +1699,118 @@
             ],
             "conditioning": "origin",
             "note": "both rings of the annulus cut the teeth, so the result is a ring of alternating faces"
+        },
+        {
+            "id": "stress/05-gear-tangent-circle",
+            "category": "stress",
+            "name": "05-gear-tangent-circle",
+            "shapes": [
+                "gear",
+                "circle-arc"
+            ],
+            "placement": "gear-tangent-circle",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "the circle contains the gear and touches all twelve tooth tips at once"
+        },
+        {
+            "id": "stress/06-bowtie-x-bowtie",
+            "category": "stress",
+            "name": "06-bowtie-x-bowtie",
+            "shapes": [
+                "bowtie",
+                "bowtie"
+            ],
+            "placement": "bowtie-x-bowtie",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "two self-crossing polygons share their central crossing, creating an eight-way vertex"
+        },
+        {
+            "id": "stress/07-pentagram-x-pentagram",
+            "category": "stress",
+            "name": "07-pentagram-x-pentagram",
+            "shapes": [
+                "pentagram",
+                "pentagram"
+            ],
+            "placement": "pentagram-x-pentagram",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "two self-intersecting stars interleave at half a point step"
+        },
+        {
+            "id": "stress/08-loop-cubic-x-loop-cubic",
+            "category": "stress",
+            "name": "08-loop-cubic-x-loop-cubic",
+            "shapes": [
+                "loop-cubic",
+                "loop-cubic"
+            ],
+            "placement": "loop-cubic-x-loop-cubic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "two self-crossing cubic loops collide with their singular structure centred together"
+        },
+        {
+            "id": "stress/09-annulus-x-annulus",
+            "category": "stress",
+            "name": "09-annulus-x-annulus",
+            "shapes": [
+                "annulus",
+                "annulus"
+            ],
+            "placement": "annulus-x-annulus",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "both inner and outer rings of two offset annuli cross, producing nested alternating faces"
+        },
+        {
+            "id": "stress/10-bullseye-x-annulus",
+            "category": "stress",
+            "name": "10-bullseye-x-annulus",
+            "shapes": [
+                "bullseye",
+                "annulus"
+            ],
+            "placement": "bullseye-x-annulus",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "five nested rings across two inputs intersect away from their symmetry axes"
+        },
+        {
+            "id": "stress/11-two-islands-x-two-islands",
+            "category": "stress",
+            "name": "11-two-islands-x-two-islands",
+            "shapes": [
+                "two-islands",
+                "two-islands"
+            ],
+            "placement": "two-islands-x-two-islands",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "conditioning": "origin",
+            "note": "horizontal and vertical pairs of disconnected components overlap in four separate regions"
         },
         {
             "id": "conditioning/01-overlap-circles-far",
