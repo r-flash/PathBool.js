@@ -37,8 +37,13 @@ function fuzz(buf) {
             ? PathBool.FillRule.EvenOdd
             : PathBool.FillRule.NonZero;
 
+    const pathBoolean = new PathBool.PathBoolean([
+        { path: pathA, fillRule: aFillRule },
+        { path: pathB, fillRule: bFillRule },
+    ]);
+
     for (const op of Object.values(ops)) {
-        PathBool.pathBoolean(pathA, aFillRule, pathB, bFillRule, op);
+        pathBoolean.get(op);
     }
 }
 
