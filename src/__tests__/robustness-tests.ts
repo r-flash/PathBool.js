@@ -50,6 +50,42 @@ function serializePaths(paths: Path[]): string {
 }
 
 describe("robustness properties", () => {
+    test.each([PathBool.FillRule.NonZero, PathBool.FillRule.EvenOdd])(
+        "a retraced closed Bezier has no effect on exclusion (fill rule %s)",
+        (fillRule) => {
+            const a = PathBool.pathFromPathData(
+                "M717.91,881.01 " +
+                    "c0.84,-6.47 17.65,-12.82 15.22,-7.23 " +
+                    "c-3.18,2.73 -6.11,5.69 -8.79,8.88 " +
+                    "c-0.48,0.26 -0.88,0.18 -1.21,-0.25 " +
+                    "c-0.8,-4.44 -4.09,2.62 -5.22,-1.4 Z",
+            );
+            const b = PathBool.pathFromPathData(
+                "M723.21,879.97 c0.53,-0.68 0.53,-0.68 0,0 Z",
+            );
+            for (const [first, second] of [
+                [a, b],
+                [b, a],
+            ]) {
+                const boolean = new PathBool.PathBoolean([
+                    { path: first, fillRule },
+                    { path: second, fillRule },
+                ]);
+                // The four cubics already close; Z adds a redundant line.
+                expect(
+                    serializePaths(
+                        boolean.get(PathBool.PathBooleanOperation.Exclusion),
+                    ),
+                ).toBe(serializePaths([a.slice(0, 4)]));
+                expect(
+                    serializePaths(
+                        boolean.get(PathBool.PathBooleanOperation.Intersection),
+                    ),
+                ).toBe("");
+            }
+        },
+    );
+
     test("determinism under near-tangent geometry", () => {
         const pathA = PathBool.pathFromPathData("M0 0 C 10 0 10 1e-12 20 0");
         const pathB = PathBool.pathFromPathData("M10 -1 L10 1");

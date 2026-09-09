@@ -148,7 +148,8 @@ export function isNearlyLinearSegment(
 }
 
 /*
- Rewrites a segment that draws a straight line as one.
+ Rewrites a segment that draws a straight line as one, and collapses closed
+ Beziers that only retrace a line to a point for boolean operations.
 
  An arc with a zero radius is a line by SVG F.6.2, and a cubic or quadratic
  whose control points sit on its chord draws one too. Leaving such a segment in
@@ -191,8 +192,27 @@ export function lineariseDegenerateSegment(
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     const chordSq = dx * dx + dy * dy;
-    // A curve that returns to where it started encloses area however flat its
-    // controls look from the chord, which has no direction to measure against.
+    if (dx === 0 && dy === 0) {
+        // A closed quadratic always retraces a line. A closed cubic does too
+        // when both controls lie on the same line through its start. Such a
+        // segment contributes no winding, but leaving it as a curve can create
+        // a face with no interior. Use the farther control to define the line:
+        // the endpoint chord has no direction, and either control may equal a.
+        if (seg[0] === "Q") return ["L", a, b];
+        const distSq = (p: Vector) => (p[0] - a[0]) ** 2 + (p[1] - a[1]) ** 2;
+        const [far, near] =
+            distSq(seg[2]) >= distSq(seg[3])
+                ? [seg[2], seg[3]]
+                : [seg[3], seg[2]];
+        if (
+            pointLineDistance(near, a, far, NEARLY_LINEAR_EPS) <=
+            NEARLY_LINEAR_EPS
+        ) {
+            return ["L", a, b];
+        }
+        return seg;
+    }
+    // A short chord alone says nothing about the area enclosed by a curve.
     if (chordSq <= eps * eps) return seg;
 
     const along = (p: Vector) =>

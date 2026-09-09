@@ -13,6 +13,7 @@ import { describe, expect, test } from "@jest/globals";
 import * as PathBool from "../index";
 import {
     isNearlyLinearSegment,
+    lineariseDegenerateSegment,
     pathSegmentBoundingBox,
     samplePathSegmentAt,
     splitSegmentAt,
@@ -41,6 +42,7 @@ function evalAt(seg: PathCubicSegment, t: number): [number, number] {
 describe("a cubic that closes on itself", () => {
     test("is not linear", () => {
         expect(isNearlyLinearSegment(LOOP)).toBe(false);
+        expect(lineariseDegenerateSegment(LOOP, 1e-6)).toBe(LOOP);
     });
 
     test("has a bounding box covering the loop, not a point", () => {
@@ -72,6 +74,25 @@ describe("a cubic that closes on itself", () => {
         const [first, second] = splitSegmentAt(LOOP, 0.5);
         expect(first[0]).toBe("C");
         expect(second[0]).toBe("C");
+    });
+});
+
+describe("closed Beziers that retrace a line", () => {
+    test.each([
+        "M0 0 Q4 8 0 0 Z",
+        "M0 0 C4 8 4 8 0 0 Z",
+        "M0 0 C2 4 4 8 0 0 Z",
+        "M0 0 C-2 -4 4 8 0 0 Z",
+        "M0 0 C0 0 4 8 0 0 Z",
+        "M0 0 C4 8 0 0 0 0 Z",
+        "M0 0 C0 0 0 0 0 0 Z",
+    ])("has no filled faces: %s", (data) => {
+        const path = PathBool.pathFromPathData(data);
+        const boolean = new PathBool.PathBoolean([
+            { path, fillRule: PathBool.FillRule.NonZero },
+        ]);
+        expect(boolean.getFaces()).toEqual([]);
+        expect(boolean.get(PathBool.PathBooleanOperation.Union)).toEqual([[]]);
     });
 });
 
