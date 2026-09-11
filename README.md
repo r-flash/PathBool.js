@@ -85,27 +85,13 @@ const shape = pathBoolean.buildShape([0, 2, 5]);
 
 See `docs/demo-shape-builder.html` for a clickable example.
 
-## Benchmarking
+## Testing
 
-```shell
-# build first (benchmark imports dist/path-bool.js)
-npm run build
+Testing accounts for the majority of the codebase and therefore deserves its
+own document. Extracting it into a separate repository is a possible future
+task. (Let me know if you want to test your project, and I'll prioritize it.)
 
-# run all benchmark fixtures from bench/fixtures
-npm run bench
-
-# run a subset of cases by name
-npm run bench -- --cases nesting-03,nesting-04
-
-# run wildcard subset and custom folder
-npm run bench -- --root ./my-bench-fixtures --cases "stress-*"
-```
-
-Benchmark input format:
-
-- each case contains an SVG file named `original.svg` (override with `--file`)
-- that SVG has two path elements with IDs `a` and `b` (override with `--id-a` and `--id-b`)
-- benchmark runs all boolean ops: `union`, `difference`, `intersection`, `exclusion`, `division`, `fracture`
+See [TESTING.md](TESTING.md) for test suites, corpora, fuzzing and benchmarks.
 
 ## License
 

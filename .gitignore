@@ -7,7 +7,8 @@
 /docs/js/types/
 /.nyc_output/
 /fuzzing/build/
-/fuzzing/corpus/
+/fuzzing/corpus/*
+!/fuzzing/corpus/.gitkeep
 
 !/dist/path-bool.js
 !/dist/path-bool.js.map
