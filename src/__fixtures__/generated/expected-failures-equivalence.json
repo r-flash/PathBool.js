@@ -1,0 +1,7 @@
+{
+    "malformed/duplicate-opposite-winding-boundary-3": {
+        "union": "Opposite-winding copies of A cancel, but their shared edge with B leaves an open output boundary. Removing the cancelled geometry changes the result; the open boundary also makes its signed-area measurement origin-dependent.",
+        "exclusion": "Opposite-winding copies of A cancel, but their shared edge with B leaves an open output boundary. Removing the cancelled geometry changes the result; the open boundary also makes its signed-area measurement origin-dependent.",
+        "fracture": "Opposite-winding copies of A cancel, but their shared edge with B leaves an open output boundary. Removing the cancelled geometry changes the result; the open boundary also makes its signed-area measurement origin-dependent."
+    }
+}

@@ -1,0 +1,18 @@
+{
+    "name": "duplicate-opposite-winding-identical-5",
+    "family": "duplicate-opposite-winding",
+    "inputs": [
+        {
+            "d": "M 0 0 L 40 0 L 40 40 L 0 40 Z M 0 0 L 0 40 L 40 40 L 40 0 Z",
+            "fillRule": "evenodd"
+        },
+        {
+            "d": "M 0 0 L 40 0 L 40 40 L 0 40 Z M 0 0 L 0 40 L 40 40 L 40 0 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-preserving",
+    "cleanA": "",
+    "placement": "identical",
+    "conditioning": "ordinary"
+}

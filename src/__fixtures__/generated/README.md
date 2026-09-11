@@ -38,6 +38,28 @@ level (`README.md`, `expected-failures.json`) alone.
 | `arcs`         | Arc parametrization corners: flags, radius correction, zero radii, and coincident endpoints                                    |
 | `stress`       | Many crossings, tangencies, nested rings, or high-valence vertices challenging graph construction                              |
 | `conditioning` | A few of the above placements re-emitted at other positions, scales and angles, since `EPS.point` and `EPS.linear` are lengths |
+| `malformed` | 287 finite, valid path inputs with collapsed segments, closing residue, retracing, stationary controls, duplicate contours, arc corners and tiny genuine features |
+
+The malformed cases come from `scripts/corpus/malformed.mjs`, called by the
+main generator. Their `case.json` files record the artifact family, placement,
+fill rules, conditioning and relationship to clean geometry. Selected cases
+also include a generated `clean/original.svg`. These are constructed inputs,
+not ground truth copied from the library. `malformed-geometry.test.ts` checks
+that proven zero-area residue does not change operation areas or coverage;
+partition comparisons allow different subdivisions of the same filled region.
+
+Open fragments are labelled `structuralOnly`: they enter structural tests but
+not filled-region oracles, since the low-level API does not establish implicit
+SVG fill closure. The generator does not close them to make tests pass.
+Tiny positive loops, slivers and islands are deliberate controls against
+over-aggressive cleanup. Degeneracy checks reject exactly collapsed output;
+closure checks use a separate scale-aware tolerance and floating-point allowance.
+
+To verify reproducibility without overwriting the working fixtures:
+
+```sh
+npm run gen-corpus -- --out /tmp/path-bool-regenerated
+```
 
 ## No ground truth here
 
@@ -54,6 +76,20 @@ Three suites do, each with a different oracle and a different blind spot:
 | `__tests__/corpus-tier0.test.ts`     | none — structure only                                     | crashes, hangs, non-finite output, open loops, non-determinism | anything that is well formed but wrong                   |
 | `__tests__/corpus-algebraic.test.ts` | exact areas (Green's theorem), identities between results | sub-pixel errors, order dependence                             | output that is internally consistent but uniformly wrong |
 | `__tests__/corpus-raster.test.ts`    | resvg coverage masks combined with pixel arithmetic       | wrong regions, non-disjoint partitions                         | features thinner than a pixel                            |
+
+The evaluators live under `__tests__/support/` and are shared with the opt-in
+[artwork corpus](../artworks/README.md). Jest builds test-only bundles through
+`pretest`; when invoking Jest directly after source changes, run
+`npm run pretest` first. Evaluations run in persistent child processes with a
+10-second hard timeout; a timed-out child is killed and replaced. Tier 0 uses
+development assertions; algebraic, raster and cleanup-equivalence checks use an
+assertion-stripped production bundle. Neither build overwrites `dist/`.
+
+Input masks preserve original command data and do not use the library parser.
+Inputs and outputs are rendered near the origin in viewport units, avoiding
+resvg float32 precision loss and its treatment of tiny radii as zero. An
+independent decoder supplies the reference geometry and applies mandatory SVG
+radius correction on both sides. Library inputs remain unchanged.
 
 The complementarity is real rather than theoretical, and each tier has already
 caught something the others could not.
@@ -78,3 +114,9 @@ A listed case is expected to fail, so the suite stays green while real bugs are
 triaged. A listed case that starts passing is _also_ an error, which is what
 stops the list from rotting: fix a bug and the suite tells you which entries to
 delete.
+
+`expected-failures-equivalence.json` records the cleanup-equivalence tier.
+The initial malformed findings include opposite-winding copies sharing an edge
+with another operand (open output and order dependence), and a very narrow
+sliver whose fracture includes an oppositely oriented face. These are recorded
+as library findings; the dataset work does not change geometry algorithms.

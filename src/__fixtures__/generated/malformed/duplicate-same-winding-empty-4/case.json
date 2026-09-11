@@ -1,0 +1,17 @@
+{
+    "name": "duplicate-same-winding-empty-4",
+    "family": "duplicate-same-winding",
+    "inputs": [
+        {
+            "d": "M 0 0 L 40 0 L 40 40 L 0 40 Z M 0 0 L 40 0 L 40 40 L 0 40 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "winding-dependent",
+    "placement": "empty",
+    "conditioning": "ordinary"
+}

@@ -1,0 +1,17 @@
+{
+    "name": "hole-residue-boundary-3",
+    "family": "hole-residue",
+    "inputs": [
+        {
+            "d": "M 0 0 L 40 0 L 40 40 L 0 40 Z M 10 10 L 10 30 L 30 30 L 30 10 Q 30 10 30 10 L 10 10 Z",
+            "fillRule": "evenodd"
+        },
+        {
+            "d": "M 40 0 L 60 0 L 60 40 L 40 40 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "boundary",
+    "conditioning": "ordinary"
+}

@@ -1,0 +1,18 @@
+{
+    "name": "zero-radius-arc-outside-2",
+    "family": "zero-radius-arc",
+    "inputs": [
+        {
+            "d": "M 0 0 A 0 20 35 1 1 40 0 L 40 40 L 0 40 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 50 50 L 60 50 L 60 60 L 50 60 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-preserving",
+    "cleanA": "M 0 0 L 40 0 L 40 40 L 0 40 Z",
+    "placement": "outside",
+    "conditioning": "ordinary"
+}

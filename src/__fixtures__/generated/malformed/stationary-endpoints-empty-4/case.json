@@ -1,0 +1,17 @@
+{
+    "name": "stationary-endpoints-empty-4",
+    "family": "stationary-endpoints",
+    "inputs": [
+        {
+            "d": "M 0 0 C 0 0 40 40 40 40 L 0 40 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "empty",
+    "conditioning": "ordinary"
+}

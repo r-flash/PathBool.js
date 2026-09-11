@@ -1,0 +1,17 @@
+{
+    "name": "short-chord-large-loop-empty-4",
+    "family": "short-chord-large-loop",
+    "inputs": [
+        {
+            "d": "M 0 0 C 40 0 0 40 1e-9 0 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "empty",
+    "conditioning": "ordinary"
+}

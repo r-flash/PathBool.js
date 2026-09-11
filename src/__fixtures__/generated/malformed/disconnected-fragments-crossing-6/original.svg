@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="-0.00000124 -0.0000017399999999999999 0.00000648 0.00000648">
+<path id="a" d="M -0.000001 0.000001 L 0.0000049999999999999996 0.000001 M 0 0 Q 0.000002 0.000004 0.000004 0" transform="matrix(1 0 0 1 0 0)" style="fill:#ff0000;fill-rule:nonzero"/>
+<path id="b" d="M 0.000002 -0.000001 L 0.0000049999999999999996 -0.000001 L 0.0000049999999999999996 0.000003 L 0.000002 0.000003 Z" transform="matrix(1 0 0 1 0 0)" style="fill:#ff0000;fill-rule:evenodd"/>
+</svg>

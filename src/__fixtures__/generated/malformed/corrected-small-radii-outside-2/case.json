@@ -1,0 +1,17 @@
+{
+    "name": "corrected-small-radii-outside-2",
+    "family": "corrected-small-radii",
+    "inputs": [
+        {
+            "d": "M 0 0 A 1e-8 1e-8 0 0 1 40 0 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 50 50 L 60 50 L 60 60 L 50 60 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "outside",
+    "conditioning": "ordinary"
+}

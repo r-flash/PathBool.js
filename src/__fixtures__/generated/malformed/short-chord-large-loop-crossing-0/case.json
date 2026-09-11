@@ -1,0 +1,17 @@
+{
+    "name": "short-chord-large-loop-crossing-0",
+    "family": "short-chord-large-loop",
+    "inputs": [
+        {
+            "d": "M 0 0 C 40 0 0 40 1e-9 0 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 20 -10 L 50 -10 L 50 30 L 20 30 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "crossing",
+    "conditioning": "ordinary"
+}

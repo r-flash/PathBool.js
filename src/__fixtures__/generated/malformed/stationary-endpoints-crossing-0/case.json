@@ -1,0 +1,17 @@
+{
+    "name": "stationary-endpoints-crossing-0",
+    "family": "stationary-endpoints",
+    "inputs": [
+        {
+            "d": "M 0 0 C 0 0 40 40 40 40 L 0 40 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 20 -10 L 50 -10 L 50 30 L 20 30 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "crossing",
+    "conditioning": "ordinary"
+}

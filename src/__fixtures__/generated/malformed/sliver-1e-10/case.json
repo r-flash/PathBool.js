@@ -1,0 +1,18 @@
+{
+    "name": "sliver-1e-10",
+    "family": "sliver",
+    "inputs": [
+        {
+            "d": "M 0 0 L 40 0 L 40 1e-10 L 0 1e-10 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 20 -10 L 50 -10 L 50 30 L 20 30 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "threshold": 1e-10,
+    "placement": "crossing",
+    "conditioning": "ordinary"
+}

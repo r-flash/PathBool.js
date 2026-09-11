@@ -1,0 +1,17 @@
+{
+    "name": "duplicate-same-winding-crossing-0",
+    "family": "duplicate-same-winding",
+    "inputs": [
+        {
+            "d": "M 0 0 L 40 0 L 40 40 L 0 40 Z M 0 0 L 40 0 L 40 40 L 0 40 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 20 -10 L 50 -10 L 50 30 L 20 30 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "winding-dependent",
+    "placement": "crossing",
+    "conditioning": "ordinary"
+}

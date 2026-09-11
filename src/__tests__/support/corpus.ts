@@ -16,7 +16,8 @@ import { globSync } from "glob";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export const CORPUS_ROOT = "src/__fixtures__/generated";
+export const CORPUS_ROOT =
+    process.env.PATH_BOOL_CORPUS_ROOT ?? "src/__fixtures__/generated";
 
 export const OP_NAMES = [
     "union",
@@ -38,8 +39,8 @@ export type CorpusCase = {
     dir: string;
 };
 
-export function discoverCases(): CorpusCase[] {
-    return globSync(`${CORPUS_ROOT}/*/*/original.svg`)
+export function discoverCases(root: string = CORPUS_ROOT): CorpusCase[] {
+    return globSync(`${root}/*/*/original.svg`)
         .map((file) => {
             const dir = path.dirname(file);
             const name = path.basename(dir);
@@ -69,7 +70,11 @@ export function readFixture(dir: string): Fixture {
             "nonzero") as FillRuleName,
     }));
 
-    return { code, inputs };
+    const oracle = path.join(dir, "oracle.svg");
+    return {
+        code: fs.existsSync(oracle) ? fs.readFileSync(oracle, "utf-8") : code,
+        inputs,
+    };
 }
 
 /*
@@ -112,4 +117,11 @@ export function assertOutcome(
                 `Remove the entry.`,
         );
     }
+}
+
+export function readCaseMetadata(dir: string): Record<string, any> {
+    const file = path.join(dir, "case.json");
+    return fs.existsSync(file)
+        ? JSON.parse(fs.readFileSync(file, "utf-8"))
+        : {};
 }

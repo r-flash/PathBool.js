@@ -1,8 +1,8 @@
 {
-    "generatorVersion": 3,
+    "generatorVersion": 4,
     "generator": "scripts/generate-corpus.mjs",
     "renderSize": 512,
-    "caseCount": 137,
+    "caseCount": 424,
     "cases": [
         {
             "id": "overlap/01-circle-arc-x-circle-arc",
@@ -2195,6 +2195,3737 @@
             ],
             "conditioning": "small-and-far",
             "note": "arc-shared-full, scaled to 1e-3 *and* translated to 1e6: the two hard conditionings at once, where the scene is nine orders of magnitude smaller than its own offset and neighbouring doubles are ~2e-10 apart"
+        },
+        {
+            "id": "malformed/collapsed-line-crossing-0",
+            "category": "malformed",
+            "name": "collapsed-line-crossing-0",
+            "family": "collapsed-line",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-line-inside-1",
+            "category": "malformed",
+            "name": "collapsed-line-inside-1",
+            "family": "collapsed-line",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-line-outside-2",
+            "category": "malformed",
+            "name": "collapsed-line-outside-2",
+            "family": "collapsed-line",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-line-boundary-3",
+            "category": "malformed",
+            "name": "collapsed-line-boundary-3",
+            "family": "collapsed-line",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-line-empty-4",
+            "category": "malformed",
+            "name": "collapsed-line-empty-4",
+            "family": "collapsed-line",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-line-identical-5",
+            "category": "malformed",
+            "name": "collapsed-line-identical-5",
+            "family": "collapsed-line",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-line-crossing-6",
+            "category": "malformed",
+            "name": "collapsed-line-crossing-6",
+            "family": "collapsed-line",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-line-inside-7",
+            "category": "malformed",
+            "name": "collapsed-line-inside-7",
+            "family": "collapsed-line",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-quadratic-crossing-0",
+            "category": "malformed",
+            "name": "collapsed-quadratic-crossing-0",
+            "family": "collapsed-quadratic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-quadratic-inside-1",
+            "category": "malformed",
+            "name": "collapsed-quadratic-inside-1",
+            "family": "collapsed-quadratic",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-quadratic-outside-2",
+            "category": "malformed",
+            "name": "collapsed-quadratic-outside-2",
+            "family": "collapsed-quadratic",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-quadratic-boundary-3",
+            "category": "malformed",
+            "name": "collapsed-quadratic-boundary-3",
+            "family": "collapsed-quadratic",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-quadratic-empty-4",
+            "category": "malformed",
+            "name": "collapsed-quadratic-empty-4",
+            "family": "collapsed-quadratic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-quadratic-identical-5",
+            "category": "malformed",
+            "name": "collapsed-quadratic-identical-5",
+            "family": "collapsed-quadratic",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-quadratic-crossing-6",
+            "category": "malformed",
+            "name": "collapsed-quadratic-crossing-6",
+            "family": "collapsed-quadratic",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-quadratic-inside-7",
+            "category": "malformed",
+            "name": "collapsed-quadratic-inside-7",
+            "family": "collapsed-quadratic",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-cubic-crossing-0",
+            "category": "malformed",
+            "name": "collapsed-cubic-crossing-0",
+            "family": "collapsed-cubic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-cubic-inside-1",
+            "category": "malformed",
+            "name": "collapsed-cubic-inside-1",
+            "family": "collapsed-cubic",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-cubic-outside-2",
+            "category": "malformed",
+            "name": "collapsed-cubic-outside-2",
+            "family": "collapsed-cubic",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-cubic-boundary-3",
+            "category": "malformed",
+            "name": "collapsed-cubic-boundary-3",
+            "family": "collapsed-cubic",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-cubic-empty-4",
+            "category": "malformed",
+            "name": "collapsed-cubic-empty-4",
+            "family": "collapsed-cubic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-cubic-identical-5",
+            "category": "malformed",
+            "name": "collapsed-cubic-identical-5",
+            "family": "collapsed-cubic",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-cubic-crossing-6",
+            "category": "malformed",
+            "name": "collapsed-cubic-crossing-6",
+            "family": "collapsed-cubic",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-cubic-inside-7",
+            "category": "malformed",
+            "name": "collapsed-cubic-inside-7",
+            "family": "collapsed-cubic",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-run-crossing-0",
+            "category": "malformed",
+            "name": "collapsed-run-crossing-0",
+            "family": "collapsed-run",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-run-inside-1",
+            "category": "malformed",
+            "name": "collapsed-run-inside-1",
+            "family": "collapsed-run",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-run-outside-2",
+            "category": "malformed",
+            "name": "collapsed-run-outside-2",
+            "family": "collapsed-run",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-run-boundary-3",
+            "category": "malformed",
+            "name": "collapsed-run-boundary-3",
+            "family": "collapsed-run",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-run-empty-4",
+            "category": "malformed",
+            "name": "collapsed-run-empty-4",
+            "family": "collapsed-run",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-run-identical-5",
+            "category": "malformed",
+            "name": "collapsed-run-identical-5",
+            "family": "collapsed-run",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-run-crossing-6",
+            "category": "malformed",
+            "name": "collapsed-run-crossing-6",
+            "family": "collapsed-run",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/collapsed-run-inside-7",
+            "category": "malformed",
+            "name": "collapsed-run-inside-7",
+            "family": "collapsed-run",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/closing-residue-crossing-0",
+            "category": "malformed",
+            "name": "closing-residue-crossing-0",
+            "family": "closing-residue",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/closing-residue-inside-1",
+            "category": "malformed",
+            "name": "closing-residue-inside-1",
+            "family": "closing-residue",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/closing-residue-outside-2",
+            "category": "malformed",
+            "name": "closing-residue-outside-2",
+            "family": "closing-residue",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/closing-residue-boundary-3",
+            "category": "malformed",
+            "name": "closing-residue-boundary-3",
+            "family": "closing-residue",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/closing-residue-empty-4",
+            "category": "malformed",
+            "name": "closing-residue-empty-4",
+            "family": "closing-residue",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/closing-residue-identical-5",
+            "category": "malformed",
+            "name": "closing-residue-identical-5",
+            "family": "closing-residue",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/closing-residue-crossing-6",
+            "category": "malformed",
+            "name": "closing-residue-crossing-6",
+            "family": "closing-residue",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/closing-residue-inside-7",
+            "category": "malformed",
+            "name": "closing-residue-inside-7",
+            "family": "closing-residue",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/point-subpaths-crossing-0",
+            "category": "malformed",
+            "name": "point-subpaths-crossing-0",
+            "family": "point-subpaths",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/point-subpaths-inside-1",
+            "category": "malformed",
+            "name": "point-subpaths-inside-1",
+            "family": "point-subpaths",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/point-subpaths-outside-2",
+            "category": "malformed",
+            "name": "point-subpaths-outside-2",
+            "family": "point-subpaths",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/point-subpaths-boundary-3",
+            "category": "malformed",
+            "name": "point-subpaths-boundary-3",
+            "family": "point-subpaths",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/point-subpaths-empty-4",
+            "category": "malformed",
+            "name": "point-subpaths-empty-4",
+            "family": "point-subpaths",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/point-subpaths-identical-5",
+            "category": "malformed",
+            "name": "point-subpaths-identical-5",
+            "family": "point-subpaths",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/point-subpaths-crossing-6",
+            "category": "malformed",
+            "name": "point-subpaths-crossing-6",
+            "family": "point-subpaths",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/point-subpaths-inside-7",
+            "category": "malformed",
+            "name": "point-subpaths-inside-7",
+            "family": "point-subpaths",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/line-spike-crossing-0",
+            "category": "malformed",
+            "name": "line-spike-crossing-0",
+            "family": "line-spike",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/line-spike-inside-1",
+            "category": "malformed",
+            "name": "line-spike-inside-1",
+            "family": "line-spike",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/line-spike-outside-2",
+            "category": "malformed",
+            "name": "line-spike-outside-2",
+            "family": "line-spike",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/line-spike-boundary-3",
+            "category": "malformed",
+            "name": "line-spike-boundary-3",
+            "family": "line-spike",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/line-spike-empty-4",
+            "category": "malformed",
+            "name": "line-spike-empty-4",
+            "family": "line-spike",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/line-spike-identical-5",
+            "category": "malformed",
+            "name": "line-spike-identical-5",
+            "family": "line-spike",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/line-spike-crossing-6",
+            "category": "malformed",
+            "name": "line-spike-crossing-6",
+            "family": "line-spike",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/line-spike-inside-7",
+            "category": "malformed",
+            "name": "line-spike-inside-7",
+            "family": "line-spike",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/quadratic-spike-crossing-0",
+            "category": "malformed",
+            "name": "quadratic-spike-crossing-0",
+            "family": "quadratic-spike",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/quadratic-spike-inside-1",
+            "category": "malformed",
+            "name": "quadratic-spike-inside-1",
+            "family": "quadratic-spike",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/quadratic-spike-outside-2",
+            "category": "malformed",
+            "name": "quadratic-spike-outside-2",
+            "family": "quadratic-spike",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/quadratic-spike-boundary-3",
+            "category": "malformed",
+            "name": "quadratic-spike-boundary-3",
+            "family": "quadratic-spike",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/quadratic-spike-empty-4",
+            "category": "malformed",
+            "name": "quadratic-spike-empty-4",
+            "family": "quadratic-spike",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/quadratic-spike-identical-5",
+            "category": "malformed",
+            "name": "quadratic-spike-identical-5",
+            "family": "quadratic-spike",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/quadratic-spike-crossing-6",
+            "category": "malformed",
+            "name": "quadratic-spike-crossing-6",
+            "family": "quadratic-spike",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/quadratic-spike-inside-7",
+            "category": "malformed",
+            "name": "quadratic-spike-inside-7",
+            "family": "quadratic-spike",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/cubic-retrace-crossing-0",
+            "category": "malformed",
+            "name": "cubic-retrace-crossing-0",
+            "family": "cubic-retrace",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/cubic-retrace-inside-1",
+            "category": "malformed",
+            "name": "cubic-retrace-inside-1",
+            "family": "cubic-retrace",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/cubic-retrace-outside-2",
+            "category": "malformed",
+            "name": "cubic-retrace-outside-2",
+            "family": "cubic-retrace",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/cubic-retrace-boundary-3",
+            "category": "malformed",
+            "name": "cubic-retrace-boundary-3",
+            "family": "cubic-retrace",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/cubic-retrace-empty-4",
+            "category": "malformed",
+            "name": "cubic-retrace-empty-4",
+            "family": "cubic-retrace",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/cubic-retrace-identical-5",
+            "category": "malformed",
+            "name": "cubic-retrace-identical-5",
+            "family": "cubic-retrace",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/cubic-retrace-crossing-6",
+            "category": "malformed",
+            "name": "cubic-retrace-crossing-6",
+            "family": "cubic-retrace",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/cubic-retrace-inside-7",
+            "category": "malformed",
+            "name": "cubic-retrace-inside-7",
+            "family": "cubic-retrace",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-quadratic-crossing-0",
+            "category": "malformed",
+            "name": "straight-quadratic-crossing-0",
+            "family": "straight-quadratic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-quadratic-inside-1",
+            "category": "malformed",
+            "name": "straight-quadratic-inside-1",
+            "family": "straight-quadratic",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-quadratic-outside-2",
+            "category": "malformed",
+            "name": "straight-quadratic-outside-2",
+            "family": "straight-quadratic",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-quadratic-boundary-3",
+            "category": "malformed",
+            "name": "straight-quadratic-boundary-3",
+            "family": "straight-quadratic",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-quadratic-empty-4",
+            "category": "malformed",
+            "name": "straight-quadratic-empty-4",
+            "family": "straight-quadratic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-quadratic-identical-5",
+            "category": "malformed",
+            "name": "straight-quadratic-identical-5",
+            "family": "straight-quadratic",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-quadratic-crossing-6",
+            "category": "malformed",
+            "name": "straight-quadratic-crossing-6",
+            "family": "straight-quadratic",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-quadratic-inside-7",
+            "category": "malformed",
+            "name": "straight-quadratic-inside-7",
+            "family": "straight-quadratic",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-cubic-crossing-0",
+            "category": "malformed",
+            "name": "straight-cubic-crossing-0",
+            "family": "straight-cubic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-cubic-inside-1",
+            "category": "malformed",
+            "name": "straight-cubic-inside-1",
+            "family": "straight-cubic",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-cubic-outside-2",
+            "category": "malformed",
+            "name": "straight-cubic-outside-2",
+            "family": "straight-cubic",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-cubic-boundary-3",
+            "category": "malformed",
+            "name": "straight-cubic-boundary-3",
+            "family": "straight-cubic",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-cubic-empty-4",
+            "category": "malformed",
+            "name": "straight-cubic-empty-4",
+            "family": "straight-cubic",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-cubic-identical-5",
+            "category": "malformed",
+            "name": "straight-cubic-identical-5",
+            "family": "straight-cubic",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-cubic-crossing-6",
+            "category": "malformed",
+            "name": "straight-cubic-crossing-6",
+            "family": "straight-cubic",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/straight-cubic-inside-7",
+            "category": "malformed",
+            "name": "straight-cubic-inside-7",
+            "family": "straight-cubic",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/overshooting-controls-crossing-0",
+            "category": "malformed",
+            "name": "overshooting-controls-crossing-0",
+            "family": "overshooting-controls",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/overshooting-controls-inside-1",
+            "category": "malformed",
+            "name": "overshooting-controls-inside-1",
+            "family": "overshooting-controls",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/overshooting-controls-outside-2",
+            "category": "malformed",
+            "name": "overshooting-controls-outside-2",
+            "family": "overshooting-controls",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/overshooting-controls-boundary-3",
+            "category": "malformed",
+            "name": "overshooting-controls-boundary-3",
+            "family": "overshooting-controls",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/overshooting-controls-empty-4",
+            "category": "malformed",
+            "name": "overshooting-controls-empty-4",
+            "family": "overshooting-controls",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/overshooting-controls-identical-5",
+            "category": "malformed",
+            "name": "overshooting-controls-identical-5",
+            "family": "overshooting-controls",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/overshooting-controls-crossing-6",
+            "category": "malformed",
+            "name": "overshooting-controls-crossing-6",
+            "family": "overshooting-controls",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/overshooting-controls-inside-7",
+            "category": "malformed",
+            "name": "overshooting-controls-inside-7",
+            "family": "overshooting-controls",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/stationary-endpoints-crossing-0",
+            "category": "malformed",
+            "name": "stationary-endpoints-crossing-0",
+            "family": "stationary-endpoints",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/stationary-endpoints-inside-1",
+            "category": "malformed",
+            "name": "stationary-endpoints-inside-1",
+            "family": "stationary-endpoints",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/stationary-endpoints-outside-2",
+            "category": "malformed",
+            "name": "stationary-endpoints-outside-2",
+            "family": "stationary-endpoints",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/stationary-endpoints-boundary-3",
+            "category": "malformed",
+            "name": "stationary-endpoints-boundary-3",
+            "family": "stationary-endpoints",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/stationary-endpoints-empty-4",
+            "category": "malformed",
+            "name": "stationary-endpoints-empty-4",
+            "family": "stationary-endpoints",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/stationary-endpoints-identical-5",
+            "category": "malformed",
+            "name": "stationary-endpoints-identical-5",
+            "family": "stationary-endpoints",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/stationary-endpoints-crossing-6",
+            "category": "malformed",
+            "name": "stationary-endpoints-crossing-6",
+            "family": "stationary-endpoints",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/stationary-endpoints-inside-7",
+            "category": "malformed",
+            "name": "stationary-endpoints-inside-7",
+            "family": "stationary-endpoints",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/cusp-crossing-0",
+            "category": "malformed",
+            "name": "cusp-crossing-0",
+            "family": "cusp",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/cusp-inside-1",
+            "category": "malformed",
+            "name": "cusp-inside-1",
+            "family": "cusp",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/cusp-outside-2",
+            "category": "malformed",
+            "name": "cusp-outside-2",
+            "family": "cusp",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/cusp-boundary-3",
+            "category": "malformed",
+            "name": "cusp-boundary-3",
+            "family": "cusp",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/cusp-empty-4",
+            "category": "malformed",
+            "name": "cusp-empty-4",
+            "family": "cusp",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/cusp-identical-5",
+            "category": "malformed",
+            "name": "cusp-identical-5",
+            "family": "cusp",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/cusp-crossing-6",
+            "category": "malformed",
+            "name": "cusp-crossing-6",
+            "family": "cusp",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/cusp-inside-7",
+            "category": "malformed",
+            "name": "cusp-inside-7",
+            "family": "cusp",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/closed-cubic-loop-crossing-0",
+            "category": "malformed",
+            "name": "closed-cubic-loop-crossing-0",
+            "family": "closed-cubic-loop",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/closed-cubic-loop-inside-1",
+            "category": "malformed",
+            "name": "closed-cubic-loop-inside-1",
+            "family": "closed-cubic-loop",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/closed-cubic-loop-outside-2",
+            "category": "malformed",
+            "name": "closed-cubic-loop-outside-2",
+            "family": "closed-cubic-loop",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/closed-cubic-loop-boundary-3",
+            "category": "malformed",
+            "name": "closed-cubic-loop-boundary-3",
+            "family": "closed-cubic-loop",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/closed-cubic-loop-empty-4",
+            "category": "malformed",
+            "name": "closed-cubic-loop-empty-4",
+            "family": "closed-cubic-loop",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/closed-cubic-loop-identical-5",
+            "category": "malformed",
+            "name": "closed-cubic-loop-identical-5",
+            "family": "closed-cubic-loop",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/closed-cubic-loop-crossing-6",
+            "category": "malformed",
+            "name": "closed-cubic-loop-crossing-6",
+            "family": "closed-cubic-loop",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/closed-cubic-loop-inside-7",
+            "category": "malformed",
+            "name": "closed-cubic-loop-inside-7",
+            "family": "closed-cubic-loop",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-chord-large-loop-crossing-0",
+            "category": "malformed",
+            "name": "short-chord-large-loop-crossing-0",
+            "family": "short-chord-large-loop",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-chord-large-loop-inside-1",
+            "category": "malformed",
+            "name": "short-chord-large-loop-inside-1",
+            "family": "short-chord-large-loop",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-chord-large-loop-outside-2",
+            "category": "malformed",
+            "name": "short-chord-large-loop-outside-2",
+            "family": "short-chord-large-loop",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-chord-large-loop-boundary-3",
+            "category": "malformed",
+            "name": "short-chord-large-loop-boundary-3",
+            "family": "short-chord-large-loop",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-chord-large-loop-empty-4",
+            "category": "malformed",
+            "name": "short-chord-large-loop-empty-4",
+            "family": "short-chord-large-loop",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-chord-large-loop-identical-5",
+            "category": "malformed",
+            "name": "short-chord-large-loop-identical-5",
+            "family": "short-chord-large-loop",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-chord-large-loop-crossing-6",
+            "category": "malformed",
+            "name": "short-chord-large-loop-crossing-6",
+            "family": "short-chord-large-loop",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-chord-large-loop-inside-7",
+            "category": "malformed",
+            "name": "short-chord-large-loop-inside-7",
+            "family": "short-chord-large-loop",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/zero-radius-arc-crossing-0",
+            "category": "malformed",
+            "name": "zero-radius-arc-crossing-0",
+            "family": "zero-radius-arc",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/zero-radius-arc-inside-1",
+            "category": "malformed",
+            "name": "zero-radius-arc-inside-1",
+            "family": "zero-radius-arc",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/zero-radius-arc-outside-2",
+            "category": "malformed",
+            "name": "zero-radius-arc-outside-2",
+            "family": "zero-radius-arc",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/zero-radius-arc-boundary-3",
+            "category": "malformed",
+            "name": "zero-radius-arc-boundary-3",
+            "family": "zero-radius-arc",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/zero-radius-arc-empty-4",
+            "category": "malformed",
+            "name": "zero-radius-arc-empty-4",
+            "family": "zero-radius-arc",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/zero-radius-arc-identical-5",
+            "category": "malformed",
+            "name": "zero-radius-arc-identical-5",
+            "family": "zero-radius-arc",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/zero-radius-arc-crossing-6",
+            "category": "malformed",
+            "name": "zero-radius-arc-crossing-6",
+            "family": "zero-radius-arc",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/zero-radius-arc-inside-7",
+            "category": "malformed",
+            "name": "zero-radius-arc-inside-7",
+            "family": "zero-radius-arc",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/omitted-arc-crossing-0",
+            "category": "malformed",
+            "name": "omitted-arc-crossing-0",
+            "family": "omitted-arc",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/omitted-arc-inside-1",
+            "category": "malformed",
+            "name": "omitted-arc-inside-1",
+            "family": "omitted-arc",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/omitted-arc-outside-2",
+            "category": "malformed",
+            "name": "omitted-arc-outside-2",
+            "family": "omitted-arc",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/omitted-arc-boundary-3",
+            "category": "malformed",
+            "name": "omitted-arc-boundary-3",
+            "family": "omitted-arc",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/omitted-arc-empty-4",
+            "category": "malformed",
+            "name": "omitted-arc-empty-4",
+            "family": "omitted-arc",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/omitted-arc-identical-5",
+            "category": "malformed",
+            "name": "omitted-arc-identical-5",
+            "family": "omitted-arc",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/omitted-arc-crossing-6",
+            "category": "malformed",
+            "name": "omitted-arc-crossing-6",
+            "family": "omitted-arc",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/omitted-arc-inside-7",
+            "category": "malformed",
+            "name": "omitted-arc-inside-7",
+            "family": "omitted-arc",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/corrected-small-radii-crossing-0",
+            "category": "malformed",
+            "name": "corrected-small-radii-crossing-0",
+            "family": "corrected-small-radii",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-small-radii-inside-1",
+            "category": "malformed",
+            "name": "corrected-small-radii-inside-1",
+            "family": "corrected-small-radii",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-small-radii-outside-2",
+            "category": "malformed",
+            "name": "corrected-small-radii-outside-2",
+            "family": "corrected-small-radii",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-small-radii-boundary-3",
+            "category": "malformed",
+            "name": "corrected-small-radii-boundary-3",
+            "family": "corrected-small-radii",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-small-radii-empty-4",
+            "category": "malformed",
+            "name": "corrected-small-radii-empty-4",
+            "family": "corrected-small-radii",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-small-radii-identical-5",
+            "category": "malformed",
+            "name": "corrected-small-radii-identical-5",
+            "family": "corrected-small-radii",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-small-radii-crossing-6",
+            "category": "malformed",
+            "name": "corrected-small-radii-crossing-6",
+            "family": "corrected-small-radii",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-small-radii-inside-7",
+            "category": "malformed",
+            "name": "corrected-small-radii-inside-7",
+            "family": "corrected-small-radii",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/signed-wrapped-arcs-crossing-0",
+            "category": "malformed",
+            "name": "signed-wrapped-arcs-crossing-0",
+            "family": "signed-wrapped-arcs",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/signed-wrapped-arcs-inside-1",
+            "category": "malformed",
+            "name": "signed-wrapped-arcs-inside-1",
+            "family": "signed-wrapped-arcs",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/signed-wrapped-arcs-outside-2",
+            "category": "malformed",
+            "name": "signed-wrapped-arcs-outside-2",
+            "family": "signed-wrapped-arcs",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/signed-wrapped-arcs-boundary-3",
+            "category": "malformed",
+            "name": "signed-wrapped-arcs-boundary-3",
+            "family": "signed-wrapped-arcs",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/signed-wrapped-arcs-empty-4",
+            "category": "malformed",
+            "name": "signed-wrapped-arcs-empty-4",
+            "family": "signed-wrapped-arcs",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/signed-wrapped-arcs-identical-5",
+            "category": "malformed",
+            "name": "signed-wrapped-arcs-identical-5",
+            "family": "signed-wrapped-arcs",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/signed-wrapped-arcs-crossing-6",
+            "category": "malformed",
+            "name": "signed-wrapped-arcs-crossing-6",
+            "family": "signed-wrapped-arcs",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/signed-wrapped-arcs-inside-7",
+            "category": "malformed",
+            "name": "signed-wrapped-arcs-inside-7",
+            "family": "signed-wrapped-arcs",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/swapped-arc-axes-crossing-0",
+            "category": "malformed",
+            "name": "swapped-arc-axes-crossing-0",
+            "family": "swapped-arc-axes",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/swapped-arc-axes-inside-1",
+            "category": "malformed",
+            "name": "swapped-arc-axes-inside-1",
+            "family": "swapped-arc-axes",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/swapped-arc-axes-outside-2",
+            "category": "malformed",
+            "name": "swapped-arc-axes-outside-2",
+            "family": "swapped-arc-axes",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/swapped-arc-axes-boundary-3",
+            "category": "malformed",
+            "name": "swapped-arc-axes-boundary-3",
+            "family": "swapped-arc-axes",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/swapped-arc-axes-empty-4",
+            "category": "malformed",
+            "name": "swapped-arc-axes-empty-4",
+            "family": "swapped-arc-axes",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/swapped-arc-axes-identical-5",
+            "category": "malformed",
+            "name": "swapped-arc-axes-identical-5",
+            "family": "swapped-arc-axes",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/swapped-arc-axes-crossing-6",
+            "category": "malformed",
+            "name": "swapped-arc-axes-crossing-6",
+            "family": "swapped-arc-axes",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/swapped-arc-axes-inside-7",
+            "category": "malformed",
+            "name": "swapped-arc-axes-inside-7",
+            "family": "swapped-arc-axes",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/duplicate-same-winding-crossing-0",
+            "category": "malformed",
+            "name": "duplicate-same-winding-crossing-0",
+            "family": "duplicate-same-winding",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/duplicate-same-winding-inside-1",
+            "category": "malformed",
+            "name": "duplicate-same-winding-inside-1",
+            "family": "duplicate-same-winding",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/duplicate-same-winding-outside-2",
+            "category": "malformed",
+            "name": "duplicate-same-winding-outside-2",
+            "family": "duplicate-same-winding",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/duplicate-same-winding-boundary-3",
+            "category": "malformed",
+            "name": "duplicate-same-winding-boundary-3",
+            "family": "duplicate-same-winding",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/duplicate-same-winding-empty-4",
+            "category": "malformed",
+            "name": "duplicate-same-winding-empty-4",
+            "family": "duplicate-same-winding",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/duplicate-same-winding-identical-5",
+            "category": "malformed",
+            "name": "duplicate-same-winding-identical-5",
+            "family": "duplicate-same-winding",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/duplicate-same-winding-crossing-6",
+            "category": "malformed",
+            "name": "duplicate-same-winding-crossing-6",
+            "family": "duplicate-same-winding",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/duplicate-same-winding-inside-7",
+            "category": "malformed",
+            "name": "duplicate-same-winding-inside-7",
+            "family": "duplicate-same-winding",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/duplicate-opposite-winding-crossing-0",
+            "category": "malformed",
+            "name": "duplicate-opposite-winding-crossing-0",
+            "family": "duplicate-opposite-winding",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/duplicate-opposite-winding-inside-1",
+            "category": "malformed",
+            "name": "duplicate-opposite-winding-inside-1",
+            "family": "duplicate-opposite-winding",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/duplicate-opposite-winding-outside-2",
+            "category": "malformed",
+            "name": "duplicate-opposite-winding-outside-2",
+            "family": "duplicate-opposite-winding",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/duplicate-opposite-winding-boundary-3",
+            "category": "malformed",
+            "name": "duplicate-opposite-winding-boundary-3",
+            "family": "duplicate-opposite-winding",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/duplicate-opposite-winding-empty-4",
+            "category": "malformed",
+            "name": "duplicate-opposite-winding-empty-4",
+            "family": "duplicate-opposite-winding",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/duplicate-opposite-winding-identical-5",
+            "category": "malformed",
+            "name": "duplicate-opposite-winding-identical-5",
+            "family": "duplicate-opposite-winding",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/duplicate-opposite-winding-crossing-6",
+            "category": "malformed",
+            "name": "duplicate-opposite-winding-crossing-6",
+            "family": "duplicate-opposite-winding",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/duplicate-opposite-winding-inside-7",
+            "category": "malformed",
+            "name": "duplicate-opposite-winding-inside-7",
+            "family": "duplicate-opposite-winding",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/subdivided-duplicate-crossing-0",
+            "category": "malformed",
+            "name": "subdivided-duplicate-crossing-0",
+            "family": "subdivided-duplicate",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/subdivided-duplicate-inside-1",
+            "category": "malformed",
+            "name": "subdivided-duplicate-inside-1",
+            "family": "subdivided-duplicate",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/subdivided-duplicate-outside-2",
+            "category": "malformed",
+            "name": "subdivided-duplicate-outside-2",
+            "family": "subdivided-duplicate",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/subdivided-duplicate-boundary-3",
+            "category": "malformed",
+            "name": "subdivided-duplicate-boundary-3",
+            "family": "subdivided-duplicate",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/subdivided-duplicate-empty-4",
+            "category": "malformed",
+            "name": "subdivided-duplicate-empty-4",
+            "family": "subdivided-duplicate",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/subdivided-duplicate-identical-5",
+            "category": "malformed",
+            "name": "subdivided-duplicate-identical-5",
+            "family": "subdivided-duplicate",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/subdivided-duplicate-crossing-6",
+            "category": "malformed",
+            "name": "subdivided-duplicate-crossing-6",
+            "family": "subdivided-duplicate",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/subdivided-duplicate-inside-7",
+            "category": "malformed",
+            "name": "subdivided-duplicate-inside-7",
+            "family": "subdivided-duplicate",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "winding-dependent"
+        },
+        {
+            "id": "malformed/dangling-branch-crossing-0",
+            "category": "malformed",
+            "name": "dangling-branch-crossing-0",
+            "family": "dangling-branch",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/dangling-branch-inside-1",
+            "category": "malformed",
+            "name": "dangling-branch-inside-1",
+            "family": "dangling-branch",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/dangling-branch-outside-2",
+            "category": "malformed",
+            "name": "dangling-branch-outside-2",
+            "family": "dangling-branch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/dangling-branch-boundary-3",
+            "category": "malformed",
+            "name": "dangling-branch-boundary-3",
+            "family": "dangling-branch",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/dangling-branch-empty-4",
+            "category": "malformed",
+            "name": "dangling-branch-empty-4",
+            "family": "dangling-branch",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/dangling-branch-identical-5",
+            "category": "malformed",
+            "name": "dangling-branch-identical-5",
+            "family": "dangling-branch",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/dangling-branch-crossing-6",
+            "category": "malformed",
+            "name": "dangling-branch-crossing-6",
+            "family": "dangling-branch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/dangling-branch-inside-7",
+            "category": "malformed",
+            "name": "dangling-branch-inside-7",
+            "family": "dangling-branch",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/disconnected-fragments-crossing-0",
+            "category": "malformed",
+            "name": "disconnected-fragments-crossing-0",
+            "family": "disconnected-fragments",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/disconnected-fragments-inside-1",
+            "category": "malformed",
+            "name": "disconnected-fragments-inside-1",
+            "family": "disconnected-fragments",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/disconnected-fragments-outside-2",
+            "category": "malformed",
+            "name": "disconnected-fragments-outside-2",
+            "family": "disconnected-fragments",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/disconnected-fragments-boundary-3",
+            "category": "malformed",
+            "name": "disconnected-fragments-boundary-3",
+            "family": "disconnected-fragments",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/disconnected-fragments-empty-4",
+            "category": "malformed",
+            "name": "disconnected-fragments-empty-4",
+            "family": "disconnected-fragments",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/disconnected-fragments-identical-5",
+            "category": "malformed",
+            "name": "disconnected-fragments-identical-5",
+            "family": "disconnected-fragments",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/disconnected-fragments-crossing-6",
+            "category": "malformed",
+            "name": "disconnected-fragments-crossing-6",
+            "family": "disconnected-fragments",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/disconnected-fragments-inside-7",
+            "category": "malformed",
+            "name": "disconnected-fragments-inside-7",
+            "family": "disconnected-fragments",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "structural-only"
+        },
+        {
+            "id": "malformed/hole-residue-crossing-0",
+            "category": "malformed",
+            "name": "hole-residue-crossing-0",
+            "family": "hole-residue",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/hole-residue-inside-1",
+            "category": "malformed",
+            "name": "hole-residue-inside-1",
+            "family": "hole-residue",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/hole-residue-outside-2",
+            "category": "malformed",
+            "name": "hole-residue-outside-2",
+            "family": "hole-residue",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/hole-residue-boundary-3",
+            "category": "malformed",
+            "name": "hole-residue-boundary-3",
+            "family": "hole-residue",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/hole-residue-empty-4",
+            "category": "malformed",
+            "name": "hole-residue-empty-4",
+            "family": "hole-residue",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/hole-residue-identical-5",
+            "category": "malformed",
+            "name": "hole-residue-identical-5",
+            "family": "hole-residue",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/hole-residue-crossing-6",
+            "category": "malformed",
+            "name": "hole-residue-crossing-6",
+            "family": "hole-residue",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/hole-residue-inside-7",
+            "category": "malformed",
+            "name": "hole-residue-inside-7",
+            "family": "hole-residue",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/combined-residue-crossing-0",
+            "category": "malformed",
+            "name": "combined-residue-crossing-0",
+            "family": "combined-residue",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/combined-residue-inside-1",
+            "category": "malformed",
+            "name": "combined-residue-inside-1",
+            "family": "combined-residue",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "inside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/combined-residue-outside-2",
+            "category": "malformed",
+            "name": "combined-residue-outside-2",
+            "family": "combined-residue",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "outside",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/combined-residue-boundary-3",
+            "category": "malformed",
+            "name": "combined-residue-boundary-3",
+            "family": "combined-residue",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "boundary",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/combined-residue-empty-4",
+            "category": "malformed",
+            "name": "combined-residue-empty-4",
+            "family": "combined-residue",
+            "fillRules": [
+                "nonzero",
+                "nonzero"
+            ],
+            "placement": "empty",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/combined-residue-identical-5",
+            "category": "malformed",
+            "name": "combined-residue-identical-5",
+            "family": "combined-residue",
+            "fillRules": [
+                "evenodd",
+                "evenodd"
+            ],
+            "placement": "identical",
+            "conditioning": "ordinary",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/combined-residue-crossing-6",
+            "category": "malformed",
+            "name": "combined-residue-crossing-6",
+            "family": "combined-residue",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "tiny",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/combined-residue-inside-7",
+            "category": "malformed",
+            "name": "combined-residue-inside-7",
+            "family": "combined-residue",
+            "fillRules": [
+                "evenodd",
+                "nonzero"
+            ],
+            "placement": "inside",
+            "conditioning": "far",
+            "relationship": "geometry-preserving"
+        },
+        {
+            "id": "malformed/corrected-radius-0",
+            "category": "malformed",
+            "name": "corrected-radius-0",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-0",
+            "category": "malformed",
+            "name": "near-linear-0",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-0",
+            "category": "malformed",
+            "name": "short-edge-0",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-0",
+            "category": "malformed",
+            "name": "sliver-0",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-0",
+            "category": "malformed",
+            "name": "narrow-hole-0",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-0",
+            "category": "malformed",
+            "name": "tiny-island-0",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-0",
+            "category": "malformed",
+            "name": "near-touch-0",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-radius-1e-11",
+            "category": "malformed",
+            "name": "corrected-radius-1e-11",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-1e-11",
+            "category": "malformed",
+            "name": "near-linear-1e-11",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-1e-11",
+            "category": "malformed",
+            "name": "short-edge-1e-11",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-1e-11",
+            "category": "malformed",
+            "name": "sliver-1e-11",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-1e-11",
+            "category": "malformed",
+            "name": "narrow-hole-1e-11",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-1e-11",
+            "category": "malformed",
+            "name": "tiny-island-1e-11",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-1e-11",
+            "category": "malformed",
+            "name": "near-touch-1e-11",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-radius-1e-10",
+            "category": "malformed",
+            "name": "corrected-radius-1e-10",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-1e-10",
+            "category": "malformed",
+            "name": "near-linear-1e-10",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-1e-10",
+            "category": "malformed",
+            "name": "short-edge-1e-10",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-1e-10",
+            "category": "malformed",
+            "name": "sliver-1e-10",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-1e-10",
+            "category": "malformed",
+            "name": "narrow-hole-1e-10",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-1e-10",
+            "category": "malformed",
+            "name": "tiny-island-1e-10",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-1e-10",
+            "category": "malformed",
+            "name": "near-touch-1e-10",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-radius-1e-9",
+            "category": "malformed",
+            "name": "corrected-radius-1e-9",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-1e-9",
+            "category": "malformed",
+            "name": "near-linear-1e-9",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-1e-9",
+            "category": "malformed",
+            "name": "short-edge-1e-9",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-1e-9",
+            "category": "malformed",
+            "name": "sliver-1e-9",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-1e-9",
+            "category": "malformed",
+            "name": "narrow-hole-1e-9",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-1e-9",
+            "category": "malformed",
+            "name": "tiny-island-1e-9",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-1e-9",
+            "category": "malformed",
+            "name": "near-touch-1e-9",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-radius-1e-7",
+            "category": "malformed",
+            "name": "corrected-radius-1e-7",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-1e-7",
+            "category": "malformed",
+            "name": "near-linear-1e-7",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-1e-7",
+            "category": "malformed",
+            "name": "short-edge-1e-7",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-1e-7",
+            "category": "malformed",
+            "name": "sliver-1e-7",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-1e-7",
+            "category": "malformed",
+            "name": "narrow-hole-1e-7",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-1e-7",
+            "category": "malformed",
+            "name": "tiny-island-1e-7",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-1e-7",
+            "category": "malformed",
+            "name": "near-touch-1e-7",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-radius-0.000001",
+            "category": "malformed",
+            "name": "corrected-radius-0.000001",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-0.000001",
+            "category": "malformed",
+            "name": "near-linear-0.000001",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-0.000001",
+            "category": "malformed",
+            "name": "short-edge-0.000001",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-0.000001",
+            "category": "malformed",
+            "name": "sliver-0.000001",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-0.000001",
+            "category": "malformed",
+            "name": "narrow-hole-0.000001",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-0.000001",
+            "category": "malformed",
+            "name": "tiny-island-0.000001",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-0.000001",
+            "category": "malformed",
+            "name": "near-touch-0.000001",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-radius-0.00001",
+            "category": "malformed",
+            "name": "corrected-radius-0.00001",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-0.00001",
+            "category": "malformed",
+            "name": "near-linear-0.00001",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-0.00001",
+            "category": "malformed",
+            "name": "short-edge-0.00001",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-0.00001",
+            "category": "malformed",
+            "name": "sliver-0.00001",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-0.00001",
+            "category": "malformed",
+            "name": "narrow-hole-0.00001",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-0.00001",
+            "category": "malformed",
+            "name": "tiny-island-0.00001",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-0.00001",
+            "category": "malformed",
+            "name": "near-touch-0.00001",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-radius-0.0001",
+            "category": "malformed",
+            "name": "corrected-radius-0.0001",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-0.0001",
+            "category": "malformed",
+            "name": "near-linear-0.0001",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-0.0001",
+            "category": "malformed",
+            "name": "short-edge-0.0001",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-0.0001",
+            "category": "malformed",
+            "name": "sliver-0.0001",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-0.0001",
+            "category": "malformed",
+            "name": "narrow-hole-0.0001",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-0.0001",
+            "category": "malformed",
+            "name": "tiny-island-0.0001",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-0.0001",
+            "category": "malformed",
+            "name": "near-touch-0.0001",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/corrected-radius-0.001",
+            "category": "malformed",
+            "name": "corrected-radius-0.001",
+            "family": "corrected-radius",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-linear-0.001",
+            "category": "malformed",
+            "name": "near-linear-0.001",
+            "family": "near-linear",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/short-edge-0.001",
+            "category": "malformed",
+            "name": "short-edge-0.001",
+            "family": "short-edge",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/sliver-0.001",
+            "category": "malformed",
+            "name": "sliver-0.001",
+            "family": "sliver",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/narrow-hole-0.001",
+            "category": "malformed",
+            "name": "narrow-hole-0.001",
+            "family": "narrow-hole",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/tiny-island-0.001",
+            "category": "malformed",
+            "name": "tiny-island-0.001",
+            "family": "tiny-island",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
+        },
+        {
+            "id": "malformed/near-touch-0.001",
+            "category": "malformed",
+            "name": "near-touch-0.001",
+            "family": "near-touch",
+            "fillRules": [
+                "nonzero",
+                "evenodd"
+            ],
+            "placement": "crossing",
+            "conditioning": "ordinary",
+            "relationship": "geometry-changing"
         }
     ]
 }

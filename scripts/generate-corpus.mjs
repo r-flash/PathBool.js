@@ -25,11 +25,19 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 
-const GENERATOR_VERSION = 3;
+import { emitMalformed } from "./corpus/malformed.mjs";
+
+const GENERATOR_VERSION = 4;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT_ROOT = path.join(ROOT, "src", "__fixtures__", "generated");
+const { values: generatorOptions } = parseArgs({
+    options: { out: { type: "string" } },
+});
+const OUT_ROOT = generatorOptions.out
+    ? path.resolve(generatorOptions.out)
+    : path.join(ROOT, "src", "__fixtures__", "generated");
 
 // Rendered size for the raster tier; the viewBox is always square so this
 // keeps the scale isotropic no matter how the scene is conditioned.
@@ -1742,6 +1750,28 @@ function buildShape(spec, condSim) {
 }
 
 async function main() {
+    if (OUT_ROOT === ROOT || ROOT.startsWith(OUT_ROOT + path.sep)) {
+        throw new Error(
+            "Refusing to use the project directory or an ancestor as corpus output.",
+        );
+    }
+    if (generatorOptions.out) {
+        const entries = await fs.readdir(OUT_ROOT).catch((error) => {
+            if (error.code === "ENOENT") return [];
+            throw error;
+        });
+        if (entries.length) {
+            const prior = await fs
+                .readFile(path.join(OUT_ROOT, "manifest.json"), "utf8")
+                .then(JSON.parse)
+                .catch(() => null);
+            if (prior?.generator !== "scripts/generate-corpus.mjs") {
+                throw new Error(
+                    "Refusing to clear an unrecognized, nonempty output directory.",
+                );
+            }
+        }
+    }
     // Clear out the category directories, but leave hand-maintained files at
     // the root of the corpus (expected-failures.json) alone.
     const existing = await fs
@@ -1791,6 +1821,8 @@ async function main() {
             note: c.note,
         });
     }
+
+    manifest.push(...(await emitMalformed(OUT_ROOT)));
 
     await fs.writeFile(
         path.join(OUT_ROOT, "manifest.json"),

@@ -1,0 +1,17 @@
+{
+    "name": "stationary-endpoints-outside-2",
+    "family": "stationary-endpoints",
+    "inputs": [
+        {
+            "d": "M 0 0 C 0 0 40 40 40 40 L 0 40 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 50 50 L 60 50 L 60 60 L 50 60 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "outside",
+    "conditioning": "ordinary"
+}

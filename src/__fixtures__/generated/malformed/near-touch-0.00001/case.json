@@ -1,0 +1,18 @@
+{
+    "name": "near-touch-0.00001",
+    "family": "near-touch",
+    "inputs": [
+        {
+            "d": "M 40.00001 0 L 60 0 L 60 40 L 40.00001 40 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 0 0 L 40 0 L 40 40 L 0 40 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "threshold": 0.00001,
+    "placement": "crossing",
+    "conditioning": "ordinary"
+}

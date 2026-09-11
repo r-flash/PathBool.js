@@ -1,0 +1,18 @@
+{
+    "name": "tiny-island-0.00001",
+    "family": "tiny-island",
+    "inputs": [
+        {
+            "d": "M 0 0 L 40 0 L 40 40 L 0 40 Z M 50 50 L 50.00001 50 L 50.00001 50.00001 L 50 50.00001 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 20 -10 L 50 -10 L 50 30 L 20 30 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "threshold": 0.00001,
+    "placement": "crossing",
+    "conditioning": "ordinary"
+}

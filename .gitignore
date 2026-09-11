@@ -18,3 +18,5 @@
 !/dist/path-bool.core.umd.cjs
 !/dist/path-bool.core.umd.cjs.map
 /src/__fixtures__/generated/*/*/test-results/
+
+/.cache/path-bool/

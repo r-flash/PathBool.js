@@ -1,0 +1,17 @@
+{
+    "name": "stationary-endpoints-crossing-6",
+    "family": "stationary-endpoints",
+    "inputs": [
+        {
+            "d": "M 0 0 C 0 0 0.000004 0.000004 0.000004 0.000004 L 0 0.000004 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 0.000002 -0.000001 L 0.0000049999999999999996 -0.000001 L 0.0000049999999999999996 0.000003 L 0.000002 0.000003 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "crossing",
+    "conditioning": "tiny"
+}

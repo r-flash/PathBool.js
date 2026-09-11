@@ -1,0 +1,18 @@
+{
+    "name": "quadratic-spike-empty-4",
+    "family": "quadratic-spike",
+    "inputs": [
+        {
+            "d": "M 0 0 Q -20 0 0 0 L 40 0 L 40 40 L 0 40 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-preserving",
+    "cleanA": "M 0 0 L 40 0 L 40 40 L 0 40 Z",
+    "placement": "empty",
+    "conditioning": "ordinary"
+}

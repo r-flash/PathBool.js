@@ -1,0 +1,17 @@
+{
+    "name": "hole-residue-empty-4",
+    "family": "hole-residue",
+    "inputs": [
+        {
+            "d": "M 0 0 L 40 0 L 40 40 L 0 40 Z M 10 10 L 10 30 L 30 30 L 30 10 Q 30 10 30 10 L 10 10 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "empty",
+    "conditioning": "ordinary"
+}

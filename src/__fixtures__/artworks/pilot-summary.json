@@ -1,0 +1,58 @@
+{
+    "collected": "2026-09-11",
+    "sources": 300,
+    "extractedPaths": 79049,
+    "selectedPairs": 1857,
+    "coverageBySource": {
+        "command:L": 295,
+        "command:Q": 22,
+        "command:C": 255,
+        "command:A": 50,
+        "fill:nonzero": 261,
+        "fill:evenodd": 88,
+        "compound": 227,
+        "open": 136,
+        "collapsed": 226,
+        "closed-cubic": 23
+    },
+    "selectedCoverageBySource": {
+        "command:L": 295,
+        "command:Q": 12,
+        "command:C": 250,
+        "command:A": 43,
+        "fill:nonzero": 258,
+        "fill:evenodd": 77,
+        "compound": 211,
+        "open": 88,
+        "collapsed": 226,
+        "closed-cubic": 11
+    },
+    "sampleCases": [
+        "commons-115096348/00",
+        "commons-12051116/00",
+        "commons-151720042/00",
+        "commons-153223976/00",
+        "commons-162080539/00",
+        "commons-16969381/00",
+        "commons-170866480/00",
+        "commons-17101964/00",
+        "commons-17101966/00",
+        "commons-177042118/03",
+        "commons-2645947/00",
+        "commons-3502725/00",
+        "commons-66522532/00",
+        "commons-7333866/00",
+        "commons-76377877/00"
+    ],
+    "sampleOutcomes": {
+        "pass": 396,
+        "excluded": 16,
+        "expected-failure": 8
+    },
+    "offlineReplay": {
+        "sources": 300,
+        "networkRequests": 0,
+        "failures": 0
+    },
+    "syntheticCases": 287
+}

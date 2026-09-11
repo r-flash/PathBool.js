@@ -1,0 +1,17 @@
+{
+    "name": "swapped-arc-axes-crossing-0",
+    "family": "swapped-arc-axes",
+    "inputs": [
+        {
+            "d": "M 40 20 A 10 20 90 0 1 0 20 A 20 10 0 0 1 40 20 Z",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 20 -10 L 50 -10 L 50 30 L 20 30 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "crossing",
+    "conditioning": "ordinary"
+}

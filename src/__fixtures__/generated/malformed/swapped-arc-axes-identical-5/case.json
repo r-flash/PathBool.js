@@ -1,0 +1,17 @@
+{
+    "name": "swapped-arc-axes-identical-5",
+    "family": "swapped-arc-axes",
+    "inputs": [
+        {
+            "d": "M 40 20 A 10 20 90 0 1 0 20 A 20 10 0 0 1 40 20 Z",
+            "fillRule": "evenodd"
+        },
+        {
+            "d": "M 40 20 A 10 20 90 0 1 0 20 A 20 10 0 0 1 40 20 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "identical",
+    "conditioning": "ordinary"
+}

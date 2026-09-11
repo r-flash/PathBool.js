@@ -1,0 +1,18 @@
+{
+    "name": "disconnected-fragments-crossing-0",
+    "family": "disconnected-fragments",
+    "inputs": [
+        {
+            "d": "M -10 10 L 50 10 M 0 0 Q 20 40 40 0",
+            "fillRule": "nonzero"
+        },
+        {
+            "d": "M 20 -10 L 50 -10 L 50 30 L 20 30 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "structural-only",
+    "structuralOnly": "Open fragments have no established filled-region contract.",
+    "placement": "crossing",
+    "conditioning": "ordinary"
+}

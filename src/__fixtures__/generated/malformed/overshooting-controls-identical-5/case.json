@@ -1,0 +1,17 @@
+{
+    "name": "overshooting-controls-identical-5",
+    "family": "overshooting-controls",
+    "inputs": [
+        {
+            "d": "M 0 0 C -30 0 70 0 40 0 L 40 40 L 0 40 Z",
+            "fillRule": "evenodd"
+        },
+        {
+            "d": "M 0 0 C -30 0 70 0 40 0 L 40 40 L 0 40 Z",
+            "fillRule": "evenodd"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "identical",
+    "conditioning": "ordinary"
+}

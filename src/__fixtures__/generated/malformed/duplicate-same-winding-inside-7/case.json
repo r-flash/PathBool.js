@@ -1,0 +1,17 @@
+{
+    "name": "duplicate-same-winding-inside-7",
+    "family": "duplicate-same-winding",
+    "inputs": [
+        {
+            "d": "M 1000000 -1000000 L 1000040 -1000000 L 1000040 -999960 L 1000000 -999960 Z M 1000000 -1000000 L 1000040 -1000000 L 1000040 -999960 L 1000000 -999960 Z",
+            "fillRule": "evenodd"
+        },
+        {
+            "d": "M 1000010 -999990 L 1000030 -999990 L 1000030 -999970 L 1000010 -999970 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "winding-dependent",
+    "placement": "inside",
+    "conditioning": "far"
+}

@@ -1,0 +1,17 @@
+{
+    "name": "short-chord-large-loop-inside-7",
+    "family": "short-chord-large-loop",
+    "inputs": [
+        {
+            "d": "M 1000000 -1000000 C 1000040 -1000000 1000000 -999960 1000000.000000001 -1000000 Z",
+            "fillRule": "evenodd"
+        },
+        {
+            "d": "M 1000010 -999990 L 1000030 -999990 L 1000030 -999970 L 1000010 -999970 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "inside",
+    "conditioning": "far"
+}

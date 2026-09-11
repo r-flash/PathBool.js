@@ -3,7 +3,7 @@
     "version": "1.0.4",
     "license": "MIT",
     "author": {
-        "name": "Adam Platkevič",
+        "name": "Adam Platkevi\u010d",
         "email": "rflashster@gmail.com"
     },
     "description": "A low-level library for performing boolean operations on SVG paths.",
@@ -54,7 +54,11 @@
         "bench": "node ./bench/path-boolean-bench.mjs",
         "gen-corpus": "node ./scripts/generate-corpus.mjs",
         "pretty": "prettier --write ./src",
-        "fuzz": "npm run build-fuzz && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus"
+        "fuzz": "npm run build-fuzz && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus",
+        "pretest": "node scripts/build-corpus.mjs",
+        "scrape-paths": "node scripts/scrape-paths.mjs",
+        "test:artwork-corpus": "node scripts/run-artwork-corpus.mjs",
+        "test:corpus-tools": "node --test --test-isolation=none scripts/corpus/*.test.mjs"
     },
     "dependencies": {
         "gl-matrix": "^3.4.4"

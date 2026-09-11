@@ -1,0 +1,17 @@
+{
+    "name": "hole-residue-inside-7",
+    "family": "hole-residue",
+    "inputs": [
+        {
+            "d": "M 1000000 -1000000 L 1000040 -1000000 L 1000040 -999960 L 1000000 -999960 Z M 1000010 -999990 L 1000010 -999970 L 1000030 -999970 L 1000030 -999990 Q 1000030 -999990 1000030 -999990 L 1000010 -999990 Z",
+            "fillRule": "evenodd"
+        },
+        {
+            "d": "M 1000010 -999990 L 1000030 -999990 L 1000030 -999970 L 1000010 -999970 Z",
+            "fillRule": "nonzero"
+        }
+    ],
+    "relationship": "geometry-changing",
+    "placement": "inside",
+    "conditioning": "far"
+}
