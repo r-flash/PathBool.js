@@ -230,20 +230,14 @@ class QuadTree {
  * SPDX-License-Identifier: MIT
  */
 const DEV_ASSERTS_ENV = typeof process !== "undefined" && process.env.PATH_BOOL_DEV_ASSERTS;
-DEV_ASSERTS_ENV === "1"
+const DEV_ASSERTS = DEV_ASSERTS_ENV === "1"
     ? true
     : DEV_ASSERTS_ENV === "0"
         ? false
         : typeof process !== "undefined" &&
             process.env.NODE_ENV !== "production";
-// Caps for subdivision/refinement to avoid hangs on adversarial inputs
-const MAX_SUBDIVISION_ITERS = 128;
-const MAX_SUBSEGMENTS_PER_ORIG_SEGMENT = 1024;
-const MAX_INTERSECTION_PAIRS = 20000;
-const MAX_TANGENT_SAMPLE_ITERS = 6;
 // Numerical precision
 const NEARLY_LINEAR_EPS = 1e-10;
-const TANGENT_MIN_LEN_SQ = 1e-16;
 /*
  Below this, two incidence angles at a vertex count as equal and the edges are
  ordered by their angle a little way along the curve instead.
@@ -260,17 +254,11 @@ const TANGENT_MIN_LEN_SQ = 1e-16;
  there is room for several orders of magnitude of margin on both sides.
 */
 const ANGLE_MIN_DIFF = 1e-12;
-/*
- Ceiling on the parameter step the incidence-angle tie-break may take, for
- segments whose parametrization is slow enough that the shared arc-length step
- would otherwise carry it a long way along the curve — or off the end of it.
-*/
-const MAX_TIE_BREAK_PARAM_STEP = 1e-3;
-const EPS$1 = {
+const EPS = {
     point: 1e-6,
     linear: 1e-4,
     param: 1e-8,
-    collinear: Number.MIN_VALUE * 64,
+    collinear: 0,
 };
 /*
  `point` and `linear` are lengths, so they only mean anything relative to the
@@ -290,9 +278,9 @@ const EPS$1 = {
 const REFERENCE_EXTENT = 50;
 /*
  Derived from the extent of the geometry, not from how far it sits from the
- origin. A large offset is a different problem — precision is lost in the
- arithmetic there, and widening a tolerance conceals that rather than curing
- it — and measurably not the one these two cause.
+ origin. The arrangement constructor separately translates distant geometry
+ toward the origin to preserve arithmetic precision; increasing tolerances
+ would merge details instead of restoring that precision.
 
  Only ever downwards. How fine the detail in a drawing is does not follow how
  big the drawing is: a 900-unit logo is drawn with much the same absolute
@@ -306,45 +294,12 @@ function epsilonsForExtent(extent) {
         ? Math.min(1, extent / REFERENCE_EXTENT)
         : 1;
     return {
-        point: EPS$1.point * scale,
-        linear: EPS$1.linear * scale,
-        // Both are dimensionless: a curve parameter and, in practice, zero.
-        param: EPS$1.param,
-        collinear: EPS$1.collinear,
+        point: EPS.point * scale,
+        linear: EPS.linear * scale,
+        // Parameter tolerance is dimensionless; the default determinant threshold is exactly zero.
+        param: EPS.param,
+        collinear: EPS.collinear,
     };
-}
-
-const EPS = 1e-12;
-function pathCubicSegmentSelfIntersection(seg) {
-    // https://math.stackexchange.com/questions/3931865/self-intersection-of-a-cubic-bezier-interpretation-of-the-solution
-    const A = seg[1];
-    const B = seg[2];
-    const C = seg[3];
-    const D = seg[4];
-    const ax = -A[0] + 3 * B[0] - 3 * C[0] + D[0];
-    const ay = -A[1] + 3 * B[1] - 3 * C[1] + D[1];
-    const bx = 3 * A[0] - 6 * B[0] + 3 * C[0];
-    const by = 3 * A[1] - 6 * B[1] + 3 * C[1];
-    const cx = -3 * A[0] + 3 * B[0];
-    const cy = -3 * A[1] + 3 * B[1];
-    const M = ay * bx - ax * by;
-    const N = ax * cy - ay * cx;
-    const K = (-3 * ax * ax * cy * cy +
-        6 * ax * ay * cx * cy +
-        4 * ax * bx * by * cy -
-        4 * ax * by * by * cx -
-        3 * ay * ay * cx * cx -
-        4 * ay * bx * bx * cy +
-        4 * ay * bx * by * cx) /
-        (ax * ax * by * by - 2 * ax * ay * bx * by + ay * ay * bx * bx);
-    if (K < 0)
-        return null;
-    const t1 = (N / M + Math.sqrt(K)) / 2;
-    const t2 = (N / M - Math.sqrt(K)) / 2;
-    if (EPS <= t1 && t1 <= 1 - EPS && EPS <= t2 && t2 <= 1 - EPS) {
-        return [t1, t2];
-    }
-    return null;
 }
 
 /**
@@ -606,38 +561,6 @@ function scale(out, a, b) {
 }
 
 /**
- * Calculates the squared length of a vec2
- *
- * @param {ReadonlyVec2} a vector to calculate squared length of
- * @returns {Number} squared length of a
- */
-function squaredLength(a) {
-  var x = a[0],
-    y = a[1];
-  return x * x + y * y;
-}
-
-/**
- * Normalize a vec2
- *
- * @param {vec2} out the receiving vector
- * @param {ReadonlyVec2} a vector to normalize
- * @returns {vec2} out
- */
-function normalize(out, a) {
-  var x = a[0],
-    y = a[1];
-  var len = x * x + y * y;
-  if (len > 0) {
-    //TODO: evaluate use of glm_invsqrt here?
-    len = 1 / Math.sqrt(len);
-  }
-  out[0] = a[0] * len;
-  out[1] = a[1] * len;
-  return out;
-}
-
-/**
  * Calculates the dot product of two vec2's
  *
  * @param {ReadonlyVec2} a the first operand
@@ -723,12 +646,6 @@ function rotate(out, a, b, rad) {
  * @function
  */
 var sub = subtract;
-
-/**
- * Alias for {@link vec2.squaredLength}
- * @function
- */
-var sqrLen = squaredLength;
 
 /**
  * Perform some operation over an array of vec2s.
@@ -906,8 +823,8 @@ function isNearlyLinearSegment(seg, eps = NEARLY_LINEAR_EPS) {
             return (chordIsDegenerate ||
                 !Number.isFinite(seg[2]) ||
                 !Number.isFinite(seg[3]) ||
-                Math.abs(seg[2]) <= eps ||
-                Math.abs(seg[3]) <= eps);
+                seg[2] === 0 ||
+                seg[3] === 0);
     }
 }
 /*
@@ -940,8 +857,8 @@ function lineariseDegenerateSegment(seg, eps) {
     if (seg[0] === "A") {
         const degenerateRadii = !isFiniteNumber(seg[2]) ||
             !isFiniteNumber(seg[3]) ||
-            Math.abs(seg[2]) <= NEARLY_LINEAR_EPS ||
-            Math.abs(seg[3]) <= NEARLY_LINEAR_EPS;
+            seg[2] === 0 ||
+            seg[3] === 0;
         return degenerateRadii ? ["L", a, b] : normalizeArcSegment(seg);
     }
     if (seg[0] !== "C" && seg[0] !== "Q")
@@ -1063,8 +980,8 @@ const arcSegmentToCenter = (() => {
         // https://svgwg.org/svg2-draft/implnote.html#ArcCorrectionOutOfRangeRadii
         if (!isFiniteNumber(rx) ||
             !isFiniteNumber(ry) ||
-            Math.abs(rx) <= NEARLY_LINEAR_EPS ||
-            Math.abs(ry) <= NEARLY_LINEAR_EPS) {
+            rx === 0 ||
+            ry === 0) {
             return null;
         }
         // https://svgwg.org/svg2-draft/implnote.html#ArcConversionEndpointToCenter
@@ -1168,7 +1085,7 @@ const samplePathSegmentAtInto = (() => {
     const p123 = createVector();
     const p = createVector();
     return function samplePathSegmentAtInto(seg, t, out) {
-        if (isNearlyLinearSegment(seg)) {
+        if (isNearlyLinearSegment(seg, 0)) {
             lerp$1(p, seg[1], getEndPoint(seg), t);
             out[0] = p[0];
             out[1] = p[1];
@@ -1222,7 +1139,7 @@ const samplePathSegmentAt = (() => {
 const pathSegmentTangentAtInto = (() => {
     const tmp = createVector();
     return function pathSegmentTangentAtInto(seg, t, out) {
-        if (isNearlyLinearSegment(seg)) {
+        if (isNearlyLinearSegment(seg, 0)) {
             const start = seg[1];
             const end = getEndPoint(seg);
             out[0] = end[0] - start[0];
@@ -1410,7 +1327,7 @@ function sweepContainsAngle(target, theta1, theta2) {
     return target + TAU * Math.ceil((lo - target) / TAU) <= hi;
 }
 function pathSegmentBoundingBox(seg) {
-    if (isNearlyLinearSegment(seg)) {
+    if (isNearlyLinearSegment(seg, 0)) {
         const start = seg[1];
         const end = getEndPoint(seg);
         return {
@@ -1475,7 +1392,12 @@ function pathSegmentBoundingBox(seg) {
                         boundingBox = extendBoundingBox(boundingBox, point);
                     }
                 }
-                return expandBoundingBox(boundingBox, 1e-11); // TODO: get rid of expansion
+                // Bound rounding in centre +/- radius and rotated samples. A
+                // fixed padding can exceed a tiny arc's entire subdivision
+                // tolerance, making unrelated leaves overlap at every depth.
+                return expandBoundingBox(boundingBox, 4 *
+                    Number.EPSILON *
+                    Math.max(Math.abs(boundingBox.left), Math.abs(boundingBox.right), Math.abs(boundingBox.top), Math.abs(boundingBox.bottom), rx, ry));
             }
             // TODO: don't convert to cubics
             const cubics = arcSegmentToCubics(seg, Math.PI / 16);
@@ -1549,7 +1471,7 @@ function splitArcSegmentAt(seg, t) {
     ];
 }
 function splitSegmentAt(seg, t) {
-    if (isNearlyLinearSegment(seg)) {
+    if (isNearlyLinearSegment(seg, 0)) {
         return splitLinearSegmentAt(["L", seg[1], getEndPoint(seg)], t);
     }
     switch (seg[0]) {
@@ -1564,6 +1486,210 @@ function splitSegmentAt(seg, t) {
     }
 }
 
+// A dimensionless parameter interval is not a geometric distance. Bound
+// |P'| so discarding this much parameter cannot discard more than eps.point
+// of curve. Bezier derivatives lie in the hull of their derivative controls;
+// an ellipse's angular speed is bounded by its larger corrected radius.
+function parameterTolerance(seg, eps) {
+    let speed;
+    if (seg[0] === "A") {
+        const arc = arcSegmentToCenter(seg);
+        speed = arc
+            ? Math.abs(arc.deltaTheta) * Math.max(arc.rx, arc.ry)
+            : Math.hypot(seg[7][0] - seg[1][0], seg[7][1] - seg[1][1]);
+    }
+    else {
+        const points = seg.slice(1);
+        speed =
+            (points.length - 1) *
+                Math.max(...points
+                    .slice(1)
+                    .map((p, i) => Math.hypot(p[0] - points[i][0], p[1] - points[i][1])));
+    }
+    return Math.min(eps.param, eps.point / speed);
+}
+
+function pathCubicSegmentSelfIntersection(seg) {
+    // P(t) = a*t^3 + b*t^2 + c*t + d. For distinct parameters t,u,
+    // P(t)=P(u) gives a*((t+u)^2-tu) + b*(t+u) + c = 0.
+    // Form coefficients from successive differences: translating the curve
+    // must not turn endpoint closure into a tiny interior loop.
+    const d0 = [seg[2][0] - seg[1][0], seg[2][1] - seg[1][1]];
+    const d1 = [seg[3][0] - seg[2][0], seg[3][1] - seg[2][1]];
+    const d2 = [seg[4][0] - seg[3][0], seg[4][1] - seg[3][1]];
+    const a = [d2[0] - 2 * d1[0] + d0[0], d2[1] - 2 * d1[1] + d0[1]];
+    const b = [3 * (d1[0] - d0[0]), 3 * (d1[1] - d0[1])];
+    const c = [3 * d0[0], 3 * d0[1]];
+    const cross = (v, w) => v[0] * w[1] - v[1] * w[0];
+    const denominator = cross(b, a);
+    if (denominator === 0)
+        return null;
+    const sum = cross(a, c) / denominator;
+    const discriminant = -3 * sum * sum - (4 * cross(b, c)) / denominator;
+    if (!(discriminant >= 0))
+        return null;
+    const difference = Math.sqrt(discriminant);
+    const t = (sum - difference) / 2, u = (sum + difference) / 2;
+    return Number.isFinite(t) && Number.isFinite(u) && t >= 0 && u <= 1
+        ? [t, u]
+        : null;
+}
+
+function circularArcIntersection(a, b, eps) {
+    if (a[0] !== "A" ||
+        b[0] !== "A" ||
+        Math.abs(a[2]) !== Math.abs(a[3]) ||
+        Math.abs(b[2]) !== Math.abs(b[3]))
+        return null;
+    const ca = arcSegmentToCenter(a), cb = arcSegmentToCenter(b);
+    if (!ca || !cb)
+        return null;
+    const dx = cb.center[0] - ca.center[0], dy = cb.center[1] - ca.center[1];
+    const d = Math.hypot(dx, dy);
+    if (d === 0)
+        return null;
+    const ux = dx / d, uy = dy / d;
+    let points;
+    const shared = [a[1], a[7]].find((p) => [b[1], b[7]].some((q) => p[0] === q[0] && p[1] === q[1]));
+    if (shared) {
+        // One root is known exactly from the SVG endpoints. Factor it out
+        // rather than subtracting nearly equal squared radii at tangency.
+        const step = -2 *
+            ((shared[0] - ca.center[0]) * -uy +
+                (shared[1] - ca.center[1]) * ux);
+        points = [shared, [shared[0] - uy * step, shared[1] + ux * step]];
+    }
+    else {
+        const sum = ca.rx + cb.rx, difference = ca.rx - cb.rx;
+        if (d > sum || d < Math.abs(difference))
+            return [];
+        const along = (d + (difference * sum) / d) / 2;
+        const h = Math.sqrt(Math.max(0, (sum - d) * (sum + d) * (d - difference) * (d + difference))) /
+            (2 * d);
+        const x = ca.center[0] + ux * along, y = ca.center[1] + uy * along;
+        points = [
+            [x - uy * h, y + ux * h],
+            [x + uy * h, y - ux * h],
+        ];
+    }
+    const parameter = (seg, c, p) => {
+        if (p[0] === seg[1][0] && p[1] === seg[1][1])
+            return 0;
+        if (p[0] === seg[7][0] && p[1] === seg[7][1])
+            return 1;
+        const x = seg[1][0] - c.center[0], y = seg[1][1] - c.center[1];
+        const px = p[0] - c.center[0], py = p[1] - c.center[1];
+        let angle = Math.atan2(x * py - y * px, x * px + y * py);
+        const tau = 2 * Math.PI;
+        if (c.deltaTheta > 0 && angle < -eps.param * Math.abs(c.deltaTheta))
+            angle += tau;
+        if (c.deltaTheta < 0 && angle > eps.param * Math.abs(c.deltaTheta))
+            angle -= tau;
+        const t = angle / c.deltaTheta;
+        return t >= -eps.param && t <= 1 + eps.param
+            ? Math.max(0, Math.min(1, t))
+            : null;
+    };
+    const out = [];
+    for (const p of points) {
+        const s = parameter(a, ca, p), t = parameter(b, cb, p);
+        if (s !== null &&
+            t !== null &&
+            !out.some(([u, v]) => u === s && v === t))
+            out.push([s, t]);
+    }
+    return out;
+}
+
+function quadraticRoots(a, b, c) {
+    if (a === 0)
+        return b === 0 ? [] : [-c / b];
+    const d = b * b - 4 * a * c;
+    if (d < 0)
+        return [];
+    const q = -(b + (b < 0 ? -1 : 1) * Math.sqrt(d)) / 2;
+    return q === 0 ? [-b / (2 * a)] : [q / a, c / q];
+}
+/** Isolate roots between derivative extrema; no subdivision contact grouping. */
+function lineBezierIntersection(line, curve, eps) {
+    if (line[0] !== "L" || (curve[0] !== "C" && curve[0] !== "Q"))
+        return null;
+    const dx = line[2][0] - line[1][0], dy = line[2][1] - line[1][1];
+    const length = Math.hypot(dx, dy);
+    if (length === 0)
+        return [];
+    const ux = dx / length, uy = dy / length;
+    const values = curve.slice(1).map((p) => ux * (p[1] - line[1][1]) - uy * (p[0] - line[1][0]));
+    // A curve lying on the line needs overlap handling, not isolated roots.
+    if (values.every((v) => v === 0))
+        return null;
+    const at = (t) => {
+        const v = values.slice();
+        for (let n = v.length - 1; n > 0; n--)
+            for (let i = 0; i < n; i++)
+                v[i] = (1 - t) * v[i] + t * v[i + 1];
+        return v[0];
+    };
+    const [a, b, c, d] = values;
+    const extrema = curve[0] === "Q"
+        ? quadraticRoots(0, a - 2 * b + c, b - a)
+        : quadraticRoots(-a + 3 * b - 3 * c + d, 2 * (a - 2 * b + c), b - a);
+    const cuts = [
+        0,
+        ...extrema.filter((t) => t > 0 && t < 1).sort((a, b) => a - b),
+        1,
+    ];
+    const roots = new Set();
+    // The distance controls and degree-three De Casteljau evaluation use
+    // fewer than 32 rounded operations along any dependency chain. Retain a
+    // stationary contact whose residual cannot be distinguished from that
+    // arithmetic error; a geometry-length tolerance would merge real roots.
+    const roundoff = 32 * Number.EPSILON * Math.max(...values.map(Math.abs));
+    for (let i = 0; i < cuts.length; i++) {
+        const t = cuts[i], f = at(t);
+        if (f === 0 ||
+            (i > 0 &&
+                i < cuts.length - 1 &&
+                Math.abs(f) <= roundoff &&
+                at(cuts[i - 1]) < 0 === f < 0 &&
+                at(cuts[i + 1]) < 0 === f < 0))
+            roots.add(t);
+    }
+    for (let i = 1; i < cuts.length; i++) {
+        let lo = cuts[i - 1], hi = cuts[i], flo = at(lo), fhi = at(hi);
+        if (flo === 0 || fhi === 0 || flo < 0 === fhi < 0)
+            continue;
+        for (;;) {
+            const mid = (lo + hi) / 2;
+            if (mid === lo || mid === hi)
+                break;
+            const f = at(mid);
+            if (f === 0) {
+                lo = hi = mid;
+                break;
+            }
+            if (f < 0 === flo < 0) {
+                lo = mid;
+                flo = f;
+            }
+            else {
+                hi = mid;
+                fhi = f;
+            }
+        }
+        roots.add(Math.abs(flo) <= Math.abs(fhi) ? lo : hi);
+    }
+    return [...roots]
+        .sort((a, b) => a - b)
+        .flatMap((t) => {
+        const p = samplePathSegmentAt(curve, t);
+        const s = (ux * (p[0] - line[1][0]) + uy * (p[1] - line[1][1])) / length;
+        return s >= -eps.param && s <= 1 + eps.param
+            ? [[Math.max(0, Math.min(1, s)), t]]
+            : [];
+    });
+}
+
 function lineSegmentIntersection([[x1, y1], [x2, y2]], [[x3, y3], [x4, y4]], eps) {
     // https://en.wikipedia.org/wiki/Intersection_(geometry)#Two_line_segments
     const a1 = x2 - x1;
@@ -1573,7 +1699,7 @@ function lineSegmentIntersection([[x1, y1], [x2, y2]], [[x3, y3], [x4, y4]], eps
     const b2 = y3 - y4;
     const c2 = y3 - y1;
     const denom = a1 * b2 - a2 * b1;
-    if (Math.abs(denom) < eps.collinear)
+    if (Math.abs(denom) <= eps.collinear)
         return null;
     const s = (c1 * b2 - c2 * b1) / denom;
     const t = (a1 * c2 - a2 * c1) / denom;
@@ -1589,14 +1715,11 @@ function lineSegmentsIntersect(seg1, seg2, eps) {
     return !!lineSegmentIntersection(seg1, seg2, eps);
 }
 
-/*
- * SPDX-FileCopyrightText: 2024 Adam Platkevič <rflashster@gmail.com>
- *
- * SPDX-License-Identifier: MIT
- */
 function subdivideIntersectionSegment(intSeg) {
     const [seg0, seg1] = splitSegmentAt(intSeg.seg, 0.5);
     const midParam = (intSeg.startParam + intSeg.endParam) / 2;
+    if (!(intSeg.startParam < midParam && midParam < intSeg.endParam))
+        throw new Error("Intersection subdivision cannot advance its parameter interval");
     return [
         {
             seg: seg0,
@@ -1672,50 +1795,39 @@ function segmentsEqual(seg0, seg1, eps) {
     }
 }
 function lineSegmentsCollinear(a, b, eps) {
-    const da = sub([0, 0], a[1], a[0]);
-    const db = sub([0, 0], b[1], b[0]);
-    normalize(da, da);
-    normalize(db, db);
-    const dot$1 = Math.abs(dot(da, db));
-    return Math.abs(dot$1 - 1) < eps;
-}
-const collinearLineSegmentIntersection = (() => {
-    const da = createVector();
-    const db = createVector();
-    const a0b0 = createVector();
-    const a0b1 = createVector();
-    const b0a0 = createVector();
-    const b0a1 = createVector();
-    return function collinearLineSegmentIntersection(a, b) {
-        sub(da, a[1], a[0]);
-        sub(db, b[1], b[0]);
-        // Divide by len^2, i.e., normalize and pre-divide by len.
-        scale(da, da, 1 / sqrLen(da));
-        scale(db, db, 1 / sqrLen(db));
-        const pairs = [];
-        sub(a0b0, b[0], a[0]);
-        const s0 = dot(a0b0, da);
-        if (s0 >= 0 && s0 <= 1) {
-            pairs.push([s0, 0]);
-        }
-        sub(a0b1, b[1], a[0]);
-        const s1 = dot(a0b1, da);
-        if (s1 >= 0 && s1 <= 1) {
-            pairs.push([s1, 1]);
-        }
-        sub(b0a0, a[0], b[0]);
-        const t0 = dot(b0a0, db);
-        if (t0 >= 0 && t0 <= 1) {
-            pairs.push([0, t0]);
-        }
-        sub(b0a1, a[1], b[0]);
-        const t1 = dot(b0a1, db);
-        if (t1 >= 0 && t1 <= 1) {
-            pairs.push([1, t1]);
-        }
-        return pairs;
+    // Parallel directions alone do not establish collinearity; nor is a
+    // normalized dot product exactly one for every truly parallel pair.
+    // Bound the perpendicular displacement of both endpoints, symmetrically.
+    const onLine = (line, points) => {
+        const dx = line[1][0] - line[0][0], dy = line[1][1] - line[0][1];
+        const length = Math.hypot(dx, dy);
+        if (length === 0)
+            return false;
+        return points.every((p) => Math.abs(dx * (p[1] - line[0][1]) - dy * (p[0] - line[0][0])) <=
+            eps * length);
     };
-})();
+    return onLine(a, b) && onLine(b, a);
+}
+function collinearLineSegmentIntersection(a, b) {
+    // Project onto A's dominant coordinate, then intersect parameter intervals.
+    // Reporting their endpoints once avoids duplicate rounded endpoint splits.
+    const axis = Math.abs(a[1][0] - a[0][0]) >= Math.abs(a[1][1] - a[0][1]) ? 0 : 1;
+    const delta = a[1][axis] - a[0][axis];
+    if (delta === 0)
+        return [];
+    const s0 = (b[0][axis] - a[0][axis]) / delta;
+    const s1 = (b[1][axis] - a[0][axis]) / delta;
+    if (s0 === s1)
+        return [];
+    const lo = Math.max(0, Math.min(s0, s1)), hi = Math.min(1, Math.max(s0, s1));
+    if (lo > hi)
+        return [];
+    const pair = (s) => [
+        s,
+        Math.max(0, Math.min(1, (s - s0) / (s1 - s0))),
+    ];
+    return lo === hi ? [pair(lo)] : [pair(lo), pair(hi)];
+}
 /*
  Collapses the many reports a single crossing can generate back into one.
 
@@ -1751,7 +1863,83 @@ const collinearLineSegmentIntersection = (() => {
  that.
 */
 const SEPARATION_SAMPLES = 8;
+// Refine both curve parameters together. A correspondence constrained to a
+// straight line in parameter space can miss a second, shallow crossing.
+function refineRoot(seg0, seg1, initial) {
+    if (seg0[0] === "A" || seg1[0] === "A")
+        return initial;
+    let best = initial;
+    const roundoff = 32 *
+        Number.EPSILON *
+        (segmentCoordinateScale(seg0) + segmentCoordinateScale(seg1));
+    const a = createVector(), b = createVector();
+    for (;;) {
+        const p = samplePathSegmentAt(seg0, best.t0), q = samplePathSegmentAt(seg1, best.t1);
+        pathSegmentTangentAtInto(seg0, best.t0, a);
+        pathSegmentTangentAtInto(seg1, best.t1, b);
+        const det = a[0] * b[1] - a[1] * b[0];
+        if (det === 0 || best.gap <= roundoff)
+            return best;
+        const fx = p[0] - q[0], fy = p[1] - q[1];
+        const dt0 = -(fx * b[1] - fy * b[0]) / det, dt1 = -(fx * a[1] - fy * a[0]) / det;
+        if (!Number.isFinite(dt0) || !Number.isFinite(dt1))
+            return best;
+        let step = 1;
+        for (;;) {
+            const t0 = Math.max(0, Math.min(1, best.t0 + step * dt0));
+            const t1 = Math.max(0, Math.min(1, best.t1 + step * dt1));
+            if (t0 === best.t0 && t1 === best.t1)
+                return best;
+            const p = samplePathSegmentAt(seg0, t0), q = samplePathSegmentAt(seg1, t1);
+            const gap = Math.hypot(p[0] - q[0], p[1] - q[1]);
+            if (gap < best.gap) {
+                const improvement = best.gap - gap;
+                best = { t0, t1, gap };
+                if (improvement <= roundoff)
+                    return best;
+                break;
+            }
+            step /= 2;
+        }
+    }
+}
+function segmentCoordinateScale(seg) {
+    return Math.max(...seg.flatMap((value) => Array.isArray(value) ? value.map(Math.abs) : []), ...(seg[0] === "A" ? [Math.abs(seg[2]), Math.abs(seg[3])] : []));
+}
+function rootUncertainty(seg0, seg1, candidate) {
+    // This arithmetic envelope covers polynomial evaluation. Arc sampling
+    // also reconstructs an ellipse and uses transcendental functions, so its
+    // contacts retain the geometric grouping check below.
+    if (seg0[0] === "A" || seg1[0] === "A")
+        return [Infinity, Infinity];
+    const a = createVector(), b = createVector();
+    pathSegmentTangentAtInto(seg0, candidate.t0, a);
+    pathSegmentTangentAtInto(seg1, candidate.t1, b);
+    const determinant = Math.abs(a[0] * b[1] - a[1] * b[0]);
+    if (determinant === 0)
+        return [Infinity, Infinity];
+    // Sampling and tangent evaluation each have a short arithmetic dependency
+    // chain. Propagate their rounding envelope through the inverse Jacobian;
+    // unlike a fixed angular threshold, this scales with the actual geometry.
+    const error = candidate.gap +
+        32 *
+            Number.EPSILON *
+            (segmentCoordinateScale(seg0) + segmentCoordinateScale(seg1));
+    // Near a multiple root, the Newton correction underestimates parameter
+    // error by its multiplicity. Bezout bounds that multiplicity by the
+    // product of degrees (a conic for an ellipse, at most cubic for Beziers).
+    const degree = (seg) => seg[0] === "C" ? 3 : seg[0] === "L" ? 1 : 2;
+    const multiplicity = degree(seg0) * degree(seg1);
+    return [
+        (multiplicity * error * Math.hypot(...b)) / determinant,
+        (multiplicity * error * Math.hypot(...a)) / determinant,
+    ];
+}
 function staysTogether(seg0, seg1, a, b, eps) {
+    const ua = rootUncertainty(seg0, seg1, a), ub = rootUncertainty(seg0, seg1, b);
+    if (Math.abs(a.t0 - b.t0) > ua[0] + ub[0] + eps.param ||
+        Math.abs(a.t1 - b.t1) > ua[1] + ub[1] + eps.param)
+        return false;
     for (let k = 1; k < SEPARATION_SAMPLES; k++) {
         const s = k / SEPARATION_SAMPLES;
         const p = samplePathSegmentAt(seg0, lerp(a.t0, b.t0, s));
@@ -2030,7 +2218,6 @@ function groupCandidates(seg0, seg1, candidates, eps) {
  crossed squarely, where the line-line solve inside the leaf is already as good
  as this could be.
 */
-const REFINE_STEPS = 40;
 const INV_GOLDEN = (Math.sqrt(5) - 1) / 2;
 function refineContact(seg0, seg1, group) {
     let best = group[0];
@@ -2055,7 +2242,7 @@ function refineContact(seg0, seg1, group) {
     let d = lo + INV_GOLDEN * (hi - lo);
     let fc = at(c);
     let fd = at(d);
-    for (let i = 0; i < REFINE_STEPS; i++) {
+    while (lo < c && c < d && d < hi) {
         if (fc.gap < fd.gap) {
             hi = d;
             d = c;
@@ -2076,21 +2263,66 @@ function refineContact(seg0, seg1, group) {
         ? [refined.t0, refined.t1]
         : [best.t0, best.t1];
 }
-function pathSegmentIntersection(origSeg0, origSeg1, eps) {
+function polynomialHullsOverlap(a, b) {
+    const pa = a.slice(1), pb = b.slice(1);
+    const origin = pa[0];
+    const roundoff = 32 *
+        Number.EPSILON *
+        (segmentCoordinateScale(a) + segmentCoordinateScale(b));
+    // Any separating axis proves the convex control hulls disjoint. Testing
+    // every control-polygon pair includes every hull edge without constructing
+    // either hull; projection is relative to one point to avoid cancellation.
+    for (const polygon of [pa, pb])
+        for (let i = 0; i < polygon.length; i++)
+            for (let j = i + 1; j < polygon.length; j++) {
+                const dx = polygon[j][0] - polygon[i][0], dy = polygon[j][1] - polygon[i][1];
+                if (dx === 0 && dy === 0)
+                    continue;
+                const project = (p) => dx * (p[1] - origin[1]) - dy * (p[0] - origin[0]);
+                const va = pa.map(project), vb = pb.map(project), error = roundoff * Math.hypot(dx, dy);
+                if (Math.max(...va) < Math.min(...vb) - error ||
+                    Math.max(...vb) < Math.min(...va) - error)
+                    return false;
+            }
+    return true;
+}
+function pathSegmentIntersection(a, b, eps) {
+    eps = {
+        ...eps,
+        param: Math.min(parameterTolerance(a, eps), parameterTolerance(b, eps)),
+    };
+    // Give each unordered pair the same numerical solve regardless of which
+    // operand the broad-phase traversal encounters first. This does not decide
+    // correctness: the resulting arrangement still faces independent coverage
+    // and area checks, but avoids two answers from rounding-dependent seeds.
+    if (JSON.stringify(a) > JSON.stringify(b))
+        return intersectOrdered(b, a, eps).map(([s, t]) => [t, s]);
+    return intersectOrdered(a, b, eps);
+}
+function intersectOrdered(origSeg0, origSeg1, eps) {
     const seg0 = origSeg0;
     const seg1 = origSeg1;
     if (seg0[0] === "L" && seg1[0] === "L") {
         const segLine0 = [seg0[1], seg0[2]];
         const segLine1 = [seg1[1], seg1[2]];
-        if (lineSegmentsCollinear(segLine0, segLine1, eps.collinear)) {
+        if (lineSegmentsCollinear(segLine0, segLine1, eps.point)) {
             return collinearLineSegmentIntersection(segLine0, segLine1);
         }
         const st = lineSegmentIntersection(segLine0, segLine1, eps);
         return st ? [st] : [];
     }
+    const lineBezier = lineBezierIntersection(seg0, seg1, eps);
+    if (lineBezier)
+        return lineBezier;
+    const reversedLineBezier = lineBezierIntersection(seg1, seg0, eps);
+    if (reversedLineBezier)
+        return reversedLineBezier.map(([a, b]) => [b, a]);
     const coincidentArcs = coincidentArcIntersection(seg0, seg1, eps);
     if (coincidentArcs)
         return coincidentArcs;
+    const circularArcs = circularArcIntersection(seg0, seg1, eps);
+    if (circularArcs)
+        return circularArcs;
     // https://math.stackexchange.com/questions/20321/how-can-i-tell-when-two-cubic-b%C3%A9zier-curves-intersect
     let pairs = [
         [
@@ -2108,6 +2340,8 @@ function pathSegmentIntersection(origSeg0, origSeg1, eps) {
             },
         ],
     ];
+    const polynomialPair = seg0[0] !== "A" && seg1[0] !== "A";
+    const coincidenceTolerance = eps.point;
     const candidates = [];
     function pushCandidate(t0, t1) {
         const p = samplePathSegmentAt(origSeg0, t0);
@@ -2127,23 +2361,16 @@ function pathSegmentIntersection(origSeg0, origSeg1, eps) {
         }
     }
     function isLinear(seg) {
-        return (isNearlyLinearSegment(seg.seg, NEARLY_LINEAR_EPS) ||
+        return (isNearlyLinearSegment(seg.seg, Math.min(NEARLY_LINEAR_EPS, eps.point / 4)) ||
             boundingBoxMaxExtent(seg.boundingBox) <= eps.linear ||
             seg.endParam - seg.startParam < eps.param);
     }
-    let iterations = 0;
+    // Depth first traversal keeps pending work proportional to subdivision
+    // depth rather than the breadth of a coincident run. No pair is discarded.
     while (pairs.length) {
-        if (iterations++ > MAX_SUBDIVISION_ITERS) {
-            for (const [seg0, seg1] of pairs) {
-                pushLineSegmentIntersection(seg0, seg1);
-            }
-            break;
-        }
-        const nextPairs = [];
-        let capHit = false;
-        for (const [seg0, seg1] of pairs) {
-            if (segmentsEqual(seg0.seg, seg1.seg, eps.point)) {
-                /*
+        const [seg0, seg1] = pairs.pop();
+        if (segmentsEqual(seg0.seg, seg1.seg, coincidenceTolerance)) {
+            /*
                  The two leaves are the same piece of curve. Record how far the
                  run reaches rather than dropping the pair: `groupCandidates`
                  recovers the shared stretch from the ends of the reports, so
@@ -2152,12 +2379,15 @@ function pathSegmentIntersection(origSeg0, origSeg1, eps) {
                  reports along its whole length. Subdividing further is
                  pointless either way, so the pair stops here.
                 */
-                pushCandidate(seg0.startParam, seg1.startParam);
-                pushCandidate(seg0.endParam, seg1.endParam);
-                continue;
-            }
-            if (leavesCoincideReversed(seg0.seg, seg1.seg, eps)) {
-                /*
+            pushCandidate(seg0.startParam, seg1.startParam);
+            pushCandidate(seg0.endParam, seg1.endParam);
+            continue;
+        }
+        if (leavesCoincideReversed(seg0.seg, seg1.seg, {
+            ...eps,
+            point: coincidenceTolerance,
+        })) {
+            /*
                  The same, for a leaf traversed the other way round. It needs a
                  test of its own because `segmentsEqual` compares endpoints in
                  order and so never fires on a reversed pair; without it the
@@ -2167,20 +2397,22 @@ function pathSegmentIntersection(origSeg0, origSeg1, eps) {
                  correspondence crosses over: the start of one leaf is the end
                  of the other.
                 */
-                pushCandidate(seg0.startParam, seg1.endParam);
-                pushCandidate(seg0.endParam, seg1.startParam);
-                continue;
-            }
-            const isLinear0 = isLinear(seg0);
-            const isLinear1 = isLinear(seg1);
-            if (isLinear0 && isLinear1) {
-                pushLineSegmentIntersection(seg0, seg1);
-            }
-            else {
-                let subdivided0;
-                let subdivided1;
-                if (!isLinear0 && !isLinear1) {
-                    /*
+            pushCandidate(seg0.startParam, seg1.endParam);
+            pushCandidate(seg0.endParam, seg1.startParam);
+            continue;
+        }
+        if (polynomialPair && !polynomialHullsOverlap(seg0.seg, seg1.seg))
+            continue;
+        const isLinear0 = isLinear(seg0);
+        const isLinear1 = isLinear(seg1);
+        if (isLinear0 && isLinear1) {
+            pushLineSegmentIntersection(seg0, seg1);
+        }
+        else {
+            let subdivided0;
+            let subdivided1;
+            if (!isLinear0 && !isLinear1) {
+                /*
                      Split only the larger piece when their boxes differ. In
                      addition to avoiding an unnecessary four-way product,
                      this lets an exact De Casteljau child meet the unsplit
@@ -2190,57 +2422,97 @@ function pathSegmentIntersection(origSeg0, origSeg1, eps) {
                      parameter-size ratio and reduces an identical curve to
                      thousands of leaves before discovering the same fact.
                     */
-                    const extent0 = boundingBoxMaxExtent(seg0.boundingBox);
-                    const extent1 = boundingBoxMaxExtent(seg1.boundingBox);
-                    if (extent0 > extent1) {
-                        subdivided0 = subdivideIntersectionSegment(seg0);
-                        subdivided1 = [seg1];
-                    }
-                    else if (extent1 > extent0) {
-                        subdivided0 = [seg0];
-                        subdivided1 = subdivideIntersectionSegment(seg1);
-                    }
-                    else {
-                        subdivided0 = subdivideIntersectionSegment(seg0);
-                        subdivided1 = subdivideIntersectionSegment(seg1);
-                    }
+                const extent0 = boundingBoxMaxExtent(seg0.boundingBox);
+                const extent1 = boundingBoxMaxExtent(seg1.boundingBox);
+                if (extent0 > extent1) {
+                    subdivided0 = subdivideIntersectionSegment(seg0);
+                    subdivided1 = [seg1];
+                }
+                else if (extent1 > extent0) {
+                    subdivided0 = [seg0];
+                    subdivided1 = subdivideIntersectionSegment(seg1);
                 }
                 else {
-                    subdivided0 = isLinear0
-                        ? [seg0]
-                        : subdivideIntersectionSegment(seg0);
-                    subdivided1 = isLinear1
-                        ? [seg1]
-                        : subdivideIntersectionSegment(seg1);
+                    subdivided0 = subdivideIntersectionSegment(seg0);
+                    subdivided1 = subdivideIntersectionSegment(seg1);
                 }
-                for (const seg0 of subdivided0) {
-                    for (const seg1 of subdivided1) {
-                        if (intersectionSegmentsOverlap(seg0, seg1, eps)) {
-                            nextPairs.push([seg0, seg1]);
-                            if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
-                                capHit = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
-                        break;
+            }
+            else {
+                subdivided0 = isLinear0
+                    ? [seg0]
+                    : subdivideIntersectionSegment(seg0);
+                subdivided1 = isLinear1
+                    ? [seg1]
+                    : subdivideIntersectionSegment(seg1);
+            }
+            for (const seg0 of subdivided0) {
+                for (const seg1 of subdivided1) {
+                    if (intersectionSegmentsOverlap(seg0, seg1, eps)) {
+                        pairs.push([seg0, seg1]);
                     }
                 }
             }
-            if (nextPairs.length >= MAX_INTERSECTION_PAIRS) {
-                break;
-            }
         }
-        if (capHit) {
-            for (const [seg0, seg1] of pairs) {
-                pushLineSegmentIntersection(seg0, seg1);
-            }
-            break;
-        }
-        pairs = nextPairs;
     }
-    return groupCandidates(origSeg0, origSeg1, candidates, eps);
+    return groupCandidates(origSeg0, origSeg1, candidates.map((c) => refineRoot(origSeg0, origSeg1, c)), eps);
+}
+
+const binomial = [
+    [1],
+    [1, 1],
+    [1, 2, 1],
+    [1, 3, 3, 1],
+    [1, 4, 6, 4, 1],
+    [1, 5, 10, 10, 5, 1],
+];
+/** Contribution to the signed area integral, relative to a nearby origin. */
+function segmentArea(segment, origin) {
+    const seg = segment.map((value) => Array.isArray(value)
+        ? [value[0] - origin[0], value[1] - origin[1]]
+        : value);
+    if (seg[0] === "A") {
+        const start = seg[1], end = seg[7], arc = arcSegmentToCenter(seg);
+        if (!arc)
+            return (start[0] * end[1] - start[1] * end[0]) / 2;
+        const theta = arc.deltaTheta;
+        let excess;
+        if (Math.abs(theta) >= 1)
+            excess = theta - Math.sin(theta);
+        else {
+            // theta - sin(theta) loses all digits for a very short arc.
+            let term = (theta * theta * theta) / 6;
+            excess = term;
+            for (let degree = 5;; degree += 2) {
+                term *= (-theta * theta) / ((degree - 1) * degree);
+                const next = excess + term;
+                if (next === excess)
+                    break;
+                excess = next;
+            }
+        }
+        return ((start[0] * end[1] - start[1] * end[0] + arc.rx * arc.ry * excess) /
+            2);
+    }
+    // Integrate Bernstein products directly. For degree n, P' has degree
+    // n-1 and integral(B_i^n B_j^(n-1)) = C(n,i) C(n-1,j) /
+    // (2n C(2n-1,i+j)). P' contributes n and area contributes another 1/2.
+    const points = seg.slice(1);
+    const n = points.length - 1;
+    let total = 0, correction = 0;
+    for (let i = 0; i <= n; i++)
+        for (let j = 0; j < n; j++) {
+            const dx = points[j + 1][0] - points[j][0];
+            const dy = points[j + 1][1] - points[j][1];
+            const term = ((points[i][0] * dy - points[i][1] * dx) *
+                binomial[n][i] *
+                binomial[n - 1][j]) /
+                binomial[2 * n - 1][i + j] /
+                4;
+            const adjusted = term - correction, next = total + adjusted;
+            correction = next - total - adjusted;
+            total = next;
+        }
+    return total;
 }
 
 /*
@@ -2306,22 +2578,10 @@ var FillRule;
     FillRule[FillRule["NonZero"] = 0] = "NonZero";
     FillRule[FillRule["EvenOdd"] = 1] = "EvenOdd";
 })(FillRule || (FillRule = {}));
-function firstElementOfSet(set) {
-    return set.values().next().value;
-}
 function makeParents(count, index) {
     const parents = new Array(count).fill(false);
     parents[index] = true;
     return parents;
-}
-function booleanArraysEqual(a, b) {
-    if (a.length !== b.length)
-        return false;
-    for (let i = 0; i < a.length; i++) {
-        if (a[i] !== b[i])
-            return false;
-    }
-    return true;
 }
 function numberArraysEqual(a, b) {
     if (a.length !== b.length)
@@ -2373,49 +2633,45 @@ function segmentToEdge(pathCount, index) {
     return (seg) => ({ seg, parents: makeParents(pathCount, index) });
 }
 function splitAtSelfIntersections(edges, eps) {
-    for (let i = 0; i < edges.length; i++) {
+    // A non-collinear cubic has at most one isolated self-intersection.
+    // Its children cannot introduce another one. Rechecking appended children
+    // rediscovered rounded endpoint contacts and grew the edge array forever.
+    const originalCount = edges.length;
+    for (let i = 0; i < originalCount; i++) {
         const edge = edges[i];
         if (edge.seg[0] !== "C")
             continue;
         const intersection = pathCubicSegmentSelfIntersection(edge.seg);
         if (!intersection)
             continue;
-        if (intersection[0] > intersection[1]) {
-            intersection.reverse();
+        let segment = edge.seg;
+        const param = parameterTolerance(segment, eps);
+        let previous = 0;
+        const children = [];
+        for (const t of intersection) {
+            if (t <= previous + param || t >= 1 - param)
+                continue;
+            const [first, rest] = splitCubicSegmentAt(segment, (t - previous) / (1 - previous));
+            children.push({ seg: first, parents: edge.parents });
+            segment = rest;
+            previous = t;
         }
-        const [t1, t2] = intersection;
-        if (Math.abs(t1 - t2) < EPS$1.param) {
-            const [seg1, seg2] = splitCubicSegmentAt(edge.seg, t1);
-            edges[i] = {
-                seg: seg1,
-                parents: edge.parents,
-            };
-            edges.push({
-                seg: seg2,
-                parents: edge.parents,
-            });
-        }
-        else {
-            const [seg1, tmpSeg] = splitCubicSegmentAt(edge.seg, t1);
-            const [seg2, seg3] = splitCubicSegmentAt(tmpSeg, (t2 - t1) / (1 - t1));
-            edges[i] = {
-                seg: seg1,
-                parents: edge.parents,
-            };
-            edges.push({
-                seg: seg2,
-                parents: edge.parents,
-            }, {
-                seg: seg3,
-                parents: edge.parents,
-            });
-        }
+        if (!children.length)
+            continue;
+        children.push({ seg: segment, parents: edge.parents });
+        edges[i] = children[0];
+        edges.push(...children.slice(1));
     }
 }
 function splitAtIntersections(edges, eps) {
     const withBoundingBox = edges.map((edge) => ({
         ...edge,
-        boundingBox: pathSegmentBoundingBox(edge.seg),
+        boundingBox: (() => {
+            const box = pathSegmentBoundingBox(edge.seg);
+            // The narrow-phase solve admits endpoint parameters just outside
+            // [0,1]. Candidate selection must cover that same neighbourhood.
+            return expandBoundingBox(box, eps.point + eps.param * boundingBoxMaxExtent(box));
+        })(),
     }));
     const totalBoundingBox = withBoundingBox.reduce((acc, { boundingBox }) => mergeBoundingBoxes(acc, boundingBox), null);
     if (!totalBoundingBox) {
@@ -2428,30 +2684,22 @@ function splitAtIntersections(edges, eps) {
             splitsPerEdge[i] = [];
         splitsPerEdge[i].push(t);
     }
-    let pairChecks = 0;
     for (let i = 0; i < withBoundingBox.length; i++) {
         const edge = withBoundingBox[i];
         const candidates = edgeTree.find(edge.boundingBox);
         for (const j of candidates) {
-            if (pairChecks >= MAX_INTERSECTION_PAIRS) {
-                break;
-            }
             const candidate = edges[j];
             const intersection = pathSegmentIntersection(edge.seg, candidate.seg, eps);
             for (const [t0, t1] of intersection) {
                 addSplit(i, t0);
                 addSplit(j, t1);
             }
-            pairChecks++;
         }
         /*
          Insert the edge to the tree here, after checking intersections.
          That way, each pair is only tested once.
         */
         edgeTree.insert(edge.boundingBox, i);
-        if (pairChecks >= MAX_INTERSECTION_PAIRS) {
-            break;
-        }
     }
     const newEdges = [];
     for (let i = 0; i < withBoundingBox.length; i++) {
@@ -2465,21 +2713,19 @@ function splitAtIntersections(edges, eps) {
         // enough to stringify in exponential form ("1e-7") would otherwise
         // sort after "0.9" and the segment would be cut in the wrong order.
         splits.sort((a, b) => a - b);
-        if (splits.length + 1 > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
-            splits.length = Math.max(0, MAX_SUBSEGMENTS_PER_ORIG_SEGMENT - 1);
-        }
         let tmpSeg = edge.seg;
+        const param = parameterTolerance(edge.seg, eps);
         let prevT = 0;
         for (let j = 0; j < splits.length; j++) {
             const t = splits[j];
-            if (t > 1 - EPS$1.param)
-                break; // skip splits near end
+            if (t >= 1 - param)
+                break;
+            if (t <= prevT + param)
+                continue;
             const tt = (t - prevT) / (1 - prevT);
+            if (tt <= 0 || tt >= 1)
+                continue;
             prevT = t;
-            if (tt < EPS$1.param)
-                continue; // skip splits near start
-            if (tt > 1 - EPS$1.param)
-                continue; // skip splits near end
             const [seg1, seg2] = splitSegmentAt(tmpSeg, tt);
             newEdges.push({
                 seg: seg1,
@@ -2496,25 +2742,47 @@ function splitAtIntersections(edges, eps) {
     }
     return { edges: newEdges, totalBoundingBox };
 }
-function findVertices(edges, boundingBox, eps) {
+function findVertices(edges, boundingBox, eps, inputPoints) {
+    // Approximate coincidence must choose one geometric representative in a
+    // stable order. Operand visitation order otherwise changes which curve's
+    // controls survive a merge and, with them, the incident tangent ordering.
+    edges = edges
+        .map((edge) => ({ edge, key: JSON.stringify(edge.seg) }))
+        .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+        .map(({ edge }) => edge);
     const vertexTree = new QuadTree(boundingBox, POINT_TREE_DEPTH);
     const newVertices = [];
     function getVertex(point) {
         const box = boundingBoxAroundPoint(point, eps.point);
         const existingVertices = vertexTree.find(box);
-        if (existingVertices.size) {
-            return firstElementOfSet(existingVertices);
+        let closest;
+        let distance = eps.point;
+        for (const vertex of existingVertices) {
+            const d = Math.hypot(vertex.point[0] - point[0], vertex.point[1] - point[1]);
+            if (d <= distance) {
+                closest = vertex;
+                distance = d;
+            }
         }
-        else {
-            const vertex = {
-                point,
-                outgoingEdges: [],
-            };
-            vertexTree.insert(box, vertex);
-            newVertices.push(vertex);
-            return vertex;
-        }
+        if (closest)
+            return closest;
+        const vertex = { point, outgoingEdges: [] };
+        // Store a point, not another tolerance box (which doubled the radius).
+        vertexTree.insert(boundingBoxAroundPoint(point, 0), vertex);
+        newVertices.push(vertex);
+        return vertex;
     }
+    // Stable representatives, independent of operand and edge visitation order.
+    for (const point of inputPoints
+        .slice()
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1]))
+        getVertex(point);
+    const vertexForPoint = new WeakMap();
+    const points = edges
+        .flatMap(({ seg }) => [getStartPoint(seg), getEndPoint(seg)])
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    for (const point of points)
+        vertexForPoint.set(point, getVertex(point));
     const getVertexId = createObjectCounter();
     const vertexPairIdToEdges = new Map();
     function getVertexPairEdges(startId, endId) {
@@ -2558,8 +2826,15 @@ function findVertices(edges, boundingBox, eps) {
                     return [];
             }
         }
-        const startVertex = getVertex(startPoint);
-        const endVertex = getVertex(endPoint);
+        const startVertex = vertexForPoint.get(startPoint);
+        const endVertex = vertexForPoint.get(endPoint);
+        // SVG output joins segments at a single vertex. Prefer the original
+        // incoming endpoint, then share that point with every incident edge.
+        // This also makes signed area translation invariant for tiny faces.
+        const seg = edge.seg.slice();
+        seg[1] = startVertex.point;
+        seg[seg.length - 1] = endVertex.point;
+        edge = { ...edge, seg, boundingBox: pathSegmentBoundingBox(seg) };
         const startId = getVertexId(startVertex);
         const endId = getVertexId(endVertex);
         const existingEdges = getVertexPairEdges(startId, endId);
@@ -2662,64 +2937,69 @@ function computeMinor({ vertices }) {
         inner.set(endId, edge);
     }
     const visited = new WeakSet();
-    // first handle components that are not cycles
+    // A degree-two vertex can disappear only when traversal across it keeps
+    // the same signed winding for every input. Segment storage direction is
+    // independent: store every minor segment in its actual traversal direction.
+    const isChainVertex = (vertex) => {
+        if (getOrder(vertex) !== 2)
+            return false;
+        const [a, b] = vertex.outgoingEdges;
+        return numberArraysEqual(a.windings, b.windings.map((w) => -w));
+    };
+    const orientedSegment = (edge) => edge.directionFlag ? reversePathSegment(edge.seg) : edge.seg;
+    const nextEdge = (edge) => {
+        const [a, b] = edge.incidentVertices[1].outgoingEdges;
+        return a.twin === edge ? b : a;
+    };
     for (const vertex of vertices) {
-        if (getOrder(vertex) === 2)
+        if (isChainVertex(vertex))
             continue;
         const startVertex = toMinorVertex(vertex);
         for (const startEdge of vertex.outgoingEdges) {
             const segments = [];
             let edge = startEdge;
-            while (booleanArraysEqual(edge.parents, startEdge.parents) &&
-                edge.directionFlag === startEdge.directionFlag &&
-                numberArraysEqual(edge.windings, startEdge.windings) &&
-                getOrder(edge.incidentVertices[1]) === 2) {
-                segments.push(edge.seg);
-                visited.add(edge.incidentVertices[1]);
-                const [edge1, edge2] = edge.incidentVertices[1].outgoingEdges;
-                edge = edge1.twin === edge ? edge2 : edge1; // choose the one we didn't use to come here
+            for (;;) {
+                segments.push(orientedSegment(edge));
+                const end = edge.incidentVertices[1];
+                if (!isChainVertex(end))
+                    break;
+                visited.add(end);
+                edge = nextEdge(edge);
             }
-            segments.push(edge.seg);
             const endVertex = toMinorVertex(edge.incidentVertices[1]);
-            const startId = getEdgeId(startEdge);
-            const endId = getEdgeId(edge);
-            const twinStartId = getEdgeId(edge.twin);
-            const twinEndId = getEdgeId(startEdge.twin);
-            const twin = getEdgeById(twinStartId, twinEndId) ?? null;
+            const twin = getEdgeById(getEdgeId(edge.twin), getEdgeId(startEdge.twin)) ??
+                null;
             const newEdge = {
                 segments,
                 parents: startEdge.parents,
                 incidentVertices: [startVertex, endVertex],
-                directionFlag: startEdge.directionFlag,
+                directionFlag: false,
                 windings: startEdge.windings,
-                twin: twin,
+                twin,
                 id: nextEdgeId++,
             };
-            if (twin) {
+            if (twin)
                 twin.twin = newEdge;
-            }
-            setEdgeById(startId, endId, newEdge);
+            setEdgeById(getEdgeId(startEdge), getEdgeId(edge), newEdge);
             startVertex.outgoingEdges.push(newEdge);
             newEdges.push(newEdge);
         }
     }
-    // handle cyclic components
     const cycles = [];
     for (const vertex of vertices) {
-        if (getOrder(vertex) !== 2 || visited.has(vertex))
+        if (!isChainVertex(vertex) || visited.has(vertex))
             continue;
         let edge = vertex.outgoingEdges[0];
         const cycle = {
             segments: [],
             parents: edge.parents,
-            directionFlag: edge.directionFlag,
+            directionFlag: false,
             windings: edge.windings,
         };
         do {
-            cycle.segments.push(edge.seg);
+            cycle.segments.push(orientedSegment(edge));
             visited.add(edge.incidentVertices[0]);
-            const [edge1, edge2] = edge.incidentVertices[1].outgoingEdges;
-            edge = edge1.twin === edge ? edge2 : edge1;
+            edge = nextEdge(edge);
         } while (edge.incidentVertices[0] !== vertex);
         cycles.push(cycle);
     }
@@ -2819,9 +3099,7 @@ const getIncidenceAngle = (() => {
             const speed = getIncidenceSpeed(edge);
             // Cap the step so a slow parametrization cannot walk out of the
             // segment and pick up an angle from somewhere else entirely.
-            const dt = speed > 0
-                ? Math.min(MAX_TIE_BREAK_PARAM_STEP, offsetDistance / speed)
-                : EPS$1.param;
+            const dt = speed > 0 ? Math.min(1, offsetDistance / speed) : EPS.param;
             t0 = directionFlag ? 1 - dt : dt;
         }
         // First attempt: analytical tangent
@@ -2830,38 +3108,110 @@ const getIncidenceAngle = (() => {
             tangent[0] = -tangent[0];
             tangent[1] = -tangent[1];
         }
-        const lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
-        if (lenSq >= TANGENT_MIN_LEN_SQ) {
+        if (tangent[0] !== 0 || tangent[1] !== 0) {
             return Math.atan2(tangent[1], tangent[0]);
         }
-        // Second attempt: numerical tangent
+        // At a stationary Bezier endpoint, the first distinct control point
+        // gives the first nonzero derivative's direction. A chord fallback
+        // loses this direction entirely for a closed cubic.
+        if (t0 === tEnd && (seg[0] === "C" || seg[0] === "Q")) {
+            const points = seg.slice(1);
+            if (directionFlag)
+                points.reverse();
+            for (const point of points.slice(1)) {
+                const dx = point[0] - points[0][0], dy = point[1] - points[0][1];
+                if (dx !== 0 || dy !== 0)
+                    return Math.atan2(dy, dx);
+            }
+        }
         samplePathSegmentAtInto(seg, t0, p0);
-        let dt = EPS$1.param;
-        for (let i = 0; i < MAX_TANGENT_SAMPLE_ITERS; i++) {
+        let dt = EPS.param;
+        for (;;) {
             const tNext = directionFlag
                 ? Math.max(0, t0 - dt)
                 : Math.min(1, t0 + dt);
             samplePathSegmentAtInto(seg, tNext, pNext);
-            const dx = pNext[0] - p0[0];
-            const dy = pNext[1] - p0[1];
-            const lenSq = dx * dx + dy * dy;
-            if (lenSq >= TANGENT_MIN_LEN_SQ) {
+            const dx = pNext[0] - p0[0], dy = pNext[1] - p0[1];
+            if (dx !== 0 || dy !== 0)
                 return Math.atan2(dy, dx);
-            }
+            if (tNext === (directionFlag ? 0 : 1))
+                return 0;
             dt *= 2;
         }
-        // Fallback: treat the segment as linear
-        const start = getStartPoint(seg);
-        const end = getEndPoint(seg);
-        let dx = end[0] - start[0];
-        let dy = end[1] - start[1];
-        if (directionFlag) {
-            dx = -dx;
-            dy = -dy;
-        }
-        return Math.atan2(dy, dx);
     };
 })();
+// Equal leading Bezier control points imply equal leading power coefficients.
+// The first differing control point then determines which curve departs to
+// the left. This also resolves third-order contacts that tangent sampling
+// rounds to a tie. A purely tangential difference needs reparametrization;
+// leave that case to the general tangent/curvature comparison below.
+function compareBezierDeparture(a, b) {
+    const sa = a.segments[0], sb = b.segments[0];
+    if (sa[0] === "A" || sa[0] !== sb[0])
+        return 0;
+    const pa = sa.slice(1), pb = sb.slice(1);
+    if (a.directionFlag)
+        pa.reverse();
+    if (b.directionFlag)
+        pb.reverse();
+    if (pa[0][0] !== pb[0][0] || pa[0][1] !== pb[0][1])
+        return 0;
+    let tangent;
+    for (let i = 1; i < pa.length; i++) {
+        if (pa[i][0] !== pb[i][0] || pa[i][1] !== pb[i][1]) {
+            if (!tangent)
+                return 0;
+            return (tangent[0] * (pa[i][1] - pb[i][1]) -
+                tangent[1] * (pa[i][0] - pb[i][0]));
+        }
+        const dx = pa[i][0] - pa[0][0], dy = pa[i][1] - pa[0][1];
+        if (!tangent && (dx !== 0 || dy !== 0))
+            tangent = [dx, dy];
+    }
+    return 0;
+}
+function bezierCurvature(edge) {
+    const seg = edge.segments[0];
+    if (seg[0] !== "C" && seg[0] !== "Q")
+        return undefined;
+    const p = seg.slice(1);
+    if (edge.directionFlag)
+        p.reverse();
+    const n = p.length - 1;
+    const d = p
+        .slice(1)
+        .map((q, i) => [q[0] - p[i][0], q[1] - p[i][1]]);
+    const v = d[0].map((x) => n * x);
+    const a = [
+        n * (n - 1) * (d[1][0] - d[0][0]),
+        n * (n - 1) * (d[1][1] - d[0][1]),
+    ];
+    const j = n === 3
+        ? [
+            6 * (d[2][0] - 2 * d[1][0] + d[0][0]),
+            6 * (d[2][1] - 2 * d[1][1] + d[0][1]),
+        ]
+        : [0, 0];
+    const cross = (a, b) => a[0] * b[1] - a[1] * b[0];
+    const speed = Math.hypot(...v), speed2 = speed * speed;
+    if (speed === 0)
+        return undefined;
+    const va = cross(v, a), dot = v[0] * a[0] + v[1] * a[1];
+    const curvature = va / (speed2 * speed);
+    const derivative = (cross(v, j) * speed2 - 3 * va * dot) / (speed2 * speed2 * speed2);
+    // Propagate coordinate roundoff through the endpoint derivatives. This
+    // separates equal curvature with unequal curvature derivative without
+    // letting the last bits of a subdivided control point decide the order.
+    const error = 64 * Number.EPSILON * Math.max(...p.flat().map(Math.abs));
+    const acceleration = Math.hypot(...a), jerk = Math.hypot(...j);
+    const curvatureError = (error * (1 + acceleration / speed)) / speed2;
+    const derivativeError = (error *
+        (1 +
+            (acceleration + jerk) / speed +
+            (acceleration * acceleration) / speed2)) /
+        (speed2 * speed);
+    return { curvature, derivative, curvatureError, derivativeError };
+}
 function sortOutgoingEdgesByAngle({ vertices }) {
     // TODO: this will hardly be a bottleneck, but profile whether memoization
     //  actually helps and maybe use a simpler function that's monotonic
@@ -2884,8 +3234,8 @@ function sortOutgoingEdgesByAngle({ vertices }) {
                     minSpeed = Math.min(minSpeed, speed);
             }
             const tieBreakDistance = Number.isFinite(minSpeed)
-                ? EPS$1.param * minSpeed
-                : EPS$1.param;
+                ? EPS.param * minSpeed
+                : EPS.param;
             /*
              Two keys per edge: the direction it leaves in, and how far it has
              turned by the time it has gone `tieBreakDistance` along itself.
@@ -2904,10 +3254,32 @@ function sortOutgoingEdgesByAngle({ vertices }) {
              it come out wrong.
             */
             const turnCache = new WeakMap();
+            const curvatureCache = new WeakMap();
             for (const edge of vertex.outgoingEdges) {
+                curvatureCache.set(edge, bezierCurvature(edge));
                 const primary = getIncidenceAngle(edge);
                 angleCache.set(edge, primary);
                 turnCache.set(edge, normalizeAngle(getIncidenceAngle(edge, tieBreakDistance) - primary));
+            }
+            // Put the angular branch cut in the largest empty sector. atan2
+            // spells the same leftward tangent as both -pi and +pi; leaving
+            // that seam through a tangent group reverses the cyclic order.
+            const angles = vertex.outgoingEdges
+                .map((edge) => angleCache.get(edge))
+                .sort((a, b) => a - b);
+            let largestGap = -1, cut = 0;
+            for (let i = 0; i < angles.length; i++) {
+                const next = i + 1 < angles.length
+                    ? angles[i + 1]
+                    : angles[0] + TAU_ANGLE;
+                if (next - angles[i] > largestGap) {
+                    largestGap = next - angles[i];
+                    cut = (angles[i] + next) / 2;
+                }
+            }
+            for (const edge of vertex.outgoingEdges) {
+                angleCache.set(edge, (((angleCache.get(edge) - cut) % TAU_ANGLE) + TAU_ANGLE) %
+                    TAU_ANGLE);
             }
             vertex.outgoingEdges.sort((a, b) => {
                 const turnA = turnCache.get(a);
@@ -2924,6 +3296,20 @@ function sortOutgoingEdgesByAngle({ vertices }) {
                 const diff = angleCache.get(a) - angleCache.get(b);
                 if (Math.abs(diff) > tolerance)
                     return diff;
+                const exact = compareBezierDeparture(a, b);
+                if (exact)
+                    return exact;
+                const ca = curvatureCache.get(a), cb = curvatureCache.get(b);
+                if (ca && cb) {
+                    const curvature = ca.curvature - cb.curvature;
+                    if (Math.abs(curvature) >
+                        ca.curvatureError + cb.curvatureError)
+                        return curvature;
+                    const derivative = ca.derivative - cb.derivative;
+                    if (Math.abs(derivative) >
+                        ca.derivativeError + cb.derivativeError)
+                        return derivative;
+                }
                 return turnA - turnB;
             });
         }
@@ -2932,7 +3318,6 @@ function sortOutgoingEdgesByAngle({ vertices }) {
         }
     }
 }
-/* Into (-pi, pi], so a turn across the branch cut is not read as a full circle. */
 function normalizeAngle(angle) {
     const wrapped = (((angle + Math.PI) % TAU_ANGLE) + TAU_ANGLE) % TAU_ANGLE;
     return wrapped - Math.PI;
@@ -2943,10 +3328,10 @@ function getNextEdge(edge) {
     return outgoingEdges[(index + 1) % outgoingEdges.length];
 }
 const faceToPolygon = memoizeWeak((face) => face.incidentEdges.flatMap((edge) => {
-    const CNT = 64;
     const points = [];
     const p = createVector();
     for (const seg of edge.segments) {
+        const CNT = seg[0] === "L" ? 1 : 64;
         for (let i = 0; i < CNT; i++) {
             const t0 = i / CNT;
             const t = edge.directionFlag ? 1 - t0 : t0;
@@ -2985,28 +3370,20 @@ function computePointWinding(polygon, testedPoint) {
     }
     return winding;
 }
-/*
- Which way round a face is traced, by the signed area of its sampled outline.
-
- In a planar subdivision every inner face is traced one way and the single
- outer face the other, so the sign identifies it. This is measured rather than
- the winding about an interior point because a face can be far thinner than
- the sampling: each lens between a circle and the cubic approximating it is
- 0.785 long and 2.7e-4 wide, against a sample spacing of 0.0123. At that aspect
- the two sampled sides cross each other, the winding about a point picked from
- three consecutive samples is a coin toss, and three of eight identical lenses
- came out claiming to be outer faces. The area of the same crossed-over outline
- is still the area of the lens, to the sign that matters here.
-*/
+// Face orientation must describe the curves, not the polygon used to find an
+// interior point. Integrate about a local origin to avoid cancellation from a
+// large coordinate offset, and compensate the sum across segment boundaries.
 const faceSignedArea = memoizeWeak((face) => {
-    const polygon = faceToPolygon(face);
-    let total = 0;
-    for (let i = 0; i < polygon.length; i++) {
-        const a = polygon[i];
-        const b = polygon[(i + 1) % polygon.length];
-        total += a[0] * b[1] - b[0] * a[1];
-    }
-    return total / 2;
+    const origin = getStartPoint(face.incidentEdges[0].segments[0]);
+    let total = 0, correction = 0;
+    for (const edge of face.incidentEdges)
+        for (const seg of edge.segments) {
+            const term = segmentArea(seg, origin) * (edge.directionFlag ? -1 : 1);
+            const adjusted = term - correction, next = total + adjusted;
+            correction = next - total - adjusted;
+            total = next;
+        }
+    return total;
 });
 const computeWinding = memoizeWeak((face) => {
     const polygon = faceToPolygon(face);
@@ -3114,6 +3491,18 @@ function computeDual({ edges, cycles }) {
             }
         };
         visit(vertex);
+        if (DEV_ASSERTS) {
+            // A connected planar arrangement has V - E + F = 2, including
+            // its outer face. A wrong rotation at a tangency can keep one
+            // positive-area face while joining unrelated regions together.
+            const primalVertices = new Set();
+            for (const edge of componentEdges) {
+                const first = edge.segments[0];
+                primalVertices.add(edge.directionFlag
+                    ? getEndPoint(first)
+                    : getStartPoint(first));
+            }
+        }
         const outerFace = componentVertices.find(isOuterFace);
         components.push({
             vertices: componentVertices,
@@ -3130,48 +3519,35 @@ function boundingBoxIntersectsHorizontalRay(boundingBox, point) {
 function pathSegmentHorizontalRayIntersectionCount(origSeg, point, eps, totalBoundingBox = pathSegmentBoundingBox(origSeg)) {
     if (!boundingBoxIntersectsHorizontalRay(totalBoundingBox, point))
         return 0;
-    let segments = [
-        { boundingBox: totalBoundingBox, seg: origSeg },
+    const param = parameterTolerance(origSeg, eps);
+    const segments = [
+        { boundingBox: totalBoundingBox, seg: origSeg, lo: 0, hi: 1 },
     ];
     let count = 0;
-    let iterations = 0;
-    while (segments.length > 0) {
-        if (iterations++ > MAX_SUBDIVISION_ITERS ||
-            segments.length > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
-            for (const { seg } of segments) {
-                if (lineSegmentIntersectsHorizontalRay(getStartPoint(seg), getEndPoint(seg), point)) {
-                    count++;
-                }
-            }
-            break;
+    while (segments.length) {
+        const { boundingBox, seg, lo, hi } = segments.pop();
+        if (isNearlyLinearSegment(seg) ||
+            boundingBoxMaxExtent(boundingBox) < eps.linear ||
+            hi - lo <= param) {
+            if (lineSegmentIntersectsHorizontalRay(getStartPoint(seg), getEndPoint(seg), point))
+                count++;
+            continue;
         }
-        const nextSegments = [];
-        for (const { boundingBox, seg } of segments) {
-            if (isNearlyLinearSegment(seg) ||
-                boundingBoxMaxExtent(boundingBox) < eps.linear) {
-                if (lineSegmentIntersectsHorizontalRay(getStartPoint(seg), getEndPoint(seg), point)) {
-                    count++;
-                }
-            }
-            else {
-                const split = splitSegmentAt(seg, 0.5);
-                const boundingBox0 = pathSegmentBoundingBox(split[0]);
-                if (boundingBoxIntersectsHorizontalRay(boundingBox0, point)) {
-                    nextSegments.push({
-                        boundingBox: boundingBox0,
-                        seg: split[0],
-                    });
-                }
-                const boundingBox1 = pathSegmentBoundingBox(split[1]);
-                if (boundingBoxIntersectsHorizontalRay(boundingBox1, point)) {
-                    nextSegments.push({
-                        boundingBox: boundingBox1,
-                        seg: split[1],
-                    });
-                }
+        const mid = (lo + hi) / 2;
+        if (!(lo < mid && mid < hi))
+            throw new Error("Ray subdivision cannot advance its parameter interval");
+        const split = splitSegmentAt(seg, 0.5);
+        for (let i = 0; i < 2; i++) {
+            const box = pathSegmentBoundingBox(split[i]);
+            if (boundingBoxIntersectsHorizontalRay(box, point)) {
+                segments.push({
+                    boundingBox: box,
+                    seg: split[i],
+                    lo: i ? mid : lo,
+                    hi: i ? hi : mid,
+                });
             }
         }
-        segments = nextSegments;
     }
     return count;
 }
@@ -3270,6 +3646,15 @@ function computeNestingTree(components, eps) {
             if (!boundingBoxContainsPoint(candidate.boundingBox, point, eps)) {
                 continue;
             }
+            // One interior sample can lie inside a smaller component (for
+            // example inside a hole). A parent must enclose the child's whole
+            // bounds, not merely that sample, or nesting can become cyclic.
+            const a = candidate.boundingBox, b = entry.boundingBox;
+            if (a.left > b.left + eps.point ||
+                a.right < b.right - eps.point ||
+                a.top > b.top + eps.point ||
+                a.bottom < b.bottom - eps.point)
+                continue;
             const face = findContainingFace(candidate.component, point, eps);
             if (!face)
                 continue;
@@ -3478,13 +3863,20 @@ const operationPredicates = {
     [PathBooleanOperation.Division]: (flags) => flags[0],
     [PathBooleanOperation.Fracture]: (flags) => flags.some(Boolean),
 };
+function translateSegment(seg, dx, dy) {
+    return seg.map((value) => Array.isArray(value) ? [value[0] + dx, value[1] + dy] : value);
+}
 /*
  Runs the boolean-operation pipeline up to and including face flagging for a set
  of N input paths in the constructor, then selects faces per operation in `get`.
  The expensive geometric work happens once; multiple `get` calls reuse it.
 */
 class PathBoolean {
+    restore(path) {
+        return path.map((seg) => translateSegment(seg, this.origin[0], this.origin[1]));
+    }
     constructor(inputs) {
+        this.origin = [0, 0];
         const pathCount = inputs.length;
         const unsplitEdges = inputs.flatMap(({ path }, i) => path.map(segmentToEdge(pathCount, i)));
         /*
@@ -3495,6 +3887,19 @@ class PathBoolean {
         let inputBoundingBox = null;
         for (const { seg } of unsplitEdges) {
             inputBoundingBox = mergeBoundingBoxes(inputBoundingBox, pathSegmentBoundingBox(seg));
+        }
+        // Keep arithmetic near the drawing. Choose the point of the bounding
+        // box nearest the origin: an axis already spanning zero stays put.
+        // This avoids subtracting large almost-equal area and curve terms for
+        // tiny drawings located far away, without moving near-zero detail far.
+        if (inputBoundingBox) {
+            const nearest = (lo, hi) => lo > 0 ? lo : hi < 0 ? hi : 0;
+            this.origin = [
+                nearest(inputBoundingBox.left, inputBoundingBox.right),
+                nearest(inputBoundingBox.top, inputBoundingBox.bottom),
+            ];
+            for (const edge of unsplitEdges)
+                edge.seg = translateSegment(edge.seg, -this.origin[0], -this.origin[1]);
         }
         const eps = epsilonsForExtent(inputBoundingBox ? boundingBoxMaxExtent(inputBoundingBox) : 0);
         /*
@@ -3509,14 +3914,17 @@ class PathBoolean {
         for (const edge of unsplitEdges) {
             edge.seg = lineariseDegenerateSegment(edge.seg, eps.point);
         }
-        splitAtSelfIntersections(unsplitEdges);
+        const inputPoints = unsplitEdges.flatMap(({ seg }) => [
+            getEndPoint(seg),
+        ]);
+        splitAtSelfIntersections(unsplitEdges, eps);
         const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(unsplitEdges, eps);
         if (!totalBoundingBox) {
             // input geometry is empty
             this.nestingTrees = [];
             return;
         }
-        const majorGraph = findVertices(splitEdges, totalBoundingBox, eps);
+        const majorGraph = findVertices(splitEdges, totalBoundingBox, eps, inputPoints);
         // console.log(majorGraphToDot(majorGraph));
         const minorGraph = computeMinor(majorGraph);
         // console.log(minorGraphToDot(minorGraph.edges));
@@ -3536,10 +3944,10 @@ class PathBoolean {
         switch (op) {
             case PathBooleanOperation.Division:
             case PathBooleanOperation.Fracture:
-                return dumpFaces(this.nestingTrees, predicate);
+                return dumpFaces(this.nestingTrees, predicate).map((path) => this.restore(path));
             default: {
                 const selectedFaces = new Set(getSelectedFaces(this.nestingTrees, predicate));
-                return [[...walkFaces(selectedFaces)]];
+                return [this.restore([...walkFaces(selectedFaces)])];
             }
         }
     }
@@ -3568,10 +3976,17 @@ class PathBoolean {
                 selected.add(face);
         }
         addNestedOuterFaces(this.nestingTrees, selected);
-        return [...walkFaces(selected)];
+        return this.restore([...walkFaces(selected)]);
     }
     getRegions() {
-        return (this.regions ?? (this.regions = enumerateFaces(this.nestingTrees, (face) => face.flags.some(Boolean))));
+        if (!this.regions) {
+            const regions = enumerateFaces(this.nestingTrees, (face) => face.flags.some(Boolean));
+            this.regions = {
+                faces: regions.faces,
+                paths: regions.paths.map((path) => this.restore(path)),
+            };
+        }
+        return this.regions;
     }
 }
 
@@ -3710,6 +4125,7 @@ function* pathFromCommands(commands) {
     let firstPoint = null;
     let lastPoint = null;
     let lastControlPoint = null;
+    let previousCommand = "";
     function badSequence() {
         throw new Error("Bad SVG path data sequence.");
     }
@@ -3736,12 +4152,12 @@ function* pathFromCommands(commands) {
             case "S":
                 if (!lastPoint)
                     badSequence();
-                if (!lastControlPoint)
-                    badSequence(); // TODO: really?
                 yield [
                     "C",
                     lastPoint,
-                    reflectControlPoint(lastPoint, lastControlPoint),
+                    previousCommand === "C" || previousCommand === "S"
+                        ? reflectControlPoint(lastPoint, lastControlPoint)
+                        : lastPoint,
                     cmd[1],
                     cmd[2],
                 ];
@@ -3758,9 +4174,10 @@ function* pathFromCommands(commands) {
             case "T":
                 if (!lastPoint)
                     badSequence();
-                if (!lastControlPoint)
-                    badSequence(); // TODO: really?
-                lastControlPoint = reflectControlPoint(lastPoint, lastControlPoint);
+                lastControlPoint =
+                    previousCommand === "Q" || previousCommand === "T"
+                        ? reflectControlPoint(lastPoint, lastControlPoint)
+                        : lastPoint;
                 yield ["Q", lastPoint, lastControlPoint, cmd[1]];
                 lastPoint = cmd[1];
                 break;
@@ -3791,6 +4208,7 @@ function* pathFromCommands(commands) {
                 lastControlPoint = null;
                 break;
         }
+        previousCommand = cmd[0];
     }
 }
 function* pathToCommands(segments, eps = 1e-4) {
