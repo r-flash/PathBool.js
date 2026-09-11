@@ -5,9 +5,14 @@
  */
 import { describe, expect, test } from "@jest/globals";
 
+import {
+    issue3CubicAndRetracedLine,
+    issue3RetracedTriangle,
+} from "../__fixtures__/reported-issues/issue-3";
 import * as PathBool from "../index";
 import { Path } from "../primitives/Path";
 import { reversePathSegment } from "../primitives/PathSegment";
+import { createOracle } from "./support/tier0-oracle";
 
 // Local two-path convenience wrapper around the variadic PathBoolean class.
 function pathBoolean(
@@ -48,6 +53,57 @@ function canonicalizePath(path: Path): string {
 function serializePaths(paths: Path[]): string {
     return paths.map(canonicalizePath).sort().join("|");
 }
+
+describe("issue #3 exclusion regressions", () => {
+    const structural = createOracle(PathBool);
+    const variants = [
+        PathBool.FillRule.NonZero,
+        PathBool.FillRule.EvenOdd,
+    ].flatMap((fillRule) =>
+        [false, true].map((swapped) => ({ fillRule, swapped })),
+    );
+
+    function exclude(
+        a: Path,
+        b: Path,
+        fillRule: PathBool.FillRule,
+        swapped: boolean,
+    ) {
+        return pathBoolean(
+            swapped ? b : a,
+            fillRule,
+            swapped ? a : b,
+            fillRule,
+            PathBool.PathBooleanOperation.Exclusion,
+        );
+    }
+
+    // Known defect: computeMinor stores one direction for a cycle containing
+    // both forward and backward half-edges (artwork-corpus.html#minor).
+    // This executes the correctness check and reports an unexpected pass when
+    // the bug is fixed; then remove `.failing`.
+    test.failing.each(variants)(
+        "retraced triangle stays closed (fill rule $fillRule, swapped $swapped)",
+        ({ fillRule, swapped }) => {
+            const { a, b } = issue3RetracedTriangle;
+            const result = exclude(a, b, fillRule, swapped);
+            expect(structural.checkLoopsClose(result, 1e-6)).toBeNull();
+            // The first two edges cancel; the remaining four bound a triangle.
+            // B retraces a separate line and contributes no filled region.
+            expect(serializePaths(result)).toBe(serializePaths([a.slice(2)]));
+        },
+    );
+
+    test.each(variants)(
+        "cubic path survives exclusion of a retraced line (fill rule $fillRule, swapped $swapped)",
+        ({ fillRule, swapped }) => {
+            const { a, b } = issue3CubicAndRetracedLine;
+            const result = exclude(a, b, fillRule, swapped);
+            expect(structural.checkLoopsClose(result, 1e-6)).toBeNull();
+            expect(serializePaths(result)).toBe(serializePaths([a]));
+        },
+    );
+});
 
 describe("robustness properties", () => {
     test.each([PathBool.FillRule.NonZero, PathBool.FillRule.EvenOdd])(
