@@ -17,6 +17,7 @@ import {
     Epsilons,
     epsilonsForExtent,
 } from "./config";
+import { parameterTolerance } from "./intersections/parameter-tolerance";
 import { pathCubicSegmentSelfIntersection } from "./intersections/path-cubic-segment-self-intersection";
 import {
     pathSegmentIntersection,
@@ -311,10 +312,11 @@ function splitAtSelfIntersections(
         const intersection = pathCubicSegmentSelfIntersection(edge.seg);
         if (!intersection) continue;
         let segment = edge.seg;
+        const param = parameterTolerance(segment, eps);
         let previous = 0;
         const children: MajorGraphEdgeStage1[] = [];
         for (const t of intersection) {
-            if (t <= previous + eps.param || t >= 1 - eps.param) continue;
+            if (t <= previous + param || t >= 1 - param) continue;
             const [first, rest] = splitCubicSegmentAt(
                 segment,
                 (t - previous) / (1 - previous),
@@ -402,15 +404,15 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
         // sort after "0.9" and the segment would be cut in the wrong order.
         splits.sort((a, b) => a - b);
         let tmpSeg = edge.seg;
+        const param = parameterTolerance(edge.seg, eps);
         let prevT = 0;
         for (let j = 0; j < splits.length; j++) {
             const t = splits[j];
 
-            if (t > 1 - eps.param) break; // skip splits near end
-
+            if (t >= 1 - param) break;
+            if (t <= prevT + param) continue;
             const tt = (t - prevT) / (1 - prevT);
-            if (tt < eps.param) continue; // skip splits near start
-            if (tt > 1 - eps.param) continue; // skip splits near end
+            if (tt <= 0 || tt >= 1) continue;
 
             prevT = t;
             const [seg1, seg2] = splitSegmentAt(tmpSeg, tt);
@@ -1400,6 +1402,7 @@ function pathSegmentHorizontalRayIntersectionCount(
         hi: number;
     };
     if (!boundingBoxIntersectsHorizontalRay(totalBoundingBox, point)) return 0;
+    const param = parameterTolerance(origSeg, eps);
     const segments: IntersectionSegment[] = [
         { boundingBox: totalBoundingBox, seg: origSeg, lo: 0, hi: 1 },
     ];
@@ -1409,7 +1412,7 @@ function pathSegmentHorizontalRayIntersectionCount(
         if (
             isNearlyLinearSegment(seg) ||
             boundingBoxMaxExtent(boundingBox) < eps.linear ||
-            hi - lo <= eps.param
+            hi - lo <= param
         ) {
             if (
                 lineSegmentIntersectsHorizontalRay(

@@ -29,6 +29,7 @@ import { circularArcIntersection } from "./circular-arcs";
 import { lineBezierIntersection } from "./line-bezier";
 import { lineSegmentIntersection, lineSegmentsIntersect } from "./line-segment";
 import { lineSegmentAABBIntersect } from "./line-segment-AABB";
+import { parameterTolerance } from "./parameter-tolerance";
 
 type IntersectionSegment = {
     seg: PathSegment;
@@ -745,6 +746,10 @@ export function pathSegmentIntersection(
     b: PathSegment,
     eps: Epsilons,
 ): [number, number][] {
+    eps = {
+        ...eps,
+        param: Math.min(parameterTolerance(a, eps), parameterTolerance(b, eps)),
+    };
     // Give each unordered pair the same numerical solve regardless of which
     // operand the broad-phase traversal encounters first. This does not decide
     // correctness: the resulting arrangement still faces independent coverage
