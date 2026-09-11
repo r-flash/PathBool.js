@@ -57,8 +57,10 @@ export function createOracle(PathBool: PathBoolModule) {
         alpha: Uint8Array;
     };
 
+    let renderedPixels = 0;
     function renderMask(svgCode: string): Mask {
         const rendered = new Resvg(svgCode).render();
+        renderedPixels += rendered.width * rendered.height;
         const pixels = rendered.pixels;
         const alpha = new Uint8Array(rendered.width * rendered.height);
         for (let i = 0; i < alpha.length; i++) {
@@ -440,11 +442,11 @@ export function createOracle(PathBool: PathBoolModule) {
     let cachedDir: string | undefined;
     let arrangement: InstanceType<PathBoolModule["PathBoolean"]> | undefined;
 
-    function evaluate(
+    async function evaluate(
         dir: string,
         opName: OpName,
         renderScale = 1,
-    ): string | null {
+    ): Promise<string | null> {
         let { code, inputs } = readFixture(dir);
         if (renderScale !== 1) {
             const $ = cheerio.load(code, { xml: true }),
@@ -509,6 +511,18 @@ export function createOracle(PathBool: PathBoolModule) {
                 const faceMask = renderMask(withPaths(code, [face]));
                 for (let i = 0; i < sum.length; i++)
                     sum[i] += faceMask.alpha[i];
+                if (renderedPixels >= MAX_RASTER_PIXELS) {
+                    // N-API releases completed native canvases between event
+                    // loop turns. GC alone inside this synchronous partition
+                    // loop queues finalizers without giving them time to run.
+                    // Bound retained render work without dropping any faces.
+                    const collect = (
+                        globalThis as typeof globalThis & { gc?: () => void }
+                    ).gc;
+                    collect?.();
+                    await new Promise<void>((resolve) => setImmediate(resolve));
+                    renderedPixels = 0;
+                }
             }
 
             expectedAlpha =

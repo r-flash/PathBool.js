@@ -5,19 +5,23 @@ import { createOracle as raster } from "./raster-oracle";
 import { createOracle as structural } from "./structural-oracle";
 
 let previous: string | null = null;
+let previousTier: string | null = null;
 let structure: ReturnType<typeof structural>;
 let pixels: ReturnType<typeof raster>;
 let areas: ReturnType<typeof algebraic>;
 
 process.on(
     "message",
-    ({ dir, tier, key }: { dir: string; tier: string; key: any }) => {
+    async ({ dir, tier, key }: { dir: string; tier: string; key: any }) => {
         try {
-            if (dir !== previous) {
+            // A completed oracle must not keep entire arrangements alive while
+            // another oracle renders partitions of the same large input.
+            if (dir !== previous || tier !== previousTier) {
                 structure = structural(library);
                 pixels = raster(library);
                 areas = algebraic(library);
                 previous = dir;
+                previousTier = tier;
             }
             if (tier === "catalog") {
                 process.send!({
@@ -39,7 +43,8 @@ process.on(
             if (tier === "structural") failure = structure.evaluate(dir, key);
             else if (tier === "equivalence")
                 failure = pixels.compareWithClean(dir, key);
-            else if (tier === "raster") failure = pixels.evaluate(dir, key);
+            else if (tier === "raster")
+                failure = await pixels.evaluate(dir, key);
             else if (tier === "algebraic") {
                 const data = areas.measure(dir);
                 failure =

@@ -22,7 +22,10 @@ class EvaluatorProcess {
             if (!this.child)
                 this.child = fork(this.worker, [], {
                     stdio: ["ignore", "ignore", "pipe", "ipc"],
-                    execArgv: [],
+                    // resvg owns native allocations whose lifetime can exceed a
+                    // mask calculation. Untimed workers collect completed
+                    // render batches before those allocations exhaust RAM.
+                    execArgv: this.timeout === 0 ? ["--expose-gc"] : [],
                     env: {
                         ...process.env,
                         PATH_BOOL_UNTIMED: this.timeout === 0 ? "1" : "0",
@@ -57,13 +60,16 @@ class EvaluatorProcess {
                 this.close();
                 finish({ failure: error.message, kind: "worker" });
             };
-            const timer = this.timeout === 0 ? undefined : setTimeout(() => {
-                finish({
-                    failure: `timeout: exceeded ${this.timeout}ms`,
-                    kind: "timeout",
-                });
-                this.close();
-            }, this.timeout);
+            const timer =
+                this.timeout === 0
+                    ? undefined
+                    : setTimeout(() => {
+                          finish({
+                              failure: `timeout: exceeded ${this.timeout}ms`,
+                              kind: "timeout",
+                          });
+                          this.close();
+                      }, this.timeout);
             child.on("message", message);
             child.once("exit", exited);
             child.once("error", errored);

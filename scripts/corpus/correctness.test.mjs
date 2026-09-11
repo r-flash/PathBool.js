@@ -30,6 +30,10 @@ test("correctness runs snapshot helpers and reject stale resume results", () => 
         });
     try {
         put("scripts/run-correctness.mjs", readFileSync(runner));
+        put(
+            "scripts/corpus/process.cjs",
+            readFileSync(new URL("./process.cjs", import.meta.url)),
+        );
         put("scripts/corpus/geometry.cjs", "exports.marker = 'original';");
         put("src/__fixtures__/generated/category/case/original.svg", "<svg/>");
         const worker = `import geometry from "../../../scripts/corpus/geometry.cjs";

@@ -50,6 +50,7 @@ const digest = createHash("sha256");
 for (const file of [
     "scripts/corpus/geometry.cjs",
     "scripts/run-correctness.mjs",
+    "scripts/corpus/process.cjs",
     ".cache/path-bool/build/development.mjs",
     ".cache/path-bool/build/production.mjs",
     ...dirs.flatMap((dir) =>
@@ -146,6 +147,9 @@ try {
                     if (result.failure) failures++;
                 }
             }
+            // An idle build retains its arrangements and native allocations.
+            // Only one build is needed at a time; release it before the next.
+            workers[mode].close();
         }
         console.log(`${caseId}: ${failures} cumulative failures`);
     }
