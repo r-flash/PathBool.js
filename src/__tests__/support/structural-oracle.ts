@@ -223,6 +223,22 @@ export function createOracle(PathBool: PathBoolModule) {
  caught and reported the same way so that they can be triaged through
  `expected-failures.json` like any other failure.
 */
+    let cachedDir: string | undefined;
+    let arrangements: InstanceType<PathBoolModule["PathBoolean"]>[] = [];
+    function arrangement(
+        dir: string,
+        inputs: ConstructorParameters<PathBoolModule["PathBoolean"]>[0],
+        repeat: number,
+    ) {
+        if (process.env.PATH_BOOL_UNTIMED !== "1")
+            return new PathBool.PathBoolean(inputs);
+        if (dir !== cachedDir) {
+            cachedDir = dir;
+            arrangements = [];
+        }
+        return (arrangements[repeat] ??= new PathBool.PathBoolean(inputs));
+    }
+
     function evaluate(dir: string, opName: OpName): string | null {
         const op = ops[opName];
         const inputs = readFixture(dir).inputs.map((input) => ({
@@ -234,7 +250,7 @@ export function createOracle(PathBool: PathBoolModule) {
         let elapsed: number;
         try {
             const started = performance.now();
-            result = new PathBool.PathBoolean(inputs).get(op);
+            result = arrangement(dir, inputs, 0).get(op);
             elapsed = performance.now() - started;
         } catch (e) {
             const err = e as Error;
@@ -244,7 +260,10 @@ export function createOracle(PathBool: PathBoolModule) {
         if (!Array.isArray(result))
             return `returned ${typeof result}, not an array`;
 
-        if (process.env.PATH_BOOL_UNTIMED !== "1" && elapsed > DURATION_BUDGET_MS) {
+        if (
+            process.env.PATH_BOOL_UNTIMED !== "1" &&
+            elapsed > DURATION_BUDGET_MS
+        ) {
             // Skip the determinism re-run: it would double an already pathological
             // cost for no extra information.
             return `took ${(elapsed / 1000).toFixed(1)}s, over the ${
@@ -254,7 +273,7 @@ export function createOracle(PathBool: PathBoolModule) {
 
         let second: Path[];
         try {
-            second = new PathBool.PathBoolean(inputs).get(op);
+            second = arrangement(dir, inputs, 1).get(op);
         } catch (e) {
             const err = e as Error;
             return `threw ${err.name} on the second run but not the first: ${err.message}`;
