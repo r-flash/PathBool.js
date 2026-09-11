@@ -34,10 +34,12 @@ test.each([1e8, 1e9, 1e10])(
 );
 
 test("the retained mixed-scale fuzz input forms a planar arrangement", () => {
-    const strings = readFileSync(
-        "src/__fixtures__/regressions/mixed-scale-arc-and-line.txt",
-        "utf8",
-    ).split("\n");
+    const strings: string[] = JSON.parse(
+        readFileSync(
+            "src/__fixtures__/regressions/mixed-scale-arc-and-line.json",
+            "utf8",
+        ),
+    );
     const b = new PathBoolean(
         strings.map((d) => ({
             path: pathFromPathData(d),

@@ -9,7 +9,7 @@ Hand-maintained reductions; do not regenerate from the corpus generator.
   cubics share leading control points and separate at a later coefficient.
   Sampling close to the endpoint rounds away that distinction.
 
-- `mixed-scale-arc-and-line.txt`: an existing fuzz seed with a valid, distant
+- `mixed-scale-arc-and-line.json`: an existing fuzz seed with a valid, distant
   arc endpoint. Its closing line crosses a small shape near its own endpoint;
   a fixed parameter cutoff discarded a crossing a full unit away. Preserve
   the raw strings, including the fill-rule parity used by the fuzz target.
