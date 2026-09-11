@@ -226,7 +226,7 @@ function assertDualGraphInvariants(components: DualGraphComponent[]) {
     }
 }
 
-function firstElementOfSet<T>(set: Set<T>): T {
+function firstElementOfSet<T>(set: Set<T>): T | undefined {
     return set.values().next().value;
 }
 
@@ -469,7 +469,7 @@ function findVertices(
         const box = boundingBoxAroundPoint(point, eps.point);
         const existingVertices = vertexTree.find(box);
         if (existingVertices.size) {
-            return firstElementOfSet(existingVertices);
+            return firstElementOfSet(existingVertices)!;
         } else {
             const vertex: MajorGraphVertex = {
                 point,
