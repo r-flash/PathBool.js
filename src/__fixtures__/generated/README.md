@@ -14,15 +14,21 @@ relative placement that stresses one specific part of the pipeline — so a
 failure reports as `touching/01-tangent-external union` rather than as a hash.
 `manifest.json` records the axes for each case.
 
-Everything under the category directories is generated. **Do not edit by
-hand**; change `scripts/generate-corpus.mjs` and run:
+Category directories and `manifest.json` are generated and ignored by Git. Only
+the generator sources, this README and reviewed `expected-failures*.json` lists
+are tracked. **Do not edit fixtures by hand**; change `scripts/generate-corpus.mjs`
+or `scripts/corpus/malformed.mjs` and run:
 
 ```shell
 npm run gen-corpus
 ```
 
-Regenerating clears the category directories but leaves the files at this
-level (`README.md`, `expected-failures.json`) alone.
+A fresh checkout needs no downloads: `npm test` generates all 424 cases before
+building the test workers. Before running Jest directly or benchmarking these
+fixtures, run `npm run gen-corpus` yourself. Generation clears category directories
+and replaces the generated manifest, preserving the README and expected-failure
+lists. The same generator version produces identical bytes; no library boolean
+output is used as ground truth.
 
 ## Categories
 

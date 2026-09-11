@@ -55,7 +55,7 @@
         "gen-corpus": "node ./scripts/generate-corpus.mjs",
         "pretty": "prettier --write ./src",
         "fuzz": "npm run build-fuzz && jsfuzz --only-ascii=true fuzzing/target.cjs fuzzing/corpus",
-        "pretest": "node scripts/build-corpus.mjs",
+        "pretest": "npm run gen-corpus && node scripts/build-corpus.mjs",
         "scrape-paths": "node scripts/scrape-paths.mjs",
         "test:artwork-corpus": "node scripts/run-artwork-corpus.mjs",
         "test:corpus-tools": "node --test --test-isolation=none scripts/corpus/*.test.mjs"

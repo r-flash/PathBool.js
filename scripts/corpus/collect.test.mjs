@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import {
     collect,
+    cachedReader,
     commonsCandidate,
     commonsDiscovery,
     httpClient,
@@ -54,6 +55,11 @@ test("manifest replay, extension, duplicate sources and byte verification", asyn
         });
         const extended = JSON.parse(await readFile(manifestFile, "utf8"));
         assert.deepEqual(extended.sources.slice(0, 2), original.sources);
+        assert.equal(
+            downloads,
+            4,
+            "unselected cached candidates must not be downloaded again",
+        );
         const prior = downloads;
         assert.equal(
             (
@@ -154,9 +160,14 @@ test("rights filters and MediaWiki continuation", async () => {
 test("HTTP retry honors throttling, rejects oversized data and recovers interrupted streams", async () => {
     let requests = 0;
     const pauses = [];
+    let time = 0;
     const get = httpClient({
         interval: 0,
-        pause: async (ms) => pauses.push(ms),
+        now: () => time,
+        pause: async (ms) => {
+            pauses.push(ms);
+            time += ms;
+        },
         fetcher: async () =>
             ++requests === 1
                 ? new Response("busy", {
@@ -195,4 +206,115 @@ test("HTTP retry honors throttling, rejects oversized data and recovers interrup
         (await interrupted("https://example.test")).toString(),
         "complete",
     );
+});
+
+test("HTTP queue serializes calls and respects long/date Retry-After and maxlag", async () => {
+    let time = Date.UTC(2026, 0, 1),
+        active = 0;
+    const starts = [];
+    const responses = [
+        new Response("busy", {
+            status: 429,
+            headers: { "retry-after": "120" },
+        }),
+        new Response(
+            JSON.stringify({ error: { code: "maxlag", info: "busy" } }),
+            {
+                headers: {
+                    "retry-after": new Date(time + 180000).toUTCString(),
+                },
+            },
+        ),
+        new Response("one"),
+        new Response("two"),
+    ];
+    const get = httpClient({
+        now: () => time,
+        pause: async (ms) => {
+            time += ms;
+        },
+        fetcher: async () => {
+            assert.equal(active++, 0);
+            starts.push(time);
+            await Promise.resolve();
+            active--;
+            return responses.shift();
+        },
+    });
+    const results = await Promise.all([
+        get("https://commons.wikimedia.org/w/api.php"),
+        get("https://commons.wikimedia.org/w/api.php"),
+    ]);
+    assert.deepEqual(results.map(String), ["one", "two"]);
+    assert.deepEqual(
+        starts.map((n) => n - starts[0]),
+        [0, 120000, 180000, 182000],
+    );
+});
+
+test("HTTP backoff is bounded and trips a circuit; permanent errors are not retried", async () => {
+    let time = 0,
+        requests = 0;
+    const starts = [];
+    const get = httpClient({
+        now: () => time,
+        pause: async (ms) => {
+            time += ms;
+        },
+        random: () => 0,
+        fetcher: async () => {
+            requests++;
+            starts.push(time);
+            return new Response("busy", {
+                status: 503,
+                headers: { "retry-after": "invalid" },
+            });
+        },
+    });
+    await assert.rejects(get("https://example.test"), /circuit stopped/);
+    await assert.rejects(get("https://example.test/next"), /circuit stopped/);
+    assert.equal(requests, 4);
+    assert.deepEqual(starts, [0, 5000, 15000, 35000]);
+    requests = 0;
+    const unauthorized = httpClient({
+        pause: async () => {},
+        fetcher: async () => {
+            requests++;
+            return new Response("unauthorized", { status: 401 });
+        },
+    });
+    await assert.rejects(unauthorized("https://example.test"), /HTTP 401/);
+    await assert.rejects(unauthorized("https://example.test/next"), /HTTP 401/);
+    assert.equal(requests, 1);
+});
+
+test("disk cache avoids repeated discovery/download requests and invalidates revisions", async () => {
+    const temp = await mkdtemp(path.join(os.tmpdir(), "path-bool-http-cache-"));
+    let requests = 0,
+        time = 0;
+    const get = async () => Buffer.from(String(++requests));
+    try {
+        const reader = () =>
+            cachedReader(get, temp, { ttl: 100, now: () => time });
+        assert.equal(
+            String(await reader()("https://example.test", "rev1")),
+            "1",
+        );
+        assert.equal(
+            String(await reader()("https://example.test", "rev1")),
+            "1",
+        );
+        time = 100;
+        assert.equal(
+            String(await reader()("https://example.test", "rev1")),
+            "2",
+        );
+        assert.equal(
+            String(await reader()("https://example.test", "rev2")),
+            "3",
+        );
+        assert.equal(requests, 3);
+    } finally {
+        await rm(temp, { recursive: true, force: true });
+    }
 });

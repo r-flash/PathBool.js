@@ -13,8 +13,8 @@
  each fill rule, numeric conditioning). A failure reports as
  `touching/03-vertex-on-vertex intersection`, not as a hash.
 
- The output is committed so the corpus is stable across machines and diffs are
- reviewable. Re-run with `npm run gen-corpus` after editing this file.
+ The deterministic generator is committed; its output is ignored by Git.
+ `npm test` regenerates it, or run `npm run gen-corpus` after editing this file.
 
  Placement and conditioning transforms are restricted to similarities (uniform
  scale + rotation + translation) because those map arcs to arcs: `rx`/`ry` scale

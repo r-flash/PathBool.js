@@ -37,3 +37,16 @@ npm run test:artwork-corpus -- --cases commons-115096348/00,commons-12051116/00,
 ```
 
 See [README.md](README.md) for collection, replay, extraction boundaries, source rights and report formats.
+
+## Reproduction and subsequent tooling changes
+
+The 424 synthetic fixtures and their generated manifest are now ignored by Git;
+`npm test` recreates them offline before testing. Generator sources and reviewed
+expected failures remain tracked. Artwork source provenance stays in the tracked
+manifest, with downloaded and extracted artwork in the ignored cache.
+
+The collector now spaces serial requests by two seconds, caches discovery and
+candidate downloads, honors full server-requested retry delays, and stops network
+activity after repeated transient failures. See [request behavior](README.md#request-behavior)
+and the [Openclipart authentication instructions](OPENCLIPART.md). These changes
+do not alter the pilot's source selection or historical validation counts above.

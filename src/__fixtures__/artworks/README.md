@@ -114,3 +114,31 @@ evaluations are reported as excluded because the low-level API does not establis
 SVG's implicit fill closure. No closing segment is silently inserted. The raster
 oracle cannot resolve arbitrarily thin features; algebraic comparisons complement
 it, and coverage reports distinguish excluded evaluations from passes.
+
+## Request behavior
+
+Run one collector process at a time. Its HTTP client serializes requests and body
+reads, with at least **two seconds between request starts**, including retries.
+Commons searches batch metadata for 50 results, use `maxlag=5`, and identify the
+project in the User-Agent. This follows the [MediaWiki API etiquette](https://www.mediawiki.org/wiki/API:Etiquette)
+guidance on serial requests, batching, caching and server load.
+
+Search responses are cached for 24 hours under `discovery/`; candidate downloads
+are cached under `downloads/`, keyed by URL and recorded upload revision/hash.
+Extending a collection reuses these snapshots, including unselected candidates.
+Accepted sources use the SHA-256 raw cache for offline replay. Cached bytes are
+verified before reuse. To explicitly refresh search results, remove only
+`.cache/path-bool/artworks/discovery/`; keep the raw and download caches.
+
+HTTP 429/5xx, interrupted downloads, and Commons `maxlag`/`ratelimited` JSON errors
+(including HTTP 200) get at most four attempts. Valid `Retry-After` seconds or HTTP
+dates are honored in full, without a 60-second cap. Otherwise retries use
+exponential backoff starting at five seconds, plus jitter. Exhausting retries
+stops further network requests for that run; resume later after checking the
+report. HTTP 401/403 also stop further network requests immediately. Other HTTP
+4xx responses are not retried. Each attempt has a 30-second
+transport timeout and an 8 MiB download limit. Tests use mocked transport and
+clocks; routine validation does not scrape the APIs.
+
+For the future second source, see [Openclipart authentication](OPENCLIPART.md)
+for account login, one-time app creation, token renewal and the exact headers.

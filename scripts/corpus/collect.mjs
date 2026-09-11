@@ -40,18 +40,30 @@ export async function atomicJson(file, value) {
     await rename(temp, file);
 }
 
-/** A byte-limited, retrying HTTP reader; injected transport/clock enable offline tests. */
+/** Serial HTTP requests, including retries and body reads. No retry can bypass pacing. */
 export function httpClient({
     fetcher = fetch,
     pause = (ms) => new Promise((r) => setTimeout(r, ms)),
-    interval = 500,
+    now = Date.now,
+    random = Math.random,
+    interval = 2000,
     maxBytes = 8 * 1024 * 1024,
 } = {}) {
-    let previous = 0;
-    return async function get(url, headers = {}) {
+    let next = 0,
+        queue = Promise.resolve(),
+        halted;
+    async function request(url, headers) {
+        if (halted) throw halted;
         for (let attempt = 0; attempt < 4; attempt++) {
-            await pause(Math.max(0, previous + interval - Date.now()));
-            previous = Date.now();
+            // Chunk long server delays so Node's timer range cannot shorten them.
+            let wait = Math.max(0, next - now());
+            while (wait > 60000) {
+                await pause(60000);
+                wait -= 60000;
+            }
+            await pause(wait);
+            next = now() + interval;
+            let retryAfter, failure;
             try {
                 const response = await fetcher(url, {
                     headers: {
@@ -61,43 +73,113 @@ export function httpClient({
                     },
                     signal: AbortSignal.timeout(30000),
                 });
-                if (response.status === 429 || response.status >= 500) {
-                    if (attempt === 3)
-                        throw new Error(`HTTP ${response.status}: ${url}`);
-                    const retry = response.headers.get("retry-after");
-                    const delay = retry
-                        ? /^\d+$/.test(retry)
-                            ? Number(retry) * 1000
-                            : Date.parse(retry) - Date.now()
-                        : 1000 * 2 ** attempt;
+                retryAfter = response.headers.get("retry-after");
+                if (!response.ok) {
                     await response.body?.cancel();
-                    await pause(Math.max(0, Math.min(delay, 60000)));
-                    continue;
+                    const error = new Error(`HTTP ${response.status}: ${url}`);
+                    error.permanent =
+                        response.status !== 429 && response.status < 500;
+                    if (response.status === 401 || response.status === 403) {
+                        halted = Object.assign(error, { code: "HTTP_CIRCUIT" });
+                    }
+                    throw error;
                 }
-                if (!response.ok)
-                    throw new Error(`HTTP ${response.status}: ${url}`);
                 if (Number(response.headers.get("content-length")) > maxBytes) {
                     await response.body?.cancel();
-                    throw new Error(`Download exceeds ${maxBytes} bytes`);
+                    throw Object.assign(
+                        new Error(`Download exceeds ${maxBytes} bytes`),
+                        { permanent: true },
+                    );
                 }
                 const chunks = [];
                 let size = 0;
                 for await (const chunk of response.body) {
                     size += chunk.length;
                     if (size > maxBytes)
-                        throw new Error(`Download exceeds ${maxBytes} bytes`);
+                        throw Object.assign(
+                            new Error(`Download exceeds ${maxBytes} bytes`),
+                            { permanent: true },
+                        );
                     chunks.push(chunk);
                 }
-                return Buffer.concat(chunks);
+                const bytes = Buffer.concat(chunks);
+                // MediaWiki can return load-shedding errors with HTTP 200.
+                if (new URL(url).hostname === "commons.wikimedia.org") {
+                    let data;
+                    try {
+                        data = JSON.parse(bytes.toString());
+                    } catch {
+                        /* Non-JSON download. */
+                    }
+                    if (data?.error) {
+                        const error = new Error(
+                            `Commons API: ${data.error.code}: ${data.error.info}`,
+                        );
+                        error.permanent = !["maxlag", "ratelimited"].includes(
+                            data.error.code,
+                        );
+                        throw error;
+                    }
+                }
+                return bytes;
             } catch (error) {
-                if (
-                    attempt === 3 ||
-                    /^HTTP (?!429|5)|Download exceeds/.test(error.message)
-                )
-                    throw error;
-                await pause(1000 * 2 ** attempt);
+                if (error.permanent) throw error;
+                failure = error;
+            }
+            // Never shorten Retry-After. Invalid/missing values use jittered backoff.
+            const delay =
+                retryAfter && /^\d+$/.test(retryAfter)
+                    ? Number(retryAfter) * 1000
+                    : Date.parse(retryAfter) - now();
+            const backoff = 5000 * 2 ** attempt + random() * 1000;
+            next = Math.max(
+                next,
+                now() + (Number.isFinite(delay) ? Math.max(0, delay) : backoff),
+            );
+            if (attempt === 3) {
+                halted = Object.assign(
+                    new Error(
+                        `HTTP circuit stopped after four attempts: ${failure.message}`,
+                    ),
+                    { code: "HTTP_CIRCUIT" },
+                );
+                throw halted;
             }
         }
+    }
+    return (url, headers = {}) => {
+        const result = queue.then(() => request(url, headers));
+        queue = result.catch(() => {});
+        return result;
+    };
+}
+
+/** Public discovery snapshots expire after a day; revision-keyed downloads do not. */
+export function cachedReader(
+    get,
+    directory,
+    { ttl = Infinity, now = Date.now } = {},
+) {
+    return async (url, revision = "") => {
+        const file = path.join(
+            directory,
+            `${hash(Buffer.from(json([url, revision])))}.json`,
+        );
+        try {
+            const saved = JSON.parse(await readFile(file, "utf8"));
+            const bytes = Buffer.from(saved.bytes, "base64");
+            if (now() - saved.savedAt < ttl && hash(bytes) === saved.sha256)
+                return bytes;
+        } catch (error) {
+            if (error.code && error.code !== "ENOENT") throw error;
+        }
+        const bytes = await get(url);
+        await atomicJson(file, {
+            savedAt: now(),
+            sha256: hash(bytes),
+            bytes: bytes.toString("base64"),
+        });
+        return bytes;
     };
 }
 
@@ -343,12 +425,18 @@ export async function collect({
     if (!replay && manifest.sources.length < count) {
         const candidates =
             discover ??
-            commonsDiscovery(get, {
-                queries: manifest.queries,
-                onReject: (e) => report.excluded.push(e),
-            });
+            commonsDiscovery(
+                cachedReader(get, path.join(cache, "discovery"), {
+                    ttl: 86400000,
+                }),
+                {
+                    queries: manifest.queries,
+                    onReject: (e) => report.excluded.push(e),
+                },
+            );
         // Small candidate windows allow feature-balanced selection without
         // downloading the whole catalogue. Recorded choices govern replay.
+        const download = cachedReader(get, path.join(cache, "downloads"));
         let window = [];
         const flush = async () => {
             while (window.length && manifest.sources.length < count) {
@@ -429,7 +517,10 @@ export async function collect({
                     continue;
                 }
                 try {
-                    const bytes = await get(candidate.downloadUrl),
+                    const bytes = await download(
+                            candidate.downloadUrl,
+                            json([candidate.revision, candidate.sourceSha1]),
+                        ),
                         sha256 = hash(bytes);
                     if (hashes.has(sha256)) {
                         report.excluded.push({
@@ -466,6 +557,7 @@ export async function collect({
                     });
                     if (window.length >= 12) await flush();
                 } catch (error) {
+                    if (error.code === "HTTP_CIRCUIT") throw error;
                     report.excluded.push({
                         id: candidate.id,
                         kind: "download-or-extraction",

@@ -17,6 +17,9 @@
 !/dist/path-bool.core.js.map
 !/dist/path-bool.core.umd.cjs
 !/dist/path-bool.core.umd.cjs.map
-/src/__fixtures__/generated/*/*/test-results/
+# Rebuilt by npm run gen-corpus (also runs before npm test).
+/src/__fixtures__/generated/*
+!/src/__fixtures__/generated/README.md
+!/src/__fixtures__/generated/expected-failures*.json
 
 /.cache/path-bool/
