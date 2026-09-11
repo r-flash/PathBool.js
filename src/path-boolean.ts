@@ -16,12 +16,6 @@ import {
     EPS,
     Epsilons,
     epsilonsForExtent,
-    MAX_INTERSECTION_PAIRS,
-    MAX_SUBDIVISION_ITERS,
-    MAX_SUBSEGMENTS_PER_ORIG_SEGMENT,
-    MAX_TANGENT_SAMPLE_ITERS,
-    MAX_TIE_BREAK_PARAM_STEP,
-    TANGENT_MIN_LEN_SQ,
 } from "./config";
 import { pathCubicSegmentSelfIntersection } from "./intersections/path-cubic-segment-self-intersection";
 import {
@@ -32,6 +26,7 @@ import {
     AABB,
     boundingBoxAroundPoint,
     boundingBoxMaxExtent,
+    expandBoundingBox,
     mergeBoundingBoxes,
 } from "./primitives/AABB";
 import { Path } from "./primitives/Path";
@@ -49,6 +44,7 @@ import {
     splitSegmentAt,
 } from "./primitives/PathSegment";
 import { createVector, Vector, vectorsEqual } from "./primitives/Vector";
+import { segmentArea } from "./primitives/segment-area";
 import { countIf, hasOwn, memoizeWeak } from "./util/generic";
 import { map } from "./util/iterators";
 import { linMap } from "./util/math";
@@ -305,53 +301,47 @@ function splitAtSelfIntersections(
     edges: MajorGraphEdgeStage1[],
     eps: Epsilons,
 ) {
-    for (let i = 0; i < edges.length; i++) {
+    // A non-collinear cubic has at most one isolated self-intersection.
+    // Its children cannot introduce another one. Rechecking appended children
+    // rediscovered rounded endpoint contacts and grew the edge array forever.
+    const originalCount = edges.length;
+    for (let i = 0; i < originalCount; i++) {
         const edge = edges[i];
         if (edge.seg[0] !== "C") continue;
         const intersection = pathCubicSegmentSelfIntersection(edge.seg);
         if (!intersection) continue;
-        if (intersection[0] > intersection[1]) {
-            intersection.reverse();
-        }
-        const [t1, t2] = intersection;
-        if (Math.abs(t1 - t2) < EPS.param) {
-            const [seg1, seg2] = splitCubicSegmentAt(edge.seg, t1);
-            edges[i] = {
-                seg: seg1,
-                parents: edge.parents,
-            };
-            edges.push({
-                seg: seg2,
-                parents: edge.parents,
-            });
-        } else {
-            const [seg1, tmpSeg] = splitCubicSegmentAt(edge.seg, t1);
-            const [seg2, seg3] = splitCubicSegmentAt(
-                tmpSeg,
-                (t2 - t1) / (1 - t1),
+        let segment = edge.seg;
+        let previous = 0;
+        const children: MajorGraphEdgeStage1[] = [];
+        for (const t of intersection) {
+            if (t <= previous + eps.param || t >= 1 - eps.param) continue;
+            const [first, rest] = splitCubicSegmentAt(
+                segment,
+                (t - previous) / (1 - previous),
             );
-            edges[i] = {
-                seg: seg1,
-                parents: edge.parents,
-            };
-            edges.push(
-                {
-                    seg: seg2,
-                    parents: edge.parents,
-                },
-                {
-                    seg: seg3,
-                    parents: edge.parents,
-                },
-            );
+            children.push({ seg: first, parents: edge.parents });
+            segment = rest;
+            previous = t;
         }
+        if (!children.length) continue;
+        children.push({ seg: segment, parents: edge.parents });
+        edges[i] = children[0];
+        edges.push(...children.slice(1));
     }
 }
 
 function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
     const withBoundingBox: MajorGraphEdgeStage2[] = edges.map((edge) => ({
         ...edge,
-        boundingBox: pathSegmentBoundingBox(edge.seg),
+        boundingBox: (() => {
+            const box = pathSegmentBoundingBox(edge.seg);
+            // The narrow-phase solve admits endpoint parameters just outside
+            // [0,1]. Candidate selection must cover that same neighbourhood.
+            return expandBoundingBox(
+                box,
+                eps.point + eps.param * boundingBoxMaxExtent(box),
+            );
+        })(),
     }));
 
     const totalBoundingBox = withBoundingBox.reduce(
@@ -375,14 +365,10 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
         splitsPerEdge[i].push(t);
     }
 
-    let pairChecks = 0;
     for (let i = 0; i < withBoundingBox.length; i++) {
         const edge = withBoundingBox[i];
         const candidates = edgeTree.find(edge.boundingBox);
         for (const j of candidates) {
-            if (pairChecks >= MAX_INTERSECTION_PAIRS) {
-                break;
-            }
             const candidate = edges[j];
             const intersection = pathSegmentIntersection(
                 edge.seg,
@@ -393,7 +379,6 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
                 addSplit(i, t0);
                 addSplit(j, t1);
             }
-            pairChecks++;
         }
 
         /*
@@ -401,9 +386,6 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
          That way, each pair is only tested once.
         */
         edgeTree.insert(edge.boundingBox, i);
-        if (pairChecks >= MAX_INTERSECTION_PAIRS) {
-            break;
-        }
     }
 
     const newEdges: MajorGraphEdgeStage2[] = [];
@@ -419,22 +401,18 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
         // enough to stringify in exponential form ("1e-7") would otherwise
         // sort after "0.9" and the segment would be cut in the wrong order.
         splits.sort((a, b) => a - b);
-        if (splits.length + 1 > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT) {
-            splits.length = Math.max(0, MAX_SUBSEGMENTS_PER_ORIG_SEGMENT - 1);
-        }
         let tmpSeg = edge.seg;
         let prevT = 0;
         for (let j = 0; j < splits.length; j++) {
             const t = splits[j];
 
-            if (t > 1 - EPS.param) break; // skip splits near end
+            if (t > 1 - eps.param) break; // skip splits near end
 
             const tt = (t - prevT) / (1 - prevT);
+            if (tt < eps.param) continue; // skip splits near start
+            if (tt > 1 - eps.param) continue; // skip splits near end
+
             prevT = t;
-
-            if (tt < EPS.param) continue; // skip splits near start
-            if (tt > 1 - EPS.param) continue; // skip splits near end
-
             const [seg1, seg2] = splitSegmentAt(tmpSeg, tt);
             newEdges.push({
                 seg: seg1,
@@ -457,7 +435,15 @@ function findVertices(
     edges: MajorGraphEdgeStage2[],
     boundingBox: AABB,
     eps: Epsilons,
+    inputPoints: Vector[],
 ): MajorGraph {
+    // Approximate coincidence must choose one geometric representative in a
+    // stable order. Operand visitation order otherwise changes which curve's
+    // controls survive a merge and, with them, the incident tangent ordering.
+    edges = edges
+        .map((edge) => ({ edge, key: JSON.stringify(edge.seg) }))
+        .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+        .map(({ edge }) => edge);
     const vertexTree = new QuadTree<MajorGraphVertex>(
         boundingBox,
         POINT_TREE_DEPTH,
@@ -468,18 +454,35 @@ function findVertices(
     function getVertex(point: Vector): MajorGraphVertex {
         const box = boundingBoxAroundPoint(point, eps.point);
         const existingVertices = vertexTree.find(box);
-        if (existingVertices.size) {
-            return firstElementOfSet(existingVertices)!;
-        } else {
-            const vertex: MajorGraphVertex = {
-                point,
-                outgoingEdges: [],
-            };
-            vertexTree.insert(box, vertex);
-            newVertices.push(vertex);
-            return vertex;
+        let closest: MajorGraphVertex | undefined;
+        let distance = eps.point;
+        for (const vertex of existingVertices) {
+            const d = Math.hypot(
+                vertex.point[0] - point[0],
+                vertex.point[1] - point[1],
+            );
+            if (d <= distance) {
+                closest = vertex;
+                distance = d;
+            }
         }
+        if (closest) return closest;
+        const vertex: MajorGraphVertex = { point, outgoingEdges: [] };
+        // Store a point, not another tolerance box (which doubled the radius).
+        vertexTree.insert(boundingBoxAroundPoint(point, 0), vertex);
+        newVertices.push(vertex);
+        return vertex;
     }
+    // Stable representatives, independent of operand and edge visitation order.
+    for (const point of inputPoints
+        .slice()
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1]))
+        getVertex(point);
+    const vertexForPoint = new WeakMap<Vector, MajorGraphVertex>();
+    const points = edges
+        .flatMap(({ seg }) => [getStartPoint(seg), getEndPoint(seg)])
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    for (const point of points) vertexForPoint.set(point, getVertex(point));
 
     const getVertexId = createObjectCounter();
     const vertexPairIdToEdges = new Map<
@@ -540,8 +543,16 @@ function findVertices(
             }
         }
 
-        const startVertex = getVertex(startPoint);
-        const endVertex = getVertex(endPoint);
+        const startVertex = vertexForPoint.get(startPoint)!;
+        const endVertex = vertexForPoint.get(endPoint)!;
+
+        // SVG output joins segments at a single vertex. Prefer the original
+        // incoming endpoint, then share that point with every incident edge.
+        // This also makes signed area translation invariant for tiny faces.
+        const seg = edge.seg.slice() as PathSegment;
+        seg[1] = startVertex.point;
+        (seg as any[])[seg.length - 1] = endVertex.point;
+        edge = { ...edge, seg, boundingBox: pathSegmentBoundingBox(seg) };
 
         const startId = getVertexId(startVertex);
         const endId = getVertexId(endVertex);
@@ -672,82 +683,79 @@ function computeMinor({ vertices }: MajorGraph): MinorGraph {
     }
     const visited = new WeakSet<MajorGraphVertex>();
 
-    // first handle components that are not cycles
+    // A degree-two vertex can disappear only when traversal across it keeps
+    // the same signed winding for every input. Segment storage direction is
+    // independent: store every minor segment in its actual traversal direction.
+    const isChainVertex = (vertex: MajorGraphVertex) => {
+        if (getOrder(vertex) !== 2) return false;
+        const [a, b] = vertex.outgoingEdges;
+        return numberArraysEqual(
+            a.windings,
+            b.windings.map((w) => -w),
+        );
+    };
+    const orientedSegment = (edge: MajorGraphEdge) =>
+        edge.directionFlag ? reversePathSegment(edge.seg) : edge.seg;
+    const nextEdge = (edge: MajorGraphEdge) => {
+        const [a, b] = edge.incidentVertices[1].outgoingEdges;
+        assertCondition(
+            a.twin === edge || b.twin === edge,
+            "Wrong twin structure.",
+        );
+        return a.twin === edge ? b : a;
+    };
     for (const vertex of vertices) {
-        if (getOrder(vertex) === 2) continue;
-
+        if (isChainVertex(vertex)) continue;
         const startVertex = toMinorVertex(vertex);
-
         for (const startEdge of vertex.outgoingEdges) {
             const segments: PathSegment[] = [];
             let edge = startEdge;
-            while (
-                booleanArraysEqual(edge.parents, startEdge.parents) &&
-                edge.directionFlag === startEdge.directionFlag &&
-                numberArraysEqual(edge.windings, startEdge.windings) &&
-                getOrder(edge.incidentVertices[1]) === 2
-            ) {
-                segments.push(edge.seg);
-                visited.add(edge.incidentVertices[1]);
-                const [edge1, edge2] = edge.incidentVertices[1].outgoingEdges;
-                assertCondition(
-                    edge1.twin === edge || edge2.twin === edge,
-                    "Wrong twin structure.",
-                );
-                edge = edge1.twin === edge ? edge2 : edge1; // choose the one we didn't use to come here
+            for (;;) {
+                segments.push(orientedSegment(edge));
+                const end = edge.incidentVertices[1];
+                if (!isChainVertex(end)) break;
+                visited.add(end);
+                edge = nextEdge(edge);
             }
-            segments.push(edge.seg);
             const endVertex = toMinorVertex(edge.incidentVertices[1]);
             assertDefined(edge.twin, "Edge doesn't have a twin.");
             assertDefined(startEdge.twin, "Edge doesn't have a twin.");
-            const startId = getEdgeId(startEdge);
-            const endId = getEdgeId(edge);
-            const twinStartId = getEdgeId(edge.twin);
-            const twinEndId = getEdgeId(startEdge.twin);
-            const twin = getEdgeById(twinStartId, twinEndId) ?? null;
+            const twin =
+                getEdgeById(getEdgeId(edge.twin), getEdgeId(startEdge.twin)) ??
+                null;
             const newEdge: MinorGraphEdge = {
                 segments,
                 parents: startEdge.parents,
                 incidentVertices: [startVertex, endVertex],
-                directionFlag: startEdge.directionFlag,
+                directionFlag: false,
                 windings: startEdge.windings,
-                twin: twin,
+                twin,
                 id: nextEdgeId++,
             };
-            if (twin) {
-                twin.twin = newEdge;
-            }
-            setEdgeById(startId, endId, newEdge);
+            if (twin) twin.twin = newEdge;
+            setEdgeById(getEdgeId(startEdge), getEdgeId(edge), newEdge);
             startVertex.outgoingEdges.push(newEdge);
             newEdges.push(newEdge);
         }
     }
-
-    // handle cyclic components
     const cycles: MinorGraphCycle[] = [];
     for (const vertex of vertices) {
-        if (getOrder(vertex) !== 2 || visited.has(vertex)) continue;
+        if (!isChainVertex(vertex) || visited.has(vertex)) continue;
         let edge = vertex.outgoingEdges[0];
         const cycle: MinorGraphCycle = {
             segments: [],
             parents: edge.parents,
-            directionFlag: edge.directionFlag,
+            directionFlag: false,
             windings: edge.windings,
         };
         do {
-            cycle.segments.push(edge.seg);
+            cycle.segments.push(orientedSegment(edge));
             visited.add(edge.incidentVertices[0]);
-            assertEqual(
-                getOrder(edge.incidentVertices[1]),
-                2,
-                "Found an unvisited vertex of order != 2.",
-            );
-            const [edge1, edge2] = edge.incidentVertices[1].outgoingEdges;
             assertCondition(
-                edge1.twin === edge || edge2.twin === edge,
-                "Wrong twin structure.",
+                isChainVertex(edge.incidentVertices[1]),
+                "Unvisited chain boundary.",
             );
-            edge = edge1.twin === edge ? edge2 : edge1;
+            edge = nextEdge(edge);
         } while (edge.incidentVertices[0] !== vertex);
         cycles.push(cycle);
     }
@@ -882,9 +890,7 @@ const getIncidenceAngle = (() => {
             // Cap the step so a slow parametrization cannot walk out of the
             // segment and pick up an angle from somewhere else entirely.
             const dt =
-                speed > 0
-                    ? Math.min(MAX_TIE_BREAK_PARAM_STEP, offsetDistance / speed)
-                    : EPS.param;
+                speed > 0 ? Math.min(1, offsetDistance / speed) : EPS.param;
             t0 = directionFlag ? 1 - dt : dt;
         }
 
@@ -894,41 +900,113 @@ const getIncidenceAngle = (() => {
             tangent[0] = -tangent[0];
             tangent[1] = -tangent[1];
         }
-        const lenSq = tangent[0] * tangent[0] + tangent[1] * tangent[1];
-        if (lenSq >= TANGENT_MIN_LEN_SQ) {
+        if (tangent[0] !== 0 || tangent[1] !== 0) {
             return Math.atan2(tangent[1], tangent[0]);
         }
 
-        // Second attempt: numerical tangent
+        // At a stationary Bezier endpoint, the first distinct control point
+        // gives the first nonzero derivative's direction. A chord fallback
+        // loses this direction entirely for a closed cubic.
+        if (t0 === tEnd && (seg[0] === "C" || seg[0] === "Q")) {
+            const points = seg.slice(1) as Vector[];
+            if (directionFlag) points.reverse();
+            for (const point of points.slice(1)) {
+                const dx = point[0] - points[0][0],
+                    dy = point[1] - points[0][1];
+                if (dx !== 0 || dy !== 0) return Math.atan2(dy, dx);
+            }
+        }
         samplePathSegmentAtInto(seg, t0, p0);
         let dt = EPS.param;
-        for (let i = 0; i < MAX_TANGENT_SAMPLE_ITERS; i++) {
+        for (;;) {
             const tNext = directionFlag
                 ? Math.max(0, t0 - dt)
                 : Math.min(1, t0 + dt);
             samplePathSegmentAtInto(seg, tNext, pNext);
-            const dx = pNext[0] - p0[0];
-            const dy = pNext[1] - p0[1];
-            const lenSq = dx * dx + dy * dy;
-            if (lenSq >= TANGENT_MIN_LEN_SQ) {
-                return Math.atan2(dy, dx);
-            }
+            const dx = pNext[0] - p0[0],
+                dy = pNext[1] - p0[1];
+            if (dx !== 0 || dy !== 0) return Math.atan2(dy, dx);
+            if (tNext === (directionFlag ? 0 : 1)) return 0;
             dt *= 2;
         }
-
-        // Fallback: treat the segment as linear
-        const start = getStartPoint(seg);
-        const end = getEndPoint(seg);
-        let dx = end[0] - start[0];
-        let dy = end[1] - start[1];
-        if (directionFlag) {
-            dx = -dx;
-            dy = -dy;
-        }
-
-        return Math.atan2(dy, dx);
     };
 })();
+
+// Equal leading Bezier control points imply equal leading power coefficients.
+// The first differing control point then determines which curve departs to
+// the left. This also resolves third-order contacts that tangent sampling
+// rounds to a tie. A purely tangential difference needs reparametrization;
+// leave that case to the general tangent/curvature comparison below.
+function compareBezierDeparture(a: MinorGraphEdge, b: MinorGraphEdge): number {
+    const sa = a.segments[0],
+        sb = b.segments[0];
+    if (sa[0] === "A" || sa[0] !== sb[0]) return 0;
+    const pa = sa.slice(1) as Vector[],
+        pb = sb.slice(1) as Vector[];
+    if (a.directionFlag) pa.reverse();
+    if (b.directionFlag) pb.reverse();
+    if (pa[0][0] !== pb[0][0] || pa[0][1] !== pb[0][1]) return 0;
+    let tangent: Vector | undefined;
+    for (let i = 1; i < pa.length; i++) {
+        if (pa[i][0] !== pb[i][0] || pa[i][1] !== pb[i][1]) {
+            if (!tangent) return 0;
+            return (
+                tangent[0] * (pa[i][1] - pb[i][1]) -
+                tangent[1] * (pa[i][0] - pb[i][0])
+            );
+        }
+        const dx = pa[i][0] - pa[0][0],
+            dy = pa[i][1] - pa[0][1];
+        if (!tangent && (dx !== 0 || dy !== 0)) tangent = [dx, dy];
+    }
+    return 0;
+}
+
+function bezierCurvature(edge: MinorGraphEdge) {
+    const seg = edge.segments[0];
+    if (seg[0] !== "C" && seg[0] !== "Q") return undefined;
+    const p = seg.slice(1) as Vector[];
+    if (edge.directionFlag) p.reverse();
+    const n = p.length - 1;
+    const d = p
+        .slice(1)
+        .map((q, i) => [q[0] - p[i][0], q[1] - p[i][1]] as Vector);
+    const v = d[0].map((x) => n * x) as Vector;
+    const a = [
+        n * (n - 1) * (d[1][0] - d[0][0]),
+        n * (n - 1) * (d[1][1] - d[0][1]),
+    ] as Vector;
+    const j =
+        n === 3
+            ? ([
+                  6 * (d[2][0] - 2 * d[1][0] + d[0][0]),
+                  6 * (d[2][1] - 2 * d[1][1] + d[0][1]),
+              ] as Vector)
+            : ([0, 0] as Vector);
+    const cross = (a: Vector, b: Vector) => a[0] * b[1] - a[1] * b[0];
+    const speed = Math.hypot(...v),
+        speed2 = speed * speed;
+    if (speed === 0) return undefined;
+    const va = cross(v, a),
+        dot = v[0] * a[0] + v[1] * a[1];
+    const curvature = va / (speed2 * speed);
+    const derivative =
+        (cross(v, j) * speed2 - 3 * va * dot) / (speed2 * speed2 * speed2);
+    // Propagate coordinate roundoff through the endpoint derivatives. This
+    // separates equal curvature with unequal curvature derivative without
+    // letting the last bits of a subdivided control point decide the order.
+    const error = 64 * Number.EPSILON * Math.max(...p.flat().map(Math.abs));
+    const acceleration = Math.hypot(...a),
+        jerk = Math.hypot(...j);
+    const curvatureError = (error * (1 + acceleration / speed)) / speed2;
+    const derivativeError =
+        (error *
+            (1 +
+                (acceleration + jerk) / speed +
+                (acceleration * acceleration) / speed2)) /
+        (speed2 * speed);
+    return { curvature, derivative, curvatureError, derivativeError };
+}
 
 function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
     // TODO: this will hardly be a bottleneck, but profile whether memoization
@@ -973,7 +1051,12 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
              it come out wrong.
             */
             const turnCache = new WeakMap<MinorGraphEdge, number>();
+            const curvatureCache = new WeakMap<
+                MinorGraphEdge,
+                ReturnType<typeof bezierCurvature>
+            >();
             for (const edge of vertex.outgoingEdges) {
+                curvatureCache.set(edge, bezierCurvature(edge));
                 const primary = getIncidenceAngle(edge);
                 angleCache.set(edge, primary);
                 turnCache.set(
@@ -981,6 +1064,31 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
                     normalizeAngle(
                         getIncidenceAngle(edge, tieBreakDistance) - primary,
                     ),
+                );
+            }
+            // Put the angular branch cut in the largest empty sector. atan2
+            // spells the same leftward tangent as both -pi and +pi; leaving
+            // that seam through a tangent group reverses the cyclic order.
+            const angles = vertex.outgoingEdges
+                .map((edge) => angleCache.get(edge)!)
+                .sort((a, b) => a - b);
+            let largestGap = -1,
+                cut = 0;
+            for (let i = 0; i < angles.length; i++) {
+                const next =
+                    i + 1 < angles.length
+                        ? angles[i + 1]
+                        : angles[0] + TAU_ANGLE;
+                if (next - angles[i] > largestGap) {
+                    largestGap = next - angles[i];
+                    cut = (angles[i] + next) / 2;
+                }
+            }
+            for (const edge of vertex.outgoingEdges) {
+                angleCache.set(
+                    edge,
+                    (((angleCache.get(edge)! - cut) % TAU_ANGLE) + TAU_ANGLE) %
+                        TAU_ANGLE,
                 );
             }
             vertex.outgoingEdges.sort((a, b) => {
@@ -1001,6 +1109,24 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
                 );
                 const diff = angleCache.get(a)! - angleCache.get(b)!;
                 if (Math.abs(diff) > tolerance) return diff;
+                const exact = compareBezierDeparture(a, b);
+                if (exact) return exact;
+                const ca = curvatureCache.get(a),
+                    cb = curvatureCache.get(b);
+                if (ca && cb) {
+                    const curvature = ca.curvature - cb.curvature;
+                    if (
+                        Math.abs(curvature) >
+                        ca.curvatureError + cb.curvatureError
+                    )
+                        return curvature;
+                    const derivative = ca.derivative - cb.derivative;
+                    if (
+                        Math.abs(derivative) >
+                        ca.derivativeError + cb.derivativeError
+                    )
+                        return derivative;
+                }
                 return turnA - turnB;
             });
         }
@@ -1009,8 +1135,6 @@ function sortOutgoingEdgesByAngle({ vertices }: MinorGraph) {
         }
     }
 }
-
-/* Into (-pi, pi], so a turn across the branch cut is not read as a full circle. */
 function normalizeAngle(angle: number): number {
     const wrapped = (((angle + Math.PI) % TAU_ANGLE) + TAU_ANGLE) % TAU_ANGLE;
     return wrapped - Math.PI;
@@ -1025,12 +1149,11 @@ function getNextEdge(edge: MinorGraphEdge) {
 
 const faceToPolygon = memoizeWeak((face: DualGraphVertex) =>
     face.incidentEdges.flatMap((edge): Vector[] => {
-        const CNT = 64;
-
         const points: Vector[] = [];
         const p = createVector();
 
         for (const seg of edge.segments) {
+            const CNT = seg[0] === "L" ? 1 : 64;
             for (let i = 0; i < CNT; i++) {
                 const t0 = i / CNT;
                 const t = edge.directionFlag ? 1 - t0 : t0;
@@ -1077,28 +1200,23 @@ function computePointWinding(polygon: Vector[], testedPoint: Vector) {
     return winding;
 }
 
-/*
- Which way round a face is traced, by the signed area of its sampled outline.
-
- In a planar subdivision every inner face is traced one way and the single
- outer face the other, so the sign identifies it. This is measured rather than
- the winding about an interior point because a face can be far thinner than
- the sampling: each lens between a circle and the cubic approximating it is
- 0.785 long and 2.7e-4 wide, against a sample spacing of 0.0123. At that aspect
- the two sampled sides cross each other, the winding about a point picked from
- three consecutive samples is a coin toss, and three of eight identical lenses
- came out claiming to be outer faces. The area of the same crossed-over outline
- is still the area of the lens, to the sign that matters here.
-*/
+// Face orientation must describe the curves, not the polygon used to find an
+// interior point. Integrate about a local origin to avoid cancellation from a
+// large coordinate offset, and compensate the sum across segment boundaries.
 const faceSignedArea = memoizeWeak((face: DualGraphVertex) => {
-    const polygon = faceToPolygon(face);
-    let total = 0;
-    for (let i = 0; i < polygon.length; i++) {
-        const a = polygon[i];
-        const b = polygon[(i + 1) % polygon.length];
-        total += a[0] * b[1] - b[0] * a[1];
-    }
-    return total / 2;
+    const origin = getStartPoint(face.incidentEdges[0].segments[0]);
+    let total = 0,
+        correction = 0;
+    for (const edge of face.incidentEdges)
+        for (const seg of edge.segments) {
+            const term =
+                segmentArea(seg, origin) * (edge.directionFlag ? -1 : 1);
+            const adjusted = term - correction,
+                next = total + adjusted;
+            correction = next - total - adjusted;
+            total = next;
+        }
+    return total;
 });
 
 const computeWinding = memoizeWeak((face: DualGraphVertex) => {
@@ -1221,6 +1339,27 @@ function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
             }
         };
         visit(vertex);
+        if (DEV_ASSERTS) {
+            // A connected planar arrangement has V - E + F = 2, including
+            // its outer face. A wrong rotation at a tangency can keep one
+            // positive-area face while joining unrelated regions together.
+            const primalVertices = new Set<Vector>();
+            for (const edge of componentEdges) {
+                const first = edge.segments[0];
+                primalVertices.add(
+                    edge.directionFlag
+                        ? getEndPoint(first)
+                        : getStartPoint(first),
+                );
+            }
+            assertEqual(
+                primalVertices.size -
+                    componentEdges.length / 2 +
+                    componentVertices.length,
+                2,
+                "Non-planar face arrangement.",
+            );
+        }
         const outerFace = componentVertices.find(isOuterFace);
         assertDefined(outerFace, "No outer face of a component found.");
         assertEqual(
@@ -1254,65 +1393,51 @@ function pathSegmentHorizontalRayIntersectionCount(
     eps: Epsilons,
     totalBoundingBox: AABB = pathSegmentBoundingBox(origSeg),
 ): number {
-    type IntersectionSegment = { boundingBox: AABB; seg: PathSegment };
+    type IntersectionSegment = {
+        boundingBox: AABB;
+        seg: PathSegment;
+        lo: number;
+        hi: number;
+    };
     if (!boundingBoxIntersectsHorizontalRay(totalBoundingBox, point)) return 0;
-    let segments: IntersectionSegment[] = [
-        { boundingBox: totalBoundingBox, seg: origSeg },
+    const segments: IntersectionSegment[] = [
+        { boundingBox: totalBoundingBox, seg: origSeg, lo: 0, hi: 1 },
     ];
     let count = 0;
-    let iterations = 0;
-    while (segments.length > 0) {
+    while (segments.length) {
+        const { boundingBox, seg, lo, hi } = segments.pop()!;
         if (
-            iterations++ > MAX_SUBDIVISION_ITERS ||
-            segments.length > MAX_SUBSEGMENTS_PER_ORIG_SEGMENT
+            isNearlyLinearSegment(seg) ||
+            boundingBoxMaxExtent(boundingBox) < eps.linear ||
+            hi - lo <= eps.param
         ) {
-            for (const { seg } of segments) {
-                if (
-                    lineSegmentIntersectsHorizontalRay(
-                        getStartPoint(seg),
-                        getEndPoint(seg),
-                        point,
-                    )
-                ) {
-                    count++;
-                }
-            }
-            break;
-        }
-        const nextSegments: IntersectionSegment[] = [];
-        for (const { boundingBox, seg } of segments) {
             if (
-                isNearlyLinearSegment(seg) ||
-                boundingBoxMaxExtent(boundingBox) < eps.linear
-            ) {
-                if (
-                    lineSegmentIntersectsHorizontalRay(
-                        getStartPoint(seg),
-                        getEndPoint(seg),
-                        point,
-                    )
-                ) {
-                    count++;
-                }
-            } else {
-                const split = splitSegmentAt(seg, 0.5);
-                const boundingBox0 = pathSegmentBoundingBox(split[0]);
-                if (boundingBoxIntersectsHorizontalRay(boundingBox0, point)) {
-                    nextSegments.push({
-                        boundingBox: boundingBox0,
-                        seg: split[0],
-                    });
-                }
-                const boundingBox1 = pathSegmentBoundingBox(split[1]);
-                if (boundingBoxIntersectsHorizontalRay(boundingBox1, point)) {
-                    nextSegments.push({
-                        boundingBox: boundingBox1,
-                        seg: split[1],
-                    });
-                }
+                lineSegmentIntersectsHorizontalRay(
+                    getStartPoint(seg),
+                    getEndPoint(seg),
+                    point,
+                )
+            )
+                count++;
+            continue;
+        }
+        const mid = (lo + hi) / 2;
+        if (!(lo < mid && mid < hi))
+            throw new Error(
+                "Ray subdivision cannot advance its parameter interval",
+            );
+        const split = splitSegmentAt(seg, 0.5);
+        for (let i = 0; i < 2; i++) {
+            const box = pathSegmentBoundingBox(split[i]);
+            if (boundingBoxIntersectsHorizontalRay(box, point)) {
+                segments.push({
+                    boundingBox: box,
+                    seg: split[i],
+                    lo: i ? mid : lo,
+                    hi: i ? hi : mid,
+                });
             }
         }
-        segments = nextSegments;
     }
     return count;
 }
@@ -1472,6 +1597,18 @@ function computeNestingTree(
                 continue;
             }
 
+            // One interior sample can lie inside a smaller component (for
+            // example inside a hole). A parent must enclose the child's whole
+            // bounds, not merely that sample, or nesting can become cyclic.
+            const a = candidate.boundingBox,
+                b = entry.boundingBox;
+            if (
+                a.left > b.left + eps.point ||
+                a.right < b.right - eps.point ||
+                a.top > b.top + eps.point ||
+                a.bottom < b.bottom - eps.point
+            )
+                continue;
             const face = findContainingFace(candidate.component, point, eps);
             if (!face) continue;
 
@@ -1785,12 +1922,28 @@ export type PathBooleanInput = {
     fillRule: FillRule;
 };
 
+function translateSegment(
+    seg: PathSegment,
+    dx: number,
+    dy: number,
+): PathSegment {
+    return seg.map((value) =>
+        Array.isArray(value) ? [value[0] + dx, value[1] + dy] : value,
+    ) as PathSegment;
+}
+
 /*
  Runs the boolean-operation pipeline up to and including face flagging for a set
  of N input paths in the constructor, then selects faces per operation in `get`.
  The expensive geometric work happens once; multiple `get` calls reuse it.
 */
 export class PathBoolean {
+    private readonly origin: Vector = [0, 0];
+    private restore(path: Path): Path {
+        return path.map((seg) =>
+            translateSegment(seg, this.origin[0], this.origin[1]),
+        );
+    }
     private readonly nestingTrees: NestingTree[];
     private regions?: { faces: DualGraphVertex[]; paths: Path[] };
 
@@ -1813,6 +1966,24 @@ export class PathBoolean {
                 pathSegmentBoundingBox(seg),
             );
         }
+        // Keep arithmetic near the drawing. Choose the point of the bounding
+        // box nearest the origin: an axis already spanning zero stays put.
+        // This avoids subtracting large almost-equal area and curve terms for
+        // tiny drawings located far away, without moving near-zero detail far.
+        if (inputBoundingBox) {
+            const nearest = (lo: number, hi: number) =>
+                lo > 0 ? lo : hi < 0 ? hi : 0;
+            this.origin = [
+                nearest(inputBoundingBox.left, inputBoundingBox.right),
+                nearest(inputBoundingBox.top, inputBoundingBox.bottom),
+            ];
+            for (const edge of unsplitEdges)
+                edge.seg = translateSegment(
+                    edge.seg,
+                    -this.origin[0],
+                    -this.origin[1],
+                );
+        }
         const eps = epsilonsForExtent(
             inputBoundingBox ? boundingBoxMaxExtent(inputBoundingBox) : 0,
         );
@@ -1830,6 +2001,9 @@ export class PathBoolean {
             edge.seg = lineariseDegenerateSegment(edge.seg, eps.point);
         }
 
+        const inputPoints = unsplitEdges.flatMap(({ seg }) => [
+            getEndPoint(seg),
+        ]);
         splitAtSelfIntersections(unsplitEdges, eps);
 
         const { edges: splitEdges, totalBoundingBox } = splitAtIntersections(
@@ -1843,7 +2017,12 @@ export class PathBoolean {
             return;
         }
 
-        const majorGraph = findVertices(splitEdges, totalBoundingBox, eps);
+        const majorGraph = findVertices(
+            splitEdges,
+            totalBoundingBox,
+            eps,
+            inputPoints,
+        );
         assertMajorGraphInvariants(majorGraph);
         // console.log(majorGraphToDot(majorGraph));
 
@@ -1879,12 +2058,14 @@ export class PathBoolean {
         switch (op) {
             case PathBooleanOperation.Division:
             case PathBooleanOperation.Fracture:
-                return dumpFaces(this.nestingTrees, predicate);
+                return dumpFaces(this.nestingTrees, predicate).map((path) =>
+                    this.restore(path),
+                );
             default: {
                 const selectedFaces = new Set(
                     getSelectedFaces(this.nestingTrees, predicate),
                 );
-                return [[...walkFaces(selectedFaces)]];
+                return [this.restore([...walkFaces(selectedFaces)])];
             }
         }
     }
@@ -1914,13 +2095,20 @@ export class PathBoolean {
             if (face) selected.add(face);
         }
         addNestedOuterFaces(this.nestingTrees, selected);
-        return [...walkFaces(selected)];
+        return this.restore([...walkFaces(selected)]);
     }
 
     private getRegions(): { faces: DualGraphVertex[]; paths: Path[] } {
-        return (this.regions ??= enumerateFaces(this.nestingTrees, (face) =>
-            face.flags.some(Boolean),
-        ));
+        if (!this.regions) {
+            const regions = enumerateFaces(this.nestingTrees, (face) =>
+                face.flags.some(Boolean),
+            );
+            this.regions = {
+                faces: regions.faces,
+                paths: regions.paths.map((path) => this.restore(path)),
+            };
+        }
+        return this.regions;
     }
 }
 

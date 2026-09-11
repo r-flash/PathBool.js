@@ -45,6 +45,9 @@ export function createOracle(PathBool: PathBoolModule) {
     const DURATION_BUDGET_MS = 5000;
 
     const MAX_REPORTED_PIXELS = 4;
+    // Test-workspace budget, not a geometry limit. Stop with an unresolved
+    // result if zooming would exceed it; never turn an unjudgeable case green.
+    const MAX_RASTER_PIXELS = 16 * 1024 * 1024;
 
     /* Rendering */
 
@@ -391,12 +394,12 @@ export function createOracle(PathBool: PathBoolModule) {
     const inputCache = new Map<string, Inputs>();
 
     function inputsFor(dir: string, code: string): Inputs {
-        let cached = inputCache.get(dir);
+        let cached = inputCache.get(code);
         if (cached === undefined) {
             const a = renderMask(withOnly(code, "a"));
             const b = renderMask(withOnly(code, "b"));
             cached = { a, b, band: boundaryBand(a, b) };
-            inputCache.set(dir, cached);
+            inputCache.set(code, cached);
         }
         return cached;
     }
@@ -434,8 +437,28 @@ export function createOracle(PathBool: PathBoolModule) {
 
     /* The check */
 
-    function evaluate(dir: string, opName: OpName): string | null {
-        const { code, inputs } = readFixture(dir);
+    let cachedDir: string | undefined;
+    let arrangement: InstanceType<PathBoolModule["PathBoolean"]> | undefined;
+
+    function evaluate(
+        dir: string,
+        opName: OpName,
+        renderScale = 1,
+    ): string | null {
+        let { code, inputs } = readFixture(dir);
+        if (renderScale !== 1) {
+            const $ = cheerio.load(code, { xml: true }),
+                svg = $("svg").first();
+            svg.attr(
+                "width",
+                String(parseFloat(svg.attr("width")!) * renderScale),
+            );
+            svg.attr(
+                "height",
+                String(parseFloat(svg.attr("height")!) * renderScale),
+            );
+            code = $.html();
+        }
 
         const parsed = inputs.map((input) => ({
             path: PathBool.pathFromPathData(input.d),
@@ -446,14 +469,23 @@ export function createOracle(PathBool: PathBoolModule) {
         let elapsed: number;
         try {
             const started = performance.now();
-            result = new PathBool.PathBoolean(parsed).get(ops[opName]);
+            if (process.env.PATH_BOOL_UNTIMED === "1") {
+                if (dir !== cachedDir || !arrangement) {
+                    arrangement = new PathBool.PathBoolean(parsed);
+                    cachedDir = dir;
+                }
+                result = arrangement.get(ops[opName]);
+            } else result = new PathBool.PathBoolean(parsed).get(ops[opName]);
             elapsed = performance.now() - started;
         } catch (e) {
             const err = e as Error;
             return `threw ${err.name}: ${err.message}`;
         }
 
-        if (process.env.PATH_BOOL_UNTIMED !== "1" && elapsed > DURATION_BUDGET_MS) {
+        if (
+            process.env.PATH_BOOL_UNTIMED !== "1" &&
+            elapsed > DURATION_BUDGET_MS
+        ) {
             return `took ${(elapsed / 1000).toFixed(1)}s, over the ${
                 DURATION_BUDGET_MS / 1000
             }s budget`;
@@ -529,9 +561,11 @@ export function createOracle(PathBool: PathBoolModule) {
             if (!band[i]) expectedFilledOutsideBand++;
         }
         if (expectedFilled > 0 && expectedFilledOutsideBand === 0) {
+            if (width * height * 4 <= MAX_RASTER_PIXELS)
+                return evaluate(dir, opName, renderScale * 2);
             return (
                 `the oracle cannot judge this case: the entire expected region ` +
-                `(${expectedFilled} px) lies inside the boundary band`
+                `(${expectedFilled} px) lies inside the boundary band at the raster workspace limit`
             );
         }
 

@@ -5,46 +5,29 @@
  */
 import { PathCubicSegment } from "../primitives/PathSegment";
 
-const EPS = 1e-12;
-
 export function pathCubicSegmentSelfIntersection(
     seg: PathCubicSegment,
 ): [number, number] | null {
-    // https://math.stackexchange.com/questions/3931865/self-intersection-of-a-cubic-bezier-interpretation-of-the-solution
-
-    const A = seg[1];
-    const B = seg[2];
-    const C = seg[3];
-    const D = seg[4];
-
-    const ax = -A[0] + 3 * B[0] - 3 * C[0] + D[0];
-    const ay = -A[1] + 3 * B[1] - 3 * C[1] + D[1];
-    const bx = 3 * A[0] - 6 * B[0] + 3 * C[0];
-    const by = 3 * A[1] - 6 * B[1] + 3 * C[1];
-    const cx = -3 * A[0] + 3 * B[0];
-    const cy = -3 * A[1] + 3 * B[1];
-
-    const M = ay * bx - ax * by;
-    const N = ax * cy - ay * cx;
-
-    const K =
-        (-3 * ax * ax * cy * cy +
-            6 * ax * ay * cx * cy +
-            4 * ax * bx * by * cy -
-            4 * ax * by * by * cx -
-            3 * ay * ay * cx * cx -
-            4 * ay * bx * bx * cy +
-            4 * ay * bx * by * cx) /
-        (ax * ax * by * by - 2 * ax * ay * bx * by + ay * ay * bx * bx);
-
-    if (K < 0) return null;
-
-    const t1 = (N / M + Math.sqrt(K)) / 2;
-    const t2 = (N / M - Math.sqrt(K)) / 2;
-
-    if (EPS <= t1 && t1 <= 1 - EPS && EPS <= t2 && t2 <= 1 - EPS) {
-        return [t1, t2];
-    }
-
-    return null;
+    // P(t) = a*t^3 + b*t^2 + c*t + d. For distinct parameters t,u,
+    // P(t)=P(u) gives a*((t+u)^2-tu) + b*(t+u) + c = 0.
+    // Form coefficients from successive differences: translating the curve
+    // must not turn endpoint closure into a tiny interior loop.
+    const d0 = [seg[2][0] - seg[1][0], seg[2][1] - seg[1][1]];
+    const d1 = [seg[3][0] - seg[2][0], seg[3][1] - seg[2][1]];
+    const d2 = [seg[4][0] - seg[3][0], seg[4][1] - seg[3][1]];
+    const a = [d2[0] - 2 * d1[0] + d0[0], d2[1] - 2 * d1[1] + d0[1]];
+    const b = [3 * (d1[0] - d0[0]), 3 * (d1[1] - d0[1])];
+    const c = [3 * d0[0], 3 * d0[1]];
+    const cross = (v: number[], w: number[]) => v[0] * w[1] - v[1] * w[0];
+    const denominator = cross(b, a);
+    if (denominator === 0) return null;
+    const sum = cross(a, c) / denominator;
+    const discriminant = -3 * sum * sum - (4 * cross(b, c)) / denominator;
+    if (!(discriminant >= 0)) return null;
+    const difference = Math.sqrt(discriminant);
+    const t = (sum - difference) / 2,
+        u = (sum + difference) / 2;
+    return Number.isFinite(t) && Number.isFinite(u) && t >= 0 && u <= 1
+        ? [t, u]
+        : null;
 }

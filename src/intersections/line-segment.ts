@@ -24,7 +24,7 @@ export function lineSegmentIntersection(
 
     const denom = a1 * b2 - a2 * b1;
 
-    if (Math.abs(denom) < eps.collinear) return null;
+    if (Math.abs(denom) <= eps.collinear) return null;
 
     const s = (c1 * b2 - c2 * b1) / denom;
     const t = (a1 * c2 - a2 * c1) / denom;

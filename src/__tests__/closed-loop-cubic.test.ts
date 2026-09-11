@@ -11,6 +11,7 @@
 import { describe, expect, test } from "@jest/globals";
 
 import * as PathBool from "../index";
+import { pathCubicSegmentSelfIntersection } from "../intersections/path-cubic-segment-self-intersection";
 import {
     isNearlyLinearSegment,
     lineariseDegenerateSegment,
@@ -40,6 +41,31 @@ function evalAt(seg: PathCubicSegment, t: number): [number, number] {
 }
 
 describe("a cubic that closes on itself", () => {
+    test("rounded endpoint contacts do not recursively create new loops", () => {
+        // commons-193646307/00, reduced from the artwork report. The old
+        // absolute-coordinate solve classified its closure as an interior
+        // crossing, then recursively split the resulting closed child to OOM.
+        const curve: PathCubicSegment = [
+            "C",
+            [56.472512000000016, 25.17099999999999],
+            [56.472012000000014, 25.17109999999999],
+            [56.472512000000016, 25.171699999999987],
+            [56.472512000000016, 25.17099999999999],
+        ];
+        const crossing = pathCubicSegmentSelfIntersection(curve);
+        expect(
+            crossing === null ||
+                crossing.every((t) => t <= 1e-8 || t >= 1 - 1e-8),
+        ).toBe(true);
+        const result = new PathBool.PathBoolean([
+            { path: [curve], fillRule: PathBool.FillRule.NonZero },
+        ]).get(PathBool.PathBooleanOperation.Union);
+        expect(result.flat()).toHaveLength(1);
+        expect(Math.abs(signedArea(result[0] as never, curve[1]))).toBeCloseTo(
+            Math.abs(signedArea([curve] as never, curve[1])),
+            16,
+        );
+    });
     test("is not linear", () => {
         expect(isNearlyLinearSegment(LOOP)).toBe(false);
         expect(lineariseDegenerateSegment(LOOP, 1e-6)).toBe(LOOP);

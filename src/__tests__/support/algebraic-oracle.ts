@@ -69,7 +69,12 @@ export function createOracle(PathBool: PathBoolModule) {
     function faceAreas(paths: Path[], origin: Vec): number[] {
         return paths
             .filter((p) => p.length > 0)
-            .map((p) => signedArea(p as unknown as AnySegment[], origin));
+            .map((p) =>
+                signedArea(
+                    p as unknown as AnySegment[],
+                    originFor([p as unknown as AnySegment[]]),
+                ),
+            );
     }
 
     function measure(dir: string): CaseData {
@@ -109,7 +114,10 @@ export function createOracle(PathBool: PathBoolModule) {
             ba = collect(reverse);
 
             const elapsed = performance.now() - started;
-            if (process.env.PATH_BOOL_UNTIMED !== "1" && elapsed > DURATION_BUDGET_MS) {
+            if (
+                process.env.PATH_BOOL_UNTIMED !== "1" &&
+                elapsed > DURATION_BUDGET_MS
+            ) {
                 return {
                     error: `took ${(elapsed / 1000).toFixed(1)}s, over the ${
                         DURATION_BUDGET_MS / 1000

@@ -14,15 +14,8 @@ export const DEV_ASSERTS =
           : typeof process !== "undefined" &&
             process.env.NODE_ENV !== "production";
 
-// Caps for subdivision/refinement to avoid hangs on adversarial inputs
-export const MAX_SUBDIVISION_ITERS = 128;
-export const MAX_SUBSEGMENTS_PER_ORIG_SEGMENT = 1024;
-export const MAX_INTERSECTION_PAIRS = 20000;
-export const MAX_TANGENT_SAMPLE_ITERS = 6;
-
 // Numerical precision
 export const NEARLY_LINEAR_EPS = 1e-10;
-export const TANGENT_MIN_LEN_SQ = 1e-16;
 /*
  Below this, two incidence angles at a vertex count as equal and the edges are
  ordered by their angle a little way along the curve instead.
@@ -40,13 +33,6 @@ export const TANGENT_MIN_LEN_SQ = 1e-16;
 */
 export const ANGLE_MIN_DIFF = 1e-12;
 
-/*
- Ceiling on the parameter step the incidence-angle tie-break may take, for
- segments whose parametrization is slow enough that the shared arc-length step
- would otherwise carry it a long way along the curve — or off the end of it.
-*/
-export const MAX_TIE_BREAK_PARAM_STEP = 1e-3;
-
 // Geometry precision
 export type Epsilons = {
     point: number;
@@ -59,7 +45,7 @@ export const EPS: Epsilons = {
     point: 1e-6,
     linear: 1e-4,
     param: 1e-8,
-    collinear: Number.MIN_VALUE * 64,
+    collinear: 0,
 };
 
 /*
@@ -81,9 +67,9 @@ const REFERENCE_EXTENT = 50;
 
 /*
  Derived from the extent of the geometry, not from how far it sits from the
- origin. A large offset is a different problem — precision is lost in the
- arithmetic there, and widening a tolerance conceals that rather than curing
- it — and measurably not the one these two cause.
+ origin. The arrangement constructor separately translates distant geometry
+ toward the origin to preserve arithmetic precision; increasing tolerances
+ would merge details instead of restoring that precision.
 
  Only ever downwards. How fine the detail in a drawing is does not follow how
  big the drawing is: a 900-unit logo is drawn with much the same absolute
@@ -100,7 +86,7 @@ export function epsilonsForExtent(extent: number): Epsilons {
     return {
         point: EPS.point * scale,
         linear: EPS.linear * scale,
-        // Both are dimensionless: a curve parameter and, in practice, zero.
+        // Parameter tolerance is dimensionless; the default determinant threshold is exactly zero.
         param: EPS.param,
         collinear: EPS.collinear,
     };

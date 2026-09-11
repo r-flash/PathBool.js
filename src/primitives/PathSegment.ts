@@ -141,8 +141,8 @@ export function isNearlyLinearSegment(
                 chordIsDegenerate ||
                 !Number.isFinite(seg[2]) ||
                 !Number.isFinite(seg[3]) ||
-                Math.abs(seg[2]) <= eps ||
-                Math.abs(seg[3]) <= eps
+                seg[2] === 0 ||
+                seg[3] === 0
             );
     }
 }
@@ -182,8 +182,8 @@ export function lineariseDegenerateSegment(
         const degenerateRadii =
             !isFiniteNumber(seg[2]) ||
             !isFiniteNumber(seg[3]) ||
-            Math.abs(seg[2]) <= NEARLY_LINEAR_EPS ||
-            Math.abs(seg[3]) <= NEARLY_LINEAR_EPS;
+            seg[2] === 0 ||
+            seg[3] === 0;
         return degenerateRadii ? ["L", a, b] : normalizeArcSegment(seg);
     }
 
@@ -327,8 +327,8 @@ export const arcSegmentToCenter = (() => {
         if (
             !isFiniteNumber(rx) ||
             !isFiniteNumber(ry) ||
-            Math.abs(rx) <= NEARLY_LINEAR_EPS ||
-            Math.abs(ry) <= NEARLY_LINEAR_EPS
+            rx === 0 ||
+            ry === 0
         ) {
             return null;
         }
@@ -465,7 +465,7 @@ export const samplePathSegmentAtInto = (() => {
         t: number,
         out: Vector,
     ): Vector {
-        if (isNearlyLinearSegment(seg)) {
+        if (isNearlyLinearSegment(seg, 0)) {
             vec2.lerp(p, seg[1], getEndPoint(seg), t);
             out[0] = p[0];
             out[1] = p[1];
@@ -529,7 +529,7 @@ export const pathSegmentTangentAtInto = (() => {
         t: number,
         out: Vector,
     ): Vector {
-        if (isNearlyLinearSegment(seg)) {
+        if (isNearlyLinearSegment(seg, 0)) {
             const start = seg[1];
             const end = getEndPoint(seg);
             out[0] = end[0] - start[0];
@@ -773,7 +773,7 @@ function sweepContainsAngle(target: number, theta1: number, theta2: number) {
 }
 
 export function pathSegmentBoundingBox(seg: PathSegment): AABB {
-    if (isNearlyLinearSegment(seg)) {
+    if (isNearlyLinearSegment(seg, 0)) {
         const start = seg[1];
         const end = getEndPoint(seg);
         return {
@@ -868,7 +868,22 @@ export function pathSegmentBoundingBox(seg: PathSegment): AABB {
                         boundingBox = extendBoundingBox(boundingBox, point);
                     }
                 }
-                return expandBoundingBox(boundingBox, 1e-11); // TODO: get rid of expansion
+                // Bound rounding in centre +/- radius and rotated samples. A
+                // fixed padding can exceed a tiny arc's entire subdivision
+                // tolerance, making unrelated leaves overlap at every depth.
+                return expandBoundingBox(
+                    boundingBox,
+                    4 *
+                        Number.EPSILON *
+                        Math.max(
+                            Math.abs(boundingBox.left),
+                            Math.abs(boundingBox.right),
+                            Math.abs(boundingBox.top),
+                            Math.abs(boundingBox.bottom),
+                            rx,
+                            ry,
+                        ),
+                );
             }
 
             // TODO: don't convert to cubics
@@ -974,7 +989,7 @@ export function splitSegmentAt(
     seg: PathSegment,
     t: number,
 ): [PathSegment, PathSegment] {
-    if (isNearlyLinearSegment(seg)) {
+    if (isNearlyLinearSegment(seg, 0)) {
         return splitLinearSegmentAt(["L", seg[1], getEndPoint(seg)], t);
     }
     switch (seg[0]) {

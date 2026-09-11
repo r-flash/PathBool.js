@@ -60,11 +60,7 @@ function sub(p: Vec, origin: Vec): Vec {
 }
 
 function angleBetween(u: Vec, v: Vec): number {
-    const dot = u[0] * v[0] + u[1] * v[1];
-    const len = Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1]);
-    if (len === 0) return 0;
-    const sign = u[0] * v[1] - u[1] * v[0] < 0 ? -1 : 1;
-    return sign * Math.acos(Math.min(1, Math.max(-1, dot / len)));
+    return Math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1]);
 }
 
 /* Contribution of one segment to the closed integral of (x dy - y dx). */
@@ -176,11 +172,37 @@ function segmentIntegral(seg: AnySegment, origin: Vec): number {
             if (!sweep && deltaTheta > 0) deltaTheta -= TAU;
             if (sweep && deltaTheta < 0) deltaTheta += TAU;
 
-            return (
-                rx * ry * deltaTheta +
-                cx * (end[1] - start[1]) -
-                cy * (end[0] - start[0])
-            );
+            // Integrate the positive function 1-cos(t) for short arcs. This
+            // independent quadrature avoids the sector/triangle cancellation
+            // and the production implementation's Taylor recurrence.
+            let excess = deltaTheta - Math.sin(deltaTheta);
+            if (Math.abs(deltaTheta) < 1) {
+                const integrate = (lo: number, hi: number) =>
+                    ((hi - lo) / 2) *
+                    GAUSS_NODES.reduce((sum, node, i) => {
+                        const t = (lo + hi) / 2 + ((hi - lo) * node) / 2;
+                        return (
+                            sum + GAUSS_WEIGHTS[i] * 2 * Math.sin(t / 2) ** 2
+                        );
+                    }, 0);
+                const pending = [[0, deltaTheta]];
+                excess = 0;
+                while (pending.length) {
+                    const [lo, hi] = pending.pop()!;
+                    const mid = (lo + hi) / 2;
+                    const whole = integrate(lo, hi),
+                        halves = integrate(lo, mid) + integrate(mid, hi);
+                    if (
+                        mid === lo ||
+                        mid === hi ||
+                        Math.abs(halves - whole) <=
+                            8 * Number.EPSILON * Math.abs(halves)
+                    )
+                        excess += halves;
+                    else pending.push([lo, mid], [mid, hi]);
+                }
+            }
+            return start[0] * end[1] - start[1] * end[0] + rx * ry * excess;
         }
     }
 }
@@ -192,7 +214,17 @@ function segmentIntegral(seg: AnySegment, origin: Vec): number {
 */
 export function signedArea(path: readonly AnySegment[], origin: Vec): number {
     let total = 0;
-    for (const seg of path) total += segmentIntegral(seg, origin);
+    let remainder = 0;
+    for (const seg of path) {
+        const value = segmentIntegral(seg, origin),
+            next = total + value;
+        remainder +=
+            Math.abs(total) >= Math.abs(value)
+                ? total - next + value
+                : value - next + total;
+        total = next;
+    }
+    total += remainder;
     return total / 2;
 }
 

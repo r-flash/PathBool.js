@@ -78,11 +78,9 @@ describe("issue #3 exclusion regressions", () => {
         );
     }
 
-    // Known defect: computeMinor stores one direction for a cycle containing
-    // both forward and backward half-edges (artwork-corpus.html#minor).
-    // This executes the correctness check and reports an unexpected pass when
-    // the bug is fixed; then remove `.failing`.
-    test.failing.each(variants)(
+    // A cycle may contain forward and backward half-edges. Preserve each
+    // segment's direction when collapsing it (artwork-corpus.html#minor).
+    test.each(variants)(
         "retraced triangle stays closed (fill rule $fillRule, swapped $swapped)",
         ({ fillRule, swapped }) => {
             const { a, b } = issue3RetracedTriangle;
