@@ -39,7 +39,7 @@ const symmetricOps = {
     fracture: ops.fracture,
 };
 
-const fillRules = {
+const fillRules: Partial<Record<string, FillRule>> = {
     nonzero: PathBool.FillRule.NonZero,
     evenodd: PathBool.FillRule.EvenOdd,
 };

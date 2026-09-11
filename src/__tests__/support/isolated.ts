@@ -1,10 +1,11 @@
 import { EvaluatorProcess } from "../../../scripts/corpus/process.cjs";
+import type { EvaluationTier } from "../../../scripts/corpus/process.cjs";
 
 const workers = new Map<string, InstanceType<typeof EvaluatorProcess>>();
 
 export async function isolated(
     dir: string,
-    tier: string,
+    tier: EvaluationTier,
     key: string,
 ): Promise<string | null> {
     const mode = tier === "tier0" ? "development" : "production";
