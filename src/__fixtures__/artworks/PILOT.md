@@ -47,6 +47,6 @@ manifest, with downloaded and extracted artwork in the ignored cache.
 
 The collector now spaces serial requests by two seconds, caches discovery and
 candidate downloads, honors full server-requested retry delays, and stops network
-activity after repeated transient failures. See [request behavior](README.md#request-behavior)
-and the [Openclipart authentication instructions](OPENCLIPART.md). These changes
-do not alter the pilot's source selection or historical validation counts above.
+activity after repeated transient failures. See
+[request behavior](README.md#request-behavior). These changes do not alter the
+pilot's source selection or historical validation counts above.

@@ -75,12 +75,8 @@ References:
 - [Machine-readable rights metadata](https://commons.wikimedia.org/wiki/Commons:Machine-readable_data)
 - [API request etiquette](https://www.mediawiki.org/wiki/API:Etiquette)
 
-Openclipart is a useful future second source: its [FAQ](https://openclipart.org/share)
-specifies CC0 and describes `pd_issue` and `need-review` flags that should exclude
-an upload. Its [documented API](https://openclipart.org/api/tutorial) needs user/app
-credentials. It is not required for this collector; an adapter should be validated
-against authenticated responses before enabling it. Do not infer rights from a
-search label or treat every freely licensed Commons image as public domain.
+Do not infer rights from a search label or treat every freely licensed Commons
+image as public domain.
 
 ## Extraction boundaries
 
@@ -139,6 +135,3 @@ report. HTTP 401/403 also stop further network requests immediately. Other HTTP
 4xx responses are not retried. Each attempt has a 30-second
 transport timeout and an 8 MiB download limit. Tests use mocked transport and
 clocks; routine validation does not scrape the APIs.
-
-For the future second source, see [Openclipart authentication](OPENCLIPART.md)
-for account login, one-time app creation, token renewal and the exact headers.
