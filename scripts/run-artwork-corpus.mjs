@@ -25,7 +25,7 @@ const timeout = Number(values.timeout),
     limit = values.limit === undefined ? Infinity : Number(values.limit);
 if (
     !Number.isSafeInteger(timeout) ||
-    timeout < 1 ||
+    timeout < 0 ||
     !(limit === Infinity || (Number.isSafeInteger(limit) && limit > 0))
 )
     throw new Error("Invalid timeout or limit");

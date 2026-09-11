@@ -453,7 +453,7 @@ export function createOracle(PathBool: PathBoolModule) {
             return `threw ${err.name}: ${err.message}`;
         }
 
-        if (elapsed > DURATION_BUDGET_MS) {
+        if (process.env.PATH_BOOL_UNTIMED !== "1" && elapsed > DURATION_BUDGET_MS) {
             return `took ${(elapsed / 1000).toFixed(1)}s, over the ${
                 DURATION_BUDGET_MS / 1000
             }s budget`;

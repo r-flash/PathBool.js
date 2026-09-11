@@ -51,6 +51,7 @@
         "build-fuzz": "rollup -c fuzzing/rollup.config.js",
         "watch": "NODE_ENV=development rollup -c -w",
         "test": "jest",
+        "test:correctness": "node scripts/run-contained.mjs node scripts/run-correctness.mjs",
         "bench": "node ./bench/path-boolean-bench.mjs",
         "gen-corpus": "node ./scripts/generate-corpus.mjs",
         "pretty": "prettier --write ./src",

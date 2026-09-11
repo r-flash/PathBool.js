@@ -1,11 +1,13 @@
 const { fork } = require("node:child_process");
 const path = require("node:path");
 
-/** A persistent sequential worker; a hung job kills it, and the next starts fresh. */
+/** A sequential worker. timeout: 0 disables both deadline and duration checks. */
 class EvaluatorProcess {
     constructor(mode, { timeout = 10000, worker } = {}) {
         this.mode = mode;
         this.timeout = timeout;
+        if (!Number.isSafeInteger(timeout) || timeout < 0)
+            throw new Error("timeout must be a nonnegative integer");
         this.worker =
             worker ?? path.resolve(`.cache/path-bool/build/${mode}.mjs`);
         this.queue = Promise.resolve();
@@ -23,6 +25,7 @@ class EvaluatorProcess {
                     execArgv: [],
                     env: {
                         ...process.env,
+                        PATH_BOOL_UNTIMED: this.timeout === 0 ? "1" : "0",
                         NODE_ENV: this.mode,
                         PATH_BOOL_DEV_ASSERTS:
                             this.mode === "development" ? "1" : "0",
@@ -54,7 +57,7 @@ class EvaluatorProcess {
                 this.close();
                 finish({ failure: error.message, kind: "worker" });
             };
-            const timer = setTimeout(() => {
+            const timer = this.timeout === 0 ? undefined : setTimeout(() => {
                 finish({
                     failure: `timeout: exceeded ${this.timeout}ms`,
                     kind: "timeout",

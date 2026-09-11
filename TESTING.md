@@ -487,8 +487,8 @@ node fuzzing/reproduce.cjs
 ```
 
 These direct calls do not start jsfuzz and have no separate process enforcing a
-timeout. The library's internal subdivision and intersection limits do not
-guarantee that every input terminates.
+timeout. The library has no subdivision or intersection work caps. Use an explicit
+process memory boundary when replaying unfamiliar inputs.
 
 ## Benchmarks: measuring operation speed
 
@@ -560,3 +560,38 @@ bundle for browser/CommonJS use. The docs have their own full-library copy.
 | --- | --- | --- |
 | `npm run build` | Assertions removed; UMD minified | Assertions removed; core UMD minified |
 | `npm run build-dev` | Assertions retained | Assertions removed; core UMD minified |
+
+## Untimed correctness checks
+
+`npm run pretest` regenerates the synthetic inputs and builds both test workers.
+Then `npm run test:correctness` checks those inputs in both builds without worker
+deadlines or computation-duration failures. It runs the same structural, area,
+raster and available cleanup-equivalence checks as the corpus suites, outside
+Jest. Known failures still count as failures.
+
+The command requires Linux with a systemd user manager and memory accounting.
+It runs the test process and its descendants in a separate service with a total
+memory limit and no swap. This covers native renderer allocations as well as
+JavaScript heaps. It checks available memory before starting; current limits
+are in `scripts/run-contained.mjs`. Failure to establish containment stops the
+command. An allocation failure is a finding, not a successful or excluded case.
+
+```shell
+npm run pretest
+npm run test:correctness
+npm run test:correctness -- --cases <category/name,...> --output <results.jsonl>
+npm run test:correctness -- --root .cache/path-bool/artworks/fixtures --output <artwork-results.jsonl>
+```
+
+Each job appends a start record and then a result to the JSON-lines output.
+An interrupted job has a start without a result. Preserve that input and diagnose
+the failure before continuing. `--resume` reuses completed results from the same
+output file and retries unfinished jobs; the runner rejects reuse after the selected inputs or built workers change.
+Rebuild after source changes before resuming. Existing output files are never
+overwritten by a fresh run. Use a new output file after any fix. The default output path is in
+`scripts/run-correctness.mjs`.
+
+The artwork report command also accepts `--timeout 0` to disable deadlines and
+duration checks. Run it through `node scripts/run-contained.mjs` when doing so.
+Normal Jest and artwork runs retain their existing time limits. A timing failure
+there does not establish incorrect geometry; reproduce it in untimed mode.

@@ -244,7 +244,7 @@ export function createOracle(PathBool: PathBoolModule) {
         if (!Array.isArray(result))
             return `returned ${typeof result}, not an array`;
 
-        if (elapsed > DURATION_BUDGET_MS) {
+        if (process.env.PATH_BOOL_UNTIMED !== "1" && elapsed > DURATION_BUDGET_MS) {
             // Skip the determinism re-run: it would double an already pathological
             // cost for no extra information.
             return `took ${(elapsed / 1000).toFixed(1)}s, over the ${

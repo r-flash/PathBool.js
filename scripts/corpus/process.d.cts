@@ -14,11 +14,12 @@ export interface EvaluationResult {
 }
 
 export interface EvaluatorOptions {
+    /** Zero disables the watchdog and computation-duration checks. */
     timeout?: number;
     worker?: string;
 }
 
-/** A persistent sequential corpus worker with a per-job timeout. */
+/** A sequential corpus worker with an optional per-job deadline. */
 export class EvaluatorProcess {
     constructor(mode: BuildMode, options?: EvaluatorOptions);
     mode: BuildMode;
