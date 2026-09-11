@@ -12,7 +12,7 @@ import {
 import * as PathBool from "../index";
 import { Path } from "../primitives/Path";
 import { reversePathSegment } from "../primitives/PathSegment";
-import { createOracle } from "./support/tier0-oracle";
+import { createOracle } from "./support/structural-oracle";
 
 // Local two-path convenience wrapper around the variadic PathBoolean class.
 function pathBoolean(

@@ -1,11 +1,11 @@
 {
     "commons-115096348/00": {
-        "development/tier0/union": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
-        "development/tier0/difference": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
-        "development/tier0/intersection": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
-        "development/tier0/exclusion": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
-        "development/tier0/division": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
-        "development/tier0/fracture": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
+        "development/structural/union": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
+        "development/structural/difference": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
+        "development/structural/intersection": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
+        "development/structural/exclusion": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
+        "development/structural/division": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
+        "development/structural/fracture": "Untouched path pair from the mammal evolutionary-tree SVG trips the Multiple outer faces found invariant while building the dual graph. Production also exposes a tiny oppositely oriented fracture face.",
         "production/algebraic/partition-orientation": "The original diagram pair produces a fracture face with area about +1.5e-9 while the other faces are negative; the development build independently fails its multiple-outer-faces invariant."
     },
     "commons-76377877/00": {

@@ -8,7 +8,7 @@ export async function isolated(
     tier: EvaluationTier,
     key: string,
 ): Promise<string | null> {
-    const mode = tier === "tier0" ? "development" : "production";
+    const mode = tier === "structural" ? "development" : "production";
     if (!workers.has(mode)) workers.set(mode, new EvaluatorProcess(mode));
     const result = await workers.get(mode)!.evaluate({ dir, tier, key });
     return result.failure;

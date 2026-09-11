@@ -2,7 +2,7 @@ import * as library from "../../index";
 import { createOracle as algebraic } from "./algebraic-oracle";
 import { readCaseMetadata } from "./corpus";
 import { createOracle as raster } from "./raster-oracle";
-import { createOracle as structural } from "./tier0-oracle";
+import { createOracle as structural } from "./structural-oracle";
 
 let previous: string | null = null;
 let structure: ReturnType<typeof structural>;
@@ -27,7 +27,7 @@ process.on(
                 return;
             }
             const meta = readCaseMetadata(dir);
-            if (meta.structuralOnly && tier !== "tier0") {
+            if (meta.structuralOnly && tier !== "structural") {
                 process.send!({
                     failure: null,
                     kind: "excluded",
@@ -36,7 +36,7 @@ process.on(
                 return;
             }
             let failure: string | null;
-            if (tier === "tier0") failure = structure.evaluate(dir, key);
+            if (tier === "structural") failure = structure.evaluate(dir, key);
             else if (tier === "equivalence")
                 failure = pixels.compareWithClean(dir, key);
             else if (tier === "raster") failure = pixels.evaluate(dir, key);

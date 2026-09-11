@@ -80,9 +80,9 @@ export function readFixture(dir: string): Fixture {
 /*
  Known-bad cases, keyed by `<category>/<name>` then operation name, with a
  reason. Each suite keeps its own list, because they disagree about what
- counts as a failure: tier 0 runs with the dev asserts on and stops at the
- first thrown invariant, while the raster oracle runs the production code path
- and judges the pixels that come out of it.
+ counts as a failure: the structural oracle runs with the dev asserts on and
+ stops at the first thrown invariant, while the raster oracle runs the production
+ code path and judges the pixels that come out of it.
 */
 export type ExpectedFailures = Record<string, Record<string, string>>;
 

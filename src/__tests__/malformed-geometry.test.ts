@@ -13,7 +13,7 @@ import {
     assertOutcome,
 } from "./support/corpus";
 import { closeWorkers, isolated } from "./support/isolated";
-import { createOracle } from "./support/tier0-oracle";
+import { createOracle } from "./support/structural-oracle";
 
 afterAll(closeWorkers);
 const structural = createOracle(PathBool);

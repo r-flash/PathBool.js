@@ -40,8 +40,8 @@ export function createOracle(PathBool: PathBoolModule) {
     // pixel; two gives room for the result's own fringe to sit on top of it.
     const BAND_RADIUS = 2;
 
-    // Same reasoning as tier 0: one corpus case is pathologically slow, and this
-    // turns that into a reported finding instead of a mysteriously long suite.
+    // As with structural checks, a pathologically slow corpus case becomes a
+    // reported finding instead of a mysteriously long suite.
     const DURATION_BUDGET_MS = 5000;
 
     const MAX_REPORTED_PIXELS = 4;

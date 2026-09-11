@@ -108,8 +108,9 @@ try {
                 );
             report.cases++;
             for (const mode of ["development", "production"]) {
-                for (const tier of ["tier0", "algebraic", "raster"]) {
-                    if (mode === "development" && tier !== "tier0") continue;
+                for (const tier of ["structural", "algebraic", "raster"]) {
+                    if (mode === "development" && tier !== "structural")
+                        continue;
                     for (const key of tier === "algebraic"
                         ? catalog.identities
                         : ops) {

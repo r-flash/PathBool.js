@@ -1,5 +1,5 @@
 export type BuildMode = "development" | "production";
-export type EvaluationTier = "tier0" | "raster" | "algebraic" | "equivalence";
+export type EvaluationTier = "structural" | "raster" | "algebraic" | "equivalence";
 
 export type EvaluationJob =
     | { dir: string; tier: EvaluationTier; key: string }

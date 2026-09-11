@@ -79,7 +79,7 @@ Three suites do, each with a different oracle and a different blind spot:
 
 | Suite                                | Oracle                                                    | Sees                                                           | Misses                                                   |
 | ------------------------------------ | --------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
-| `__tests__/corpus-tier0.test.ts`     | none — structure only                                     | crashes, hangs, non-finite output, open loops, non-determinism | anything that is well formed but wrong                   |
+| `__tests__/corpus-structural.test.ts`     | none — structure only                                     | crashes, hangs, non-finite output, open loops, non-determinism | anything that is well formed but wrong                   |
 | `__tests__/corpus-algebraic.test.ts` | exact areas (Green's theorem), identities between results | sub-pixel errors, order dependence                             | output that is internally consistent but uniformly wrong |
 | `__tests__/corpus-raster.test.ts`    | resvg coverage masks combined with pixel arithmetic       | wrong regions, non-disjoint partitions                         | features thinner than a pixel                            |
 
@@ -87,9 +87,9 @@ The evaluators live under `__tests__/support/` and are shared with the opt-in
 [artwork corpus](../artworks/README.md). Jest builds test-only bundles through
 `pretest`; when invoking Jest directly after source changes, run
 `npm run pretest` first. Evaluations run in persistent child processes with a
-10-second hard timeout; a timed-out child is killed and replaced. Tier 0 uses
-development assertions; algebraic, raster and cleanup-equivalence checks use an
-assertion-stripped production bundle. Neither build overwrites `dist/`.
+10-second hard timeout; a timed-out child is killed and replaced. Structural checks
+use development assertions; algebraic, raster and cleanup-equivalence checks use
+an assertion-stripped production bundle. Neither build overwrites `dist/`.
 
 Input masks preserve original command data and do not use the library parser.
 Inputs and outputs are rendered near the origin in viewport units, avoiding
@@ -112,7 +112,7 @@ balances perfectly and only the pixels give it away.
 
 ## expected-failures\*.json
 
-Known-bad cases, keyed by `<category>/<name>` then by operation name (tier 0
+Known-bad cases, keyed by `<category>/<name>` then by operation name (structural
 and raster) or identity name (algebraic), with a reason. Each suite keeps its
 own list because they disagree about what counts as a failure.
 

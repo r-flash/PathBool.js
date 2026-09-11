@@ -46,7 +46,7 @@ test.each(runs)(
             EXPECTED_FAILURES_PATH,
             id,
             opName,
-            await isolated(dir, "tier0", opName),
+            await isolated(dir, "structural", opName),
         );
     },
     20000,
