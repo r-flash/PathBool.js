@@ -12,6 +12,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type { FillRule, Path, PathBooleanInput } from "../index";
+import { partitionRender } from "./support/partition-render";
 
 type PathBoolModule = typeof import("../index");
 let PathBool: PathBoolModule;
@@ -85,8 +86,12 @@ async function renderAndCompare(
     const groundTruthPath = path.join(dir, `${opName}.svg`);
     const groundTruthCode = await fs.readFile(groundTruthPath, "utf-8");
 
-    const oursRender = new Resvg(oursCode).render();
-    const groundTruthRender = new Resvg(groundTruthCode).render();
+    const renderCode =
+        opName === "division" || opName === "fracture"
+            ? partitionRender
+            : (code: string) => code;
+    const oursRender = new Resvg(renderCode(oursCode)).render();
+    const groundTruthRender = new Resvg(renderCode(groundTruthCode)).render();
 
     const width = oursRender.width;
 
