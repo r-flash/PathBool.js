@@ -19,6 +19,7 @@ export function* pathFromCommands(
     let firstPoint: Vector | null = null;
     let lastPoint: Vector | null = null;
     let lastControlPoint: Vector | null = null;
+    let previousCommand = "";
 
     function badSequence(): never {
         throw new Error("Bad SVG path data sequence.");
@@ -44,11 +45,12 @@ export function* pathFromCommands(
                 break;
             case "S":
                 if (!lastPoint) badSequence();
-                if (!lastControlPoint) badSequence(); // TODO: really?
                 yield [
                     "C",
                     lastPoint,
-                    reflectControlPoint(lastPoint, lastControlPoint),
+                    previousCommand === "C" || previousCommand === "S"
+                        ? reflectControlPoint(lastPoint, lastControlPoint!)
+                        : lastPoint,
                     cmd[1],
                     cmd[2],
                 ];
@@ -63,11 +65,10 @@ export function* pathFromCommands(
                 break;
             case "T":
                 if (!lastPoint) badSequence();
-                if (!lastControlPoint) badSequence(); // TODO: really?
-                lastControlPoint = reflectControlPoint(
-                    lastPoint,
-                    lastControlPoint,
-                );
+                lastControlPoint =
+                    previousCommand === "Q" || previousCommand === "T"
+                        ? reflectControlPoint(lastPoint, lastControlPoint!)
+                        : lastPoint;
                 yield ["Q", lastPoint, lastControlPoint, cmd[1]];
                 lastPoint = cmd[1];
                 break;
@@ -95,6 +96,7 @@ export function* pathFromCommands(
                 lastControlPoint = null;
                 break;
         }
+        previousCommand = cmd[0];
     }
 }
 
