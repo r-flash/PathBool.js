@@ -128,18 +128,41 @@ export function createOracle(PathBool: PathBoolModule) {
         }) as Path;
     }
 
+    let outputFrame:
+        | {
+              source: string;
+              code: string;
+              shift: [number, number];
+              vb: number[];
+              scale: number;
+          }
+        | undefined;
+
     function shiftedSvg(code: string, paths: Path[]): string {
-        const shift = viewBoxShift(code);
-        const $ = cheerio.load(code, { xml: true });
+        if (outputFrame?.source !== code) {
+            // A partition may contain thousands of faces. Parse its source
+            // once, retaining only the SVG frame needed to render each face.
+            const $ = cheerio.load(code, { xml: true });
+            const $svg = $("svg");
+            const vb = $svg
+                .attr("viewBox")!
+                .trim()
+                .split(/[\s,]+/)
+                .map(Number);
+            const scale = 512 / Math.max(vb[2], vb[3]);
+            $svg.attr("viewBox", `0 0 ${vb[2] * scale} ${vb[3] * scale}`);
+            $("path").remove();
+            outputFrame = {
+                source: code,
+                code: $.html(),
+                shift: [-vb[0], -vb[1]],
+                vb,
+                scale,
+            };
+        }
+        const { shift, vb, scale } = outputFrame;
+        const $ = cheerio.load(outputFrame.code, { xml: true });
         const $svg = $("svg");
-        const vb = $svg
-            .attr("viewBox")!
-            .trim()
-            .split(/[\s,]+/)
-            .map(Number);
-        const scale = 512 / Math.max(vb[2], vb[3]);
-        $svg.attr("viewBox", `0 0 ${vb[2] * scale} ${vb[3] * scale}`);
-        $("path").remove();
         for (const p of paths) {
             const commands = PathBool.pathToCommands(
                 shiftPath(p, shift, scale),
@@ -462,10 +485,11 @@ export function createOracle(PathBool: PathBoolModule) {
             code = $.html();
         }
 
-        const parsed = inputs.map((input) => ({
-            path: PathBool.pathFromPathData(input.d),
-            fillRule: fillRules[input.fillRule],
-        }));
+        const parseInputs = () =>
+            inputs.map((input) => ({
+                path: PathBool.pathFromPathData(input.d),
+                fillRule: fillRules[input.fillRule],
+            }));
 
         let result: Path[];
         let elapsed: number;
@@ -473,11 +497,14 @@ export function createOracle(PathBool: PathBoolModule) {
             const started = performance.now();
             if (process.env.PATH_BOOL_UNTIMED === "1") {
                 if (dir !== cachedDir || !arrangement) {
-                    arrangement = new PathBool.PathBoolean(parsed);
+                    arrangement = new PathBool.PathBoolean(parseInputs());
                     cachedDir = dir;
                 }
                 result = arrangement.get(ops[opName]);
-            } else result = new PathBool.PathBoolean(parsed).get(ops[opName]);
+            } else
+                result = new PathBool.PathBoolean(parseInputs()).get(
+                    ops[opName],
+                );
             elapsed = performance.now() - started;
         } catch (e) {
             const err = e as Error;
@@ -505,10 +532,19 @@ export function createOracle(PathBool: PathBoolModule) {
         let oursSvg: string | null = null;
 
         if (isPartition) {
+            const faceCount = result.length;
+            oursSvg = withPaths(code, result);
+            const faces = result
+                .filter((face) => face.length)
+                .map((face) => withPaths(code, [face]));
+            // Rendering needs serialized faces, not the graph and its vectors.
+            // Retaining those objects makes every native-resource collection
+            // traverse the entire arrangement again. Rebuild for a later op.
+            result = [];
+            arrangement = undefined;
             const sum = new Uint32Array(a.alpha.length);
-            for (const face of result) {
-                if (face.length === 0) continue;
-                const faceMask = renderMask(withPaths(code, [face]));
+            for (const face of faces) {
+                const faceMask = renderMask(face);
                 for (let i = 0; i < sum.length; i++)
                     sum[i] += faceMask.alpha[i];
                 if (renderedPixels >= MAX_RASTER_PIXELS) {
@@ -537,14 +573,13 @@ export function createOracle(PathBool: PathBoolModule) {
                 if (!band[i] && sum[i] > 255 + ALPHA_EPS) overlapping++;
             }
             if (overlapping > 0) {
-                oursSvg = withPaths(code, result);
                 writeReport(
                     dir,
                     opName,
-                    `${result.length} faces overlap on ${overlapping} pixels outside the boundary band.\n`,
+                    `${faceCount} faces overlap on ${overlapping} pixels outside the boundary band.\n`,
                     oursSvg,
                 );
-                return `faces are not disjoint: ${overlapping} pixels are covered by more than one of the ${result.length} returned faces`;
+                return `faces are not disjoint: ${overlapping} pixels are covered by more than one of the ${faceCount} returned faces`;
             }
 
             actual = new Uint8Array(sum.length);
