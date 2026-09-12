@@ -24,6 +24,9 @@ comparisons with saved SVG results, and checks over generated input paths.
 Jest is the test runner; ts-jest lets it run tests written in TypeScript.
 A test suite is a collection of tests, usually one file under `src/__tests__/`.
 
+To check types without running tests, use `npx tsc --noEmit`. It checks the
+source tree, including tests; generated build files are excluded.
+
 Before starting Jest, npm automatically runs the `pretest` script. It generates
 the synthetic input paths and compiles copies of the library for tests that run
 in separate processes. You do not need to generate those inputs or build the
@@ -45,6 +48,7 @@ explained in their respective sections below.
 
 | Command | What it does |
 | --- | --- |
+| `npm run test:correctness` | Checks corpus results without time limits, in a separate service with a memory limit |
 | `npm run test:artwork-corpus` | Checks boolean results for path pairs taken from downloaded SVG artwork |
 | `npm run test:corpus-tools` | Tests the programs that generate inputs, collect artwork and run tests in separate processes |
 | `npm run fuzz` | Changes path strings automatically, searching for crashes, hangs and excessive memory use |
@@ -69,6 +73,12 @@ The following files are under [`src/__tests__/`](src/__tests__/):
 | `shape-builder.test.ts` | `getFaces()` enumerates regions and `buildShape()` merges selected regions correctly, including holes, empty selections and invalid indices. |
 | `invariants.test.ts`, `assertion-error.test.ts` | Assertions detect broken graph links and reverse-edge pairs, and produce the expected error type and message. |
 | `arc-bounding-box.test.ts`, `cubic-bounding-box.test.ts` | Bounding boxes contain sampled curve points without being unnecessarily large. |
+| `smooth-commands.test.ts` | Smooth SVG commands reflect a previous control point only within the matching curve family. |
+| `graph-regressions.test.ts` | Shallow crossings, short edges between nearby intersections, and contacts with matching endpoint derivatives preserve partition areas and orientation. |
+| `line-contacts.test.ts` | Parallel lines, endpoint crossings, stationary contacts and nearly tangent circular arcs retain distinct intersections. |
+| `segment-area.test.ts` | Analytic face areas remain accurate for curved boundaries, translated thin regions and short arcs. |
+| `mixed-scale.test.ts` | Crossings near the endpoint of a long segment survive splitting; output coordinate restoration preserves thin-region winding; a retained fuzz input preserves valid path connectivity. |
+| `partition-render.test.ts` | Visual partition checks ignore path painting order while detecting missing internal boundaries. |
 | `intersection-grouping.test.ts` | Duplicate reports of one crossing are merged; nearby distinct crossings stay separate. |
 | `arc-and-winding-normalization.test.ts` | Equivalent arc parameters describe the same geometry; omitted arcs and opposite traversals cancel correctly. |
 | `closed-loop-cubic.test.ts` | Curves that enclose a region survive sampling, splitting and boolean operations; curves that merely retrace a line disappear. |
@@ -77,9 +87,8 @@ The following files are under [`src/__tests__/`](src/__tests__/):
 
 Inputs copied from reported issues are kept under
 [`src/__fixtures__/reported-issues/`](src/__fixtures__/reported-issues/).
-Some known-broken regression tests use Jest's `test.failing`. The test still
-executes, but a failure is expected. If it starts passing, Jest fails the suite
-to prompt removal of `.failing` when the bug is fixed.
+Reduced geometry cases are under `src/__fixtures__/regressions/`. These inputs
+are hand-maintained, and their tests use ordinary passing assertions.
 
 ## Comparing results with saved SVGs
 
@@ -107,7 +116,9 @@ npm test -- src/__tests__/visual-tests.ts -t "variadic" # only the multi-input c
 ```
 
 The test uses resvg, an SVG-to-image renderer, to turn the computed and expected
-results into pixels. At each pixel, the red, green, blue and alpha channel values
+results into pixels. Division and fracture paint all region fills before all
+strokes in both images, so path ordering cannot hide a shared boundary. At each
+pixel, the red, green, blue and alpha channel values
 must agree within `TOLERANCE`, defined in `visual-tests.ts`. The number of
 returned paths must also match the expected SVG. Computed SVGs and PNG renders
 are written to the case's `test-results/` directory for inspection.
@@ -207,14 +218,16 @@ so on. The library's result is rendered separately and compared with that image.
 For division and fracture, each returned region is rendered separately. The
 regions must cover A or the union, respectively, without overlapping each other.
 
-Images are rendered at a fixed maximum dimension and compared with an alpha
-tolerance. Pixels within a narrow band around the input boundaries are excluded
-because edge antialiasing can differ between equivalent paths. The image size,
-alpha tolerance and band width are defined in
-`src/__tests__/support/raster-oracle.ts`.
-If an expected nonempty region lies entirely inside that band, the test reports
-that it cannot judge the result and counts this as a failure. Tiny features
-outside the image's resolution are not verified.
+Images initially use the fixture's render dimensions. Pixels within a narrow
+band around the input boundaries are excluded because edge antialiasing can
+differ between equivalent paths. Outside that band, coverage must agree within
+the alpha tolerance defined in `src/__tests__/support/raster-oracle.ts`.
+
+If an expected nonempty region lies entirely inside the band, the check retries
+at a higher resolution. The band width and alpha tolerance stay unchanged.
+Resolution growth stops at the pixel allocation budget in that same file; a
+region that still cannot be judged remains a failure. Features below the final
+image's resolution are not verified.
 
 Reference images are produced without the library's SVG parser. Separate test
 code decodes paths and applies SVG arc-radius correction; rendering moves
@@ -586,10 +599,35 @@ npm run test:correctness -- --root .cache/path-bool/artworks/fixtures --output <
 Each job appends a start record and then a result to the JSON-lines output.
 An interrupted job has a start without a result. Preserve that input and diagnose
 the failure before continuing. `--resume` reuses completed results from the same
-output file and retries unfinished jobs; the runner rejects reuse after the selected inputs or built workers change.
-Rebuild after source changes before resuming. Existing output files are never
-overwritten by a fresh run. Use a new output file after any fix. The default output path is in
-`scripts/run-correctness.mjs`.
+output file and retries unfinished jobs. The runner rejects reuse after the
+selected inputs, built workers, runner, worker-management code or shared geometry
+helper change.
+Rebuild after source changes and use a new output file to validate the fix.
+Existing output files are never overwritten by a fresh run. The default output
+path is in `scripts/run-correctness.mjs`.
+
+Each run computes a fingerprint: a hash of the selected input bytes, worker
+builds, helper, runner and worker-management code. It copies the workers and shared
+helper into a directory named by that fingerprint. Rebuilding during a run
+cannot change its worker code.
+Do not regenerate or edit the selected fixtures while validation is running.
+
+The library first constructs an arrangement: a graph of the input segments split
+at crossings into edges that bound separate regions. Operations select regions
+from that graph. Untimed structural checks reuse two independently constructed
+arrangements per fixture to check repeatability across operations; raster checks
+can reuse a separate arrangement. Before rendering a partition, the worker
+serializes the returned faces and releases the graph and segment arrays. A later
+operation rebuilds the arrangement if needed. Cached data from completed checks
+is released when the check type changes, and the runner closes an inactive
+build before starting the next one. Untimed workers also request garbage collection between
+render batches, then yield to the event loop so native renderer resources can
+be released. Otherwise resvg's canvases can outgrow the JavaScript heap that
+triggers automatic collection.
+Partition renders reuse the SVG frame after removing the input paths, rather
+than reparsing the original drawing for every face. Every face is still rendered.
+These measures release completed work without truncating geometry or rendering.
+Ordinary timed checks keep construction inside each measured job.
 
 The artwork report command also accepts `--timeout 0` to disable deadlines and
 duration checks. Run it through `node scripts/run-contained.mjs` when doing so.
