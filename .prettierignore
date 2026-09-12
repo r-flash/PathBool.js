@@ -6,3 +6,26 @@ src/__fixtures__/generated/*/
 
 # The hand-maintained expected-failures*.json files at that level are not
 # listed here on purpose — those stay formatted.
+
+# Scraper output and recorded collection statistics.
+src/__fixtures__/artworks/manifest.json
+src/__fixtures__/artworks/pilot-summary.json
+
+# Test renders, downloaded inputs, worker snapshots and reports.
+src/__fixtures__/**/test-results/
+.cache/
+coverage/
+.nyc_output/
+fuzzing/corpus/
+
+# Generated bundles, declarations and source maps.
+dist/
+docs/js/
+fuzzing/build/
+
+# Generated update figures and their metadata; keep report prose formatted.
+docs/updates/*/img/
+docs/updates/*/demos.json
+
+# Written by npm.
+package-lock.json
