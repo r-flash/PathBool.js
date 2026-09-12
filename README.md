@@ -1,14 +1,25 @@
 # PathBool.js
 
 A low-level library for performing boolean operations on SVG paths.
-The project is still in early stages of development;
-please, help me test it and provide reduced examples of failure cases.
 
 ## Demos
 
 - [basic](https://r-flash.github.io/PathBool.js/demo.html)
 - [animation](https://r-flash.github.io/PathBool.js/demo-animation.html)
 - [shape builder](https://r-flash.github.io/PathBool.js/demo-shape-builder.html)
+
+## Behavior choices
+
+- **Open paths are not implicitly closed.** Boolean operations use the regions
+  enclosed by the supplied segments; dangling portions are discarded. To close
+  an open subpath, add `Z` after its last SVG command (before the next `M`, if
+  any). With raw segment arrays, add a line from its end back to its start:
+  `["L", end, start]` (see Usage below for details on segment arrays).
+- **An explicit error is preferable to an invalid result.** The library favors
+  throwing when computation cannot proceed reliably over silently discarding
+  geometry or returning a partial result. This does not guarantee that every
+  incorrect result is detected; development builds include additional
+  consistency checks that are omitted from production builds.
 
 ## Installation
 
@@ -88,8 +99,9 @@ See `docs/demo-shape-builder.html` for a clickable example.
 ## Testing
 
 Testing accounts for the majority of the codebase and therefore deserves its
-own document. Extracting it into a separate repository is a possible future
-task. (Let me know if you want to test your project, and I'll prioritize it.)
+own document. Extracting the testing framework into a separate repository is
+a possible future task. (Let me know if you want to test your own SVG or
+vector-processing project, and I'll prioritize it.)
 
 See [TESTING.md](TESTING.md) for test suites, corpora, fuzzing and benchmarks.
 
