@@ -42,10 +42,10 @@ export type Epsilons = {
 };
 
 export const EPS: Epsilons = {
-    point: 1e-6,
-    linear: 1e-4,
-    param: 1e-8,
-    collinear: 0,
+    point: 1e-6, // distance tolerance in SVG units for point coincidence and endpoint merging
+    linear: 1e-4, // curve-piece size in SVG units below which subdivision may stop when resolving intersections
+    param: 1e-8, // dimensionless tolerance in the segment parameter t in [0, 1]
+    collinear: 0, // cross-product threshold for parallel line directions
 };
 
 /*
