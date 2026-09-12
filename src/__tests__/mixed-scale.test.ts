@@ -3,11 +3,36 @@ import { readFileSync } from "node:fs";
 
 import {
     FillRule,
+    Path,
     PathBoolean,
     PathBooleanOperation as Op,
     pathFromPathData,
 } from "../index";
 import { originFor, signedArea } from "./support/area";
+
+test("restoring output coordinates preserves thin partition winding", () => {
+    const paths: Path[] = JSON.parse(
+        readFileSync(
+            "src/__fixtures__/regressions/translated-thin-polygons.json",
+            "utf8",
+        ),
+    );
+    for (const fillRule of [FillRule.NonZero, FillRule.EvenOdd])
+        for (const ordered of [paths, [...paths].reverse()]) {
+            const boolean = new PathBoolean(
+                ordered.map((path) => ({ path, fillRule })),
+            );
+            for (const faces of [
+                boolean.get(Op.Division),
+                boolean.get(Op.Fracture),
+                boolean.getFaces(),
+            ]) {
+                expect(faces.length).toBeGreaterThan(1);
+                for (const face of faces)
+                    expect(signedArea(face, originFor([face]))).toBeLessThan(0);
+            }
+        }
+});
 
 test.each([1e8, 1e9, 1e10])(
     "long edges retain nearby crossings (height %s)",

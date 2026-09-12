@@ -972,7 +972,7 @@ function splitArcSegmentAt(
     }
 
     const midDeltaTheta = centerParametrization.deltaTheta * t;
-    return [
+    const pieces: [PathArcSegment, PathArcSegment] = [
         arcSegmentFromCenter({
             ...centerParametrization,
             deltaTheta: midDeltaTheta,
@@ -983,6 +983,13 @@ function splitArcSegmentAt(
             deltaTheta: centerParametrization.deltaTheta - midDeltaTheta,
         }),
     ];
+    // Endpoints are exact constraints of the SVG segment. Reconstructing them
+    // through trigonometry can move a shared endpoint across a ray or leave
+    // adjacent children with different copies of their junction.
+    pieces[0][1] = seg[1];
+    pieces[1][1] = pieces[0][7];
+    pieces[1][7] = seg[7];
+    return pieces;
 }
 
 export function splitSegmentAt(

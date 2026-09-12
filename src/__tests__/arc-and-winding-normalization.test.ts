@@ -8,7 +8,11 @@ import { describe, expect, test } from "@jest/globals";
 import { epsilonsForExtent } from "../config";
 import * as PathBool from "../index";
 import type { Path } from "../primitives/Path";
-import { reversePathSegment } from "../primitives/PathSegment";
+import {
+    getEndPoint,
+    reversePathSegment,
+    splitSegmentAt,
+} from "../primitives/PathSegment";
 
 function canonicalizePath(path: Path): string {
     if (path.length === 0) return "";
@@ -106,4 +110,17 @@ describe("omitted and cancelling geometry", () => {
             ).toBe(serialize([other]));
         });
     }
+});
+
+test("subdivided arcs preserve their boundary vertices exactly", () => {
+    const arcs = PathBool.pathFromPathData(
+        "M 1 0 A 1 1 0 0 1 0 1 A 1 1 0 0 1 -1 0 A 1 1 0 0 1 0 -1 A 1 1 0 0 1 1 0",
+    );
+    for (const arc of arcs)
+        for (const t of [0.25, 0.5, 0.75]) {
+            const [first, second] = splitSegmentAt(arc, t);
+            expect(first[1]).toEqual(arc[1]);
+            expect(getEndPoint(first)).toEqual(second[1]);
+            expect(getEndPoint(second)).toEqual(getEndPoint(arc));
+        }
 });

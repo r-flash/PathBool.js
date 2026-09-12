@@ -75,10 +75,10 @@ describe("intersection reports are collapsed per crossing", () => {
             "0.7071,0.7071",
             "1.0000,0.0000",
         ]);
-        // Some contacts sit on a shared endpoint and so are found by two
-        // segment pairs; what matters is that the count is of that order and
-        // not of the order of a hundred.
-        expect(reported).toBeLessThan(20);
+        // Each of four shared vertices belongs to two arcs and two cubics:
+        // four segment pairs report it. Each quadrant adds one midpoint
+        // contact, so the exact total is 4 * 4 + 4 = 20 reports.
+        expect(reported).toBe(20);
     });
 
     /*

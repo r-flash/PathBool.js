@@ -38,6 +38,46 @@ type IntersectionSegment = {
     boundingBox: AABB;
 };
 
+function hasAtMostOneCrossing(a: PathSegment, b: PathSegment): boolean {
+    const differences = (seg: PathSegment) => {
+        const points = seg.slice(1) as Vector[];
+        return points
+            .slice(1)
+            .map((p, i) => [p[0] - points[i][0], p[1] - points[i][1]] as Vector)
+            .filter((v) => v[0] !== 0 || v[1] !== 0);
+    };
+    const da = differences(a),
+        db = differences(b);
+    if (!da.length || !db.length) return false;
+    const monotone = (d: Vector[], axis: number) =>
+        d.every((v) => v[axis] > 0) || d.every((v) => v[axis] < 0);
+    if (![0, 1].some((axis) => monotone(da, axis) && monotone(db, axis)))
+        return false;
+    // Bezier derivatives lie in the convex hull of these control differences.
+    // A shared monotone coordinate makes both curves graphs. Disjoint slope
+    // ranges make their difference monotone, so it has at most one zero.
+    let sign = 0;
+    for (const u of da)
+        for (const v of db) {
+            const p = u[0] * v[1],
+                q = u[1] * v[0],
+                cross = p - q;
+            // Cover the short subtraction/product dependency chain; a determinant
+            // indistinguishable from zero cannot certify separate tangent ranges.
+            if (
+                !Number.isFinite(cross) ||
+                Math.abs(cross) <=
+                    8 * Number.EPSILON * (Math.abs(p) + Math.abs(q)) +
+                        Number.MIN_VALUE
+            )
+                return false;
+            const next = Math.sign(cross);
+            if (sign && sign !== next) return false;
+            sign = next;
+        }
+    return true;
+}
+
 function subdivideIntersectionSegment(
     intSeg: IntersectionSegment,
 ): IntersectionSegment[] {
@@ -746,6 +786,19 @@ export function pathSegmentIntersection(
     b: PathSegment,
     eps: Epsilons,
 ): [number, number][] {
+    const resolution = eps.point;
+    // Nearby polynomial curves are not necessarily coincident. Bound that
+    // comparison by evaluation error, independently of subdivision resolution.
+    if (a[0] !== "A" && b[0] !== "A")
+        eps = {
+            ...eps,
+            point: Math.min(
+                eps.point,
+                32 *
+                    Number.EPSILON *
+                    (segmentCoordinateScale(a) + segmentCoordinateScale(b)),
+            ),
+        };
     eps = {
         ...eps,
         param: Math.min(parameterTolerance(a, eps), parameterTolerance(b, eps)),
@@ -755,14 +808,15 @@ export function pathSegmentIntersection(
     // correctness: the resulting arrangement still faces independent coverage
     // and area checks, but avoids two answers from rounding-dependent seeds.
     if (JSON.stringify(a) > JSON.stringify(b))
-        return intersectOrdered(b, a, eps).map(([s, t]) => [t, s]);
-    return intersectOrdered(a, b, eps);
+        return intersectOrdered(b, a, eps, resolution).map(([s, t]) => [t, s]);
+    return intersectOrdered(a, b, eps, resolution);
 }
 
 function intersectOrdered(
     origSeg0: PathSegment,
     origSeg1: PathSegment,
     eps: Epsilons,
+    resolution: number,
 ): [number, number][] {
     const seg0 = origSeg0;
     const seg1 = origSeg1;
@@ -822,6 +876,17 @@ function intersectOrdered(
         });
     }
 
+    // Connected segments provide exact endpoint roots. Seed them explicitly:
+    // subdivision near a tangent can otherwise report only an approximate
+    // nearby contact and introduce a spurious short edge.
+    for (const t0 of polynomialPair ? [0, 1] : []) {
+        const p = t0 ? segmentEndPoint(seg0) : seg0[1];
+        for (const t1 of [0, 1]) {
+            const q = t1 ? segmentEndPoint(seg1) : seg1[1];
+            if (p[0] === q[0] && p[1] === q[1]) pushCandidate(t0, t1);
+        }
+    }
+
     function pushLineSegmentIntersection(
         seg0: IntersectionSegment,
         seg1: IntersectionSegment,
@@ -844,6 +909,16 @@ function intersectOrdered(
                 Math.min(NEARLY_LINEAR_EPS, eps.point / 4),
             ) ||
             boundingBoxMaxExtent(seg.boundingBox) <= eps.linear ||
+            seg.endParam - seg.startParam < eps.param
+        );
+    }
+
+    function withinPointResolution(seg: IntersectionSegment) {
+        const box = seg.boundingBox;
+        return (
+            isNearlyLinearSegment(seg.seg, 0) ||
+            Math.hypot(box.right - box.left, box.bottom - box.top) <=
+                resolution ||
             seg.endParam - seg.startParam < eps.param
         );
     }
@@ -890,8 +965,21 @@ function intersectOrdered(
 
         if (polynomialPair && !polynomialHullsOverlap(seg0.seg, seg1.seg))
             continue;
-        const isLinear0 = isLinear(seg0);
-        const isLinear1 = isLinear(seg1);
+        let isLinear0 = isLinear(seg0);
+        let isLinear1 = isLinear(seg1);
+        if (
+            polynomialPair &&
+            isLinear0 &&
+            isLinear1 &&
+            !hasAtMostOneCrossing(seg0.seg, seg1.seg)
+        ) {
+            // Flatness cannot rule out a shallow excursion with two crossings.
+            // If their tangent ranges do not certify a single crossing, refine
+            // until no two points in either remaining piece can be distinct
+            // vertices at the configured geometric resolution.
+            isLinear0 = withinPointResolution(seg0);
+            isLinear1 = withinPointResolution(seg1);
+        }
 
         if (isLinear0 && isLinear1) {
             pushLineSegmentIntersection(seg0, seg1);

@@ -76,6 +76,7 @@ type MajorGraphEdgeStage1 = {
 
 type MajorGraphEdgeStage2 = MajorGraphEdgeStage1 & {
     boundingBox: AABB;
+    resolvedEnds?: boolean;
 };
 
 type MajorGraphEdge = MajorGraphEdgeStage2 & {
@@ -360,11 +361,12 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
         INTERSECTION_TREE_DEPTH,
     );
 
-    const splitsPerEdge: Record<number, number[]> = {};
+    type Split = { t: number; resolved: boolean };
+    const splitsPerEdge: Record<number, Split[]> = {};
 
-    function addSplit(i: number, t: number) {
+    function addSplit(i: number, t: number, resolved: boolean) {
         if (!hasOwn(splitsPerEdge, i)) splitsPerEdge[i] = [];
-        splitsPerEdge[i].push(t);
+        splitsPerEdge[i].push({ t, resolved });
     }
 
     for (let i = 0; i < withBoundingBox.length; i++) {
@@ -377,9 +379,10 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
                 candidate.seg,
                 eps,
             );
+            const resolved = edge.seg[0] !== "A" && candidate.seg[0] !== "A";
             for (const [t0, t1] of intersection) {
-                addSplit(i, t0);
-                addSplit(j, t1);
+                addSplit(i, t0, resolved);
+                addSplit(j, t1, resolved);
             }
         }
 
@@ -390,6 +393,18 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
         edgeTree.insert(edge.boundingBox, i);
     }
 
+    // Geometric merging can be wider than a resolved cut. Use the evaluation
+    // envelope here; local vertex radii below will preserve the resulting edge.
+    const splitEps = {
+        ...eps,
+        point: Math.min(
+            eps.point,
+            Math.max(
+                Number.MIN_VALUE,
+                64 * Number.EPSILON * boundingBoxMaxExtent(totalBoundingBox),
+            ),
+        ),
+    };
     const newEdges: MajorGraphEdgeStage2[] = [];
 
     for (let i = 0; i < withBoundingBox.length; i++) {
@@ -402,14 +417,18 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
         // Numeric, not the default lexicographic sort: a parameter small
         // enough to stringify in exponential form ("1e-7") would otherwise
         // sort after "0.9" and the segment would be cut in the wrong order.
-        splits.sort((a, b) => a - b);
+        splits.sort(
+            (a, b) => a.t - b.t || Number(b.resolved) - Number(a.resolved),
+        );
         let tmpSeg = edge.seg;
-        const param = parameterTolerance(edge.seg, eps);
-        let prevT = 0;
-        for (let j = 0; j < splits.length; j++) {
-            const t = splits[j];
+        const preciseParam = parameterTolerance(edge.seg, splitEps);
+        const contactParam = parameterTolerance(edge.seg, eps);
+        let prevT = 0,
+            resolvedStart = true;
+        for (const { t, resolved } of splits) {
+            const param = resolved ? preciseParam : contactParam;
 
-            if (t >= 1 - param) break;
+            if (t >= 1 - param) continue;
             if (t <= prevT + param) continue;
             const tt = (t - prevT) / (1 - prevT);
             if (tt <= 0 || tt >= 1) continue;
@@ -420,13 +439,16 @@ function splitAtIntersections(edges: MajorGraphEdgeStage1[], eps: Epsilons) {
                 seg: seg1,
                 boundingBox: pathSegmentBoundingBox(seg1),
                 parents: edge.parents,
+                resolvedEnds: resolvedStart && resolved,
             });
             tmpSeg = seg2;
+            resolvedStart = resolved;
         }
         newEdges.push({
             seg: tmpSeg,
             boundingBox: pathSegmentBoundingBox(tmpSeg),
             parents: edge.parents,
+            resolvedEnds: resolvedStart,
         });
     }
 
@@ -439,6 +461,26 @@ function findVertices(
     eps: Epsilons,
     inputPoints: Vector[],
 ): MajorGraph {
+    // An already-resolved edge must not disappear when its endpoints merge.
+    // Keep each merge neighborhood below half the incident edge length.
+    // Ignore numerical copies within the curve-evaluation rounding envelope.
+    const roundoff = 64 * Number.EPSILON * boundingBoxMaxExtent(boundingBox);
+    const pointRadii = new Map<number, Map<number, number>>();
+    const pointRadius = (p: Vector) =>
+        pointRadii.get(p[0])?.get(p[1]) ?? eps.point;
+    for (const { seg, resolvedEnds } of edges) {
+        if (resolvedEnds === false) continue;
+        const a = getStartPoint(seg),
+            b = getEndPoint(seg);
+        const distance = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        if (distance <= roundoff) continue;
+        for (const p of [a, b]) {
+            let column = pointRadii.get(p[0]);
+            if (!column) pointRadii.set(p[0], (column = new Map()));
+            column.set(p[1], Math.min(pointRadius(p), distance / 2));
+        }
+    }
+    const vertexRadii = new WeakMap<MajorGraphVertex, number>();
     // Approximate coincidence must choose one geometric representative in a
     // stable order. Operand visitation order otherwise changes which curve's
     // controls survive a merge and, with them, the incident tangent ordering.
@@ -454,24 +496,32 @@ function findVertices(
     const newVertices: MajorGraphVertex[] = [];
 
     function getVertex(point: Vector): MajorGraphVertex {
-        const box = boundingBoxAroundPoint(point, eps.point);
+        const radius = pointRadius(point);
+        const box = boundingBoxAroundPoint(point, radius);
         const existingVertices = vertexTree.find(box);
         let closest: MajorGraphVertex | undefined;
-        let distance = eps.point;
+        let distance = radius;
         for (const vertex of existingVertices) {
             const d = Math.hypot(
                 vertex.point[0] - point[0],
                 vertex.point[1] - point[1],
             );
-            if (d <= distance) {
+            if (d === 0 || d < Math.min(distance, vertexRadii.get(vertex)!)) {
                 closest = vertex;
                 distance = d;
             }
         }
-        if (closest) return closest;
+        if (closest) {
+            vertexRadii.set(
+                closest,
+                Math.min(vertexRadii.get(closest)!, radius),
+            );
+            return closest;
+        }
         const vertex: MajorGraphVertex = { point, outgoingEdges: [] };
         // Store a point, not another tolerance box (which doubled the radius).
         vertexTree.insert(boundingBoxAroundPoint(point, 0), vertex);
+        vertexRadii.set(vertex, radius);
         newVertices.push(vertex);
         return vertex;
     }
@@ -520,8 +570,12 @@ function findVertices(
         const startPoint = getStartPoint(edge.seg);
         const endPoint = getEndPoint(edge.seg);
 
+        const pointTolerance = Math.min(
+            pointRadius(startPoint),
+            pointRadius(endPoint),
+        );
         // discard zero-length segments before creating vertices
-        if (vectorsEqual(startPoint, endPoint, eps.point)) {
+        if (vectorsEqual(startPoint, endPoint, pointTolerance)) {
             switch (edge.seg[0]) {
                 case "L":
                     return [];
@@ -1149,25 +1203,6 @@ function getNextEdge(edge: MinorGraphEdge) {
     return outgoingEdges[(index + 1) % outgoingEdges.length];
 }
 
-const faceToPolygon = memoizeWeak((face: DualGraphVertex) =>
-    face.incidentEdges.flatMap((edge): Vector[] => {
-        const points: Vector[] = [];
-        const p = createVector();
-
-        for (const seg of edge.segments) {
-            const CNT = seg[0] === "L" ? 1 : 64;
-            for (let i = 0; i < CNT; i++) {
-                const t0 = i / CNT;
-                const t = edge.directionFlag ? 1 - t0 : t0;
-                samplePathSegmentAtInto(seg, t, p);
-                points.push([p[0], p[1]]);
-            }
-        }
-
-        return points;
-    }),
-);
-
 function intervalCrossesPoint(a: number, b: number, p: number) {
     /*
      This deserves its own routine because of the following trick.
@@ -1189,19 +1224,6 @@ function lineSegmentIntersectsHorizontalRay(
     return x >= point[0];
 }
 
-function computePointWinding(polygon: Vector[], testedPoint: Vector) {
-    if (polygon.length <= 2) return 0;
-    let prevPoint = polygon[polygon.length - 1];
-    let winding = 0;
-    for (const point of polygon) {
-        if (lineSegmentIntersectsHorizontalRay(prevPoint, point, testedPoint)) {
-            winding += point[1] > prevPoint[1] ? -1 : 1;
-        }
-        prevPoint = point;
-    }
-    return winding;
-}
-
 // Face orientation must describe the curves, not the polygon used to find an
 // interior point. Integrate about a local origin to avoid cancellation from a
 // large coordinate offset, and compensate the sum across segment boundaries.
@@ -1219,29 +1241,6 @@ const faceSignedArea = memoizeWeak((face: DualGraphVertex) => {
             total = next;
         }
     return total;
-});
-
-const computeWinding = memoizeWeak((face: DualGraphVertex) => {
-    const polygon = faceToPolygon(face);
-
-    for (let i = 0; i < polygon.length; i++) {
-        const a = polygon[i];
-        const b = polygon[(i + 1) % polygon.length];
-        const c = polygon[(i + 2) % polygon.length];
-        const testedPoint: Vector = [
-            (a[0] + b[0] + c[0]) / 3,
-            (a[1] + b[1] + c[1]) / 3,
-        ];
-        const winding = computePointWinding(polygon, testedPoint);
-        if (winding !== 0) {
-            return {
-                winding,
-                point: testedPoint,
-            };
-        }
-    }
-
-    assertUnreachable("No ear in polygon found.");
 });
 
 function computeDual({ edges, cycles }: MinorGraph): DualGraphComponent[] {
@@ -1445,15 +1444,15 @@ function pathSegmentHorizontalRayIntersectionCount(
     return count;
 }
 
-const getComponentInteriorPoint = memoizeWeak(
-    (component: DualGraphComponent) => {
-        for (const face of component.vertices) {
-            if (face === component.outerFace) continue;
-            return computeWinding(face).point;
-        }
-        assertUnreachable("No inner face found.");
-    },
-);
+function getComponentBoundaryPoint(component: DualGraphComponent): Vector {
+    // Different connected components have no intersections. A boundary vertex
+    // therefore lies in exactly the same face of every other component as the
+    // whole component does. No sampled polygon or representable interior of a
+    // potentially tiny face is needed to establish containment.
+    const face = component.outerFace;
+    assertDefined(face, "Component has no outer face.");
+    return getStartPoint(face.incidentEdges[0].segments[0]);
+}
 
 const getFaceIntersectionSegments = memoizeWeak((face: DualGraphVertex) =>
     face.incidentEdges.flatMap((edge) =>
@@ -1545,7 +1544,7 @@ function computeNestingTree(
     type ComponentInfo = {
         index: number;
         component: DualGraphComponent;
-        interiorPoint: Vector;
+        boundaryPoint: Vector;
         boundingBox: AABB;
         area: number;
     };
@@ -1557,13 +1556,13 @@ function computeNestingTree(
     let totalBoundingBox: AABB | null = null;
 
     const info: ComponentInfo[] = components.map((component, index) => {
-        const interiorPoint = getComponentInteriorPoint(component);
+        const boundaryPoint = getComponentBoundaryPoint(component);
         const boundingBox = getComponentBoundingBox(component);
         totalBoundingBox = mergeBoundingBoxes(totalBoundingBox, boundingBox);
         return {
             index,
             component,
-            interiorPoint,
+            boundaryPoint,
             boundingBox,
             area: boundingBoxArea(boundingBox),
         };
@@ -1587,7 +1586,7 @@ function computeNestingTree(
     const roots: NestingTree[] = [];
 
     for (const entry of info) {
-        const point = entry.interiorPoint;
+        const point = entry.boundaryPoint;
         const queryBox = boundingBoxAroundPoint(point, eps.point);
         const candidateIds = componentTree.find(queryBox);
         let bestParent: ComponentInfo | null = null;
@@ -1935,6 +1934,20 @@ function translateSegment(
     ) as PathSegment;
 }
 
+function signedPathArea(path: Path): number {
+    if (!path.length) return 0;
+    const origin = getStartPoint(path[0]);
+    let total = 0,
+        correction = 0;
+    for (const seg of path) {
+        const adjusted = segmentArea(seg, origin) - correction;
+        const next = total + adjusted;
+        correction = next - total - adjusted;
+        total = next;
+    }
+    return total;
+}
+
 /*
  Runs the boolean-operation pipeline up to and including face flagging for a set
  of N input paths in the constructor, then selects faces per operation in `get`.
@@ -1943,9 +1956,20 @@ function translateSegment(
 export class PathBoolean {
     private readonly origin: Vector = [0, 0];
     private restore(path: Path): Path {
-        return path.map((seg) =>
+        const restored = path.map((seg) =>
             translateSegment(seg, this.origin[0], this.origin[1]),
         );
+        if (this.origin[0] !== 0 || this.origin[1] !== 0) {
+            // Adding the offset rounds coordinates to the output's precision.
+            // For a very thin region that can reverse its signed area. Keep
+            // the traversal convention without changing the rounded boundary
+            // or the relative winding of its contours and holes.
+            const before = Math.sign(signedPathArea(path)),
+                after = Math.sign(signedPathArea(restored));
+            if (before && after && before !== after)
+                return restored.reverse().map(reversePathSegment);
+        }
+        return restored;
     }
     private readonly nestingTrees: NestingTree[];
     private regions?: { faces: DualGraphVertex[]; paths: Path[] };

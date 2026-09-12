@@ -23,8 +23,11 @@ export function lineBezierIntersection(
     if (length === 0) return [];
     const ux = dx / length,
         uy = dy / length;
-    const values = (curve.slice(1) as Vector[]).map(
-        (p) => ux * (p[1] - line[1][1]) - uy * (p[0] - line[1][0]),
+    const values = (curve.slice(1) as Vector[]).map((p) =>
+        (p[0] === line[1][0] && p[1] === line[1][1]) ||
+        (p[0] === line[2][0] && p[1] === line[2][1])
+            ? 0
+            : ux * (p[1] - line[1][1]) - uy * (p[0] - line[1][0]),
     );
     // A curve lying on the line needs overlap handling, not isolated roots.
     if (values.every((v) => v === 0)) return null;

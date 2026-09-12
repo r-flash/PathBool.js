@@ -98,7 +98,25 @@ describe("issue #3 exclusion regressions", () => {
             const { a, b } = issue3CubicAndRetracedLine;
             const result = exclude(a, b, fillRule, swapped);
             expect(structural.checkLoopsClose(result, 1e-6)).toBeNull();
-            expect(serializePaths(result)).toBe(serializePaths([a]));
+            // Splitting and rejoining can round cubic controls even when the
+            // filled region is unchanged. Require the same command structure
+            // and bound coordinate differences by the arithmetic scale.
+            const tokens = (paths: Path[]) =>
+                serializePaths(paths).match(/[A-Za-z]|-?\d+(?:\.\d+)?/g)!;
+            const actual = tokens(result),
+                expected = tokens([a]);
+            expect(actual).toHaveLength(expected.length);
+            for (let i = 0; i < expected.length; i++) {
+                const x = Number(actual[i]),
+                    y = Number(expected[i]);
+                if (Number.isNaN(y)) expect(actual[i]).toBe(expected[i]);
+                else
+                    expect(Math.abs(x - y)).toBeLessThanOrEqual(
+                        64 *
+                            Number.EPSILON *
+                            Math.max(Math.abs(x), Math.abs(y)),
+                    );
+            }
         },
     );
 });
