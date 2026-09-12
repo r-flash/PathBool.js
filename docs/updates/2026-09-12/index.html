@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Geometry correctness without work caps: regression demonstrations and complete untimed corpus validation for path-bool.">
+<title>path-bool — geometry correctness, 12 September 2026</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #16181d;
+    --muted: #5c6370;
+    --rule: #e3e6ea;
+    --panel: #f7f8fa;
+    --accent: #c8102e;
+    --good: #1a7f37;
+    --bad: #b42318;
+    --code-bg: #f2f4f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --fg: #e6e8eb;
+      --muted: #99a1ad;
+      --rule: #262b33;
+      --panel: #161a21;
+      --accent: #ff5b73;
+      --good: #4ac26b;
+      --bad: #ff7b72;
+      --code-bg: #1a1f27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 96px; }
+  header { border-bottom: 2px solid var(--fg); padding-bottom: 24px; margin-bottom: 40px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+  h2 {
+    font-size: 22px; margin: 56px 0 6px; letter-spacing: -0.01em;
+    padding-bottom: 8px; border-bottom: 1px solid var(--rule);
+  }
+  h3 { font-size: 17px; margin: 36px 0 4px; }
+  h3 .tag {
+    font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 3px 6px; margin-left: 8px; vertical-align: 2px; letter-spacing: 0.04em;
+  }
+  p { margin: 12px 0; }
+  .lede { font-size: 17px; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 18px 0; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  td.num, th.num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  tr.total td { border-top: 2px solid var(--fg); border-bottom: none; font-weight: 700; }
+  .scroll { overflow-x: auto; }
+  .good { color: var(--good); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 600; }
+  figure { margin: 20px 0 8px; }
+  .trip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .trip.two { grid-template-columns: repeat(2, 1fr); max-width: 640px; }
+  @media (max-width: 700px) { .trip, .trip.two { grid-template-columns: 1fr; } }
+  .shot { border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: #fff; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot .cap {
+    font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 7px 10px; border-top: 1px solid var(--rule);
+    background: var(--panel); color: var(--muted);
+  }
+  .shot .cap.before { color: var(--bad); }
+  .shot .cap.after { color: var(--good); }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 8px; padding: 14px 18px; margin: 18px 0;
+  }
+  .panel p:first-child { margin-top: 0; }
+  .panel p:last-child { margin-bottom: 0; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  .note { border-left: 3px solid var(--accent); padding-left: 14px; color: var(--muted); font-size: 14.5px; }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  .meta { color: var(--muted); font-size: 14px; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-size: 14px; }
+  pre { overflow-x: auto; padding: 14px; background: var(--code-bg); border-radius: 6px; }
+  pre code { padding: 0; }
+  details { margin: 18px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  .trip.two { max-width: none; }
+  .kv dd { overflow-wrap: anywhere; }
+  h2, h3 { scroll-margin-top: 20px; }
+  @media (max-width: 700px) {
+    .wrap { padding: 28px 16px 64px; }
+    h1 { font-size: 27px; }
+    code { overflow-wrap: anywhere; }
+    .kv { grid-template-columns: 1fr; gap: 2px; }
+    .kv dd { margin-bottom: 8px; }
+  }
+</style>
+</head>
+<body><main class="wrap">
+<header><h1>Geometry correctness without work caps</h1>
+<p class="meta">12 September 2026 · <span class="mono">path-bool</span></p>
+<p class="meta">Work on <code>fix/geometry-correctness</code>, based on <code>testing-revamp</code> at <code>780ecef</code>. Validated code and bundles: <code>6e24ce4</code>. The branch has not been merged or released.</p>
+<nav aria-label="Report sections"><a href="#visual-examples">Visual examples</a><a href="#repairs">Repair details</a><a href="#independent-checks-and-references">Independent checks</a><a href="#validation-record">Validation record</a><a href="../2026-08-04/index.html">Previous report</a></nav>
+</header>
+<p class="lede">Removing the subdivision and refinement caps exposed geometry that the old implementation could silently discard.
+This branch repairs the underlying termination, intersection and face-construction defects, then checks the complete generated and pinned artwork corpora without deadlines.
+All applicable checks pass; existing open-path exclusions remain.</p>
+<div class="panel"><p><strong>How to read the geometry examples.</strong> The library splits input outlines at crossings, joins the resulting edges into a graph,
+and traces the enclosed regions, called faces. Winding counts determine which inputs cover each face.
+A boolean operation selects faces: intersection keeps the overlap, exclusion keeps regions covered by only one input, and fracture returns the individual regions.</p></div>
+<div class="panel"><dl class="kv"><dt>Jest</dt><dd>21 suites · 10,138 tests passed</dd><dt>Generated corpus</dt><dd>424 cases · no failures</dd><dt>Pinned artwork corpus</dt><dd>1,857 pairs · no failures or missing checks</dd></dl></div>
+<h2 id="approach">Approach</h2>
+
+<p>Preserve the failing inputs and baseline artwork report, establish memory containment, then repair termination, primitive geometry, intersections and face construction in that order. Validate without deadlines before interpreting normal test-mode timing failures. Keep the existing runtime dependency set.</p>
+
+<p>The removed subdivision, intersection-pair, split-count and tangent-sampling caps could silently discard geometry. Their replacements stop on geometric criteria or representable parameter progress. Exhausting memory remains a failure; it is not a reason to return a partial arrangement.</p>
+
+<h2 id="visual-examples">Visible regressions</h2>
+<p>The comparison images use the source at <code>780ecef</code> before this branch and the validated
+production bundle at <code>6e24ce4</code> after it. They are static SVGs generated from those revisions;
+opening this report does not run the boolean library. Input A is blue and input B is orange.</p>
+<h3>1 · A smooth cubic inherited the wrong control point</h3>
+<p>SVG’s <code>S</code> command reflects a previous cubic control point only when the previous command
+was cubic too. After a quadratic command, its first control point must be the current point.
+The parser instead reflected the quadratic control point, bending the next curve in the wrong direction.
+The same family check now applies to smooth quadratic commands.</p>
+<figure><div class="trip">
+<div class="shot"><img src="img/smooth-input.svg" alt="The browser-native smooth path, with two upward bends" width="480" height="300" loading="lazy"><div class="cap ">Native SVG reference</div></div>
+<div class="shot"><img src="img/smooth-before.svg" alt="The second curve bends downward before turning upward" width="480" height="300" loading="lazy"><div class="cap before">Before — reflected quadratic control</div></div>
+<div class="shot"><img src="img/smooth-after.svg" alt="The expanded curve matches the native SVG reference" width="480" height="300" loading="lazy"><div class="cap after">After — control at the join</div></div></div><figcaption><code>M10 70 Q30 0 60 70 S90 0 115 70</code>. The first panel uses this SVG string directly. The other panels show the library’s expanded segments; dashed guides and a dot identify the cubic controls. This constructed example exercises the mixed-family regression in <code>smooth-commands.test.ts</code>.</figcaption></figure>
+<h3>2 · A crossing near the end of a long edge disappeared</h3>
+<p>A is a rectangle two units wide and a billion units tall. B is a small rectangle spanning
+<code>x = 1…3</code> and <code>y = 1…2</code>. Their intersection is the unit square at <code>x = 1…2</code>.
+A fixed cutoff in the edge parameter discarded the necessary cuts near the <code>y = 0</code> end of A’s long side.
+Cutoffs now account for segment speed, so distance along the actual geometry determines how close a cut is to an endpoint.</p>
+<figure><div class="trip">
+<div class="shot"><img src="img/long-input.svg" alt="Blue tall rectangle overlapping the left half of an orange small rectangle" width="480" height="300" loading="lazy"><div class="cap ">Inputs — cropped detail</div></div>
+<div class="shot"><img src="img/long-before.svg" alt="The whole small rectangle is incorrectly returned" width="480" height="300" loading="lazy"><div class="cap before">Before — area 2</div></div>
+<div class="shot"><img src="img/long-after.svg" alt="Only the unit-square overlap is returned" width="480" height="300" loading="lazy"><div class="cap after">After — area 1</div></div></div><figcaption><code>Intersection</code>, from <code>mixed-scale.test.ts</code>. All panels use the same crop; A continues far beyond the image. The calculation uses its full height. A related retained fuzz input exposed the same parameter-cutoff defect.</figcaption></figure>
+<h3>3 · Issue #3: a triangle came back as disconnected edges</h3>
+<p>The first two segments of A retrace a line and cancel, leaving a triangle. B retraces a separate line and contributes no filled region.
+Exclusion should therefore return the triangle. Collapsing a chain of graph edges had lost their traversal direction,
+so the returned segments no longer joined in order. The repaired chain preserves both direction and each input’s winding count.</p>
+<figure><div class="trip">
+<div class="shot"><img src="img/issue-input.svg" alt="A filled blue triangle and a separate orange retraced line" width="480" height="300" loading="lazy"><div class="cap ">Inputs — raw issue #3 coordinates</div></div>
+<div class="shot"><img src="img/issue-before.svg" alt="Unfilled triangle edges with no closed output contour" width="480" height="300" loading="lazy"><div class="cap before">Before — disconnected segments</div></div>
+<div class="shot"><img src="img/issue-after.svg" alt="A closed and filled triangle" width="480" height="300" loading="lazy"><div class="cap after">After — closed triangle</div></div></div><figcaption><code>Exclusion</code> with the even-odd fill rule. The calculation uses the original raw segment arrays from <code>reported-issues/issue-3.ts</code>. Serialization preserves discontinuities: the baseline produces separate move commands, so its visible edges do not form a filled path. Tests also cover the non-zero rule and reversed input order.</figcaption></figure>
+<h3>4 · A chord approximation hid a second crossing</h3>
+<p>Two quadratics have <code>x = t</code> and a vertical difference of <code>t × (0.00001 − t/2)</code>.
+They meet at <code>t = 0</code> and <code>t = 0.00002</code>. The old flatness check replaced their shallow excursion with chords and found only the shared endpoint.
+The finder now checks derivative ranges to establish when a pair can cross at most once, and subdivides further when it cannot establish that.</p>
+<figure><div class="trip two">
+<div class="shot"><img src="img/crossing-before.svg" alt="Signed-gap graph with only the root at zero marked" width="480" height="300" loading="lazy"><div class="cap before">Before — one reported contact</div></div>
+<div class="shot"><img src="img/crossing-after.svg" alt="The same signed-gap graph with both roots marked" width="480" height="300" loading="lazy"><div class="cap after">After — both contacts retained</div></div></div><figcaption><strong>Magnified signed-gap plot, not a drawing of the input curves.</strong> The blue curve is the independently derived vertical difference; dots are the solver’s reported parameters. The maximum gap is only <code>5 × 10⁻¹¹</code>. This analytic case is in <code>graph-regressions.test.ts</code>; artwork <code>commons-8667810/00</code> exposed the corresponding missing-crossing failure.</figcaption></figure>
+<details><summary>Reproduce the figures</summary>
+<p>Run from the repository root with development dependencies installed. The generator reads the pinned revisions from Git,
+builds the baseline with production assertions stripped, and writes these SVGs and <a href="demos.json">comparison metadata</a>.
+It checks the reported roots, triangle continuity and intersection bounds before finishing.</p>
+<pre><code>node scripts/run-contained.mjs node scripts/render-correctness-update.mjs</code></pre>
+<p>The large original artworks are covered by the validation record below. These small examples make the failure mechanisms visible without loading the downloaded corpus or running expensive geometry in the browser.</p>
+</details>
+
+<h2 id="repairs">Geometry repair details</h2>
+
+<ul>
+<li>Smooth SVG commands use a reflected control point only after a command from the matching curve family.</li>
+<li>Cubic self-intersections are solved once per original segment. Rechecking their children had repeatedly rediscovered a rounded endpoint and grown the edge array without bound. Subdivision uses a depth-first work list.</li>
+<li>Positive arc radii retain SVG radius correction, however small their specified value. Sampling and splitting no longer flatten genuine tiny curves. Arc bounding-box padding follows arithmetic scale instead of a fixed distance.</li>
+<li>Distant geometry is translated toward the origin during construction. Canonical shared endpoints close the output exactly. Broad-phase bounds cover the endpoint neighborhood accepted by the intersection solver.</li>
+<li>Collinearity checks include displacement, not just parallel direction. Line/Bézier roots are isolated between derivative extrema. Circular arc intersections preserve the second crossing beside a shared endpoint. Polynomial contact refinement solves both curve parameters and distinguishes nearby roots using their numerical conditioning. Parameter tolerances also follow a bound on segment speed: a fixed parameter cutoff had discarded a crossing a full unit from the endpoint of a long line in a retained fuzz seed.</li>
+<li>Polynomial leaf pairs use derivative ranges to certify when they can cross at most once. Ambiguous pairs subdivide further to the point resolution. Artwork <code>commons-8667810/00</code> had a second crossing hidden beside a shared endpoint by the old chord approximation; the missing cut corrupted its faces.</li>
+<li>Minor-graph chains preserve traversal direction and per-input winding. A degree-two vertex is collapsed only when those windings agree across it. This also repairs the regressions retained from issue #3.</li>
+<li>Face orientation uses analytic area about a local origin, with compensated sums and a stable short-arc formula. Component containment checks bounds.</li>
+<li>Angular ordering places its branch cut away from outgoing tangents and uses analytic curvature and curvature derivatives to distinguish cubic contacts. Shared leading control points also provide an exact departure comparison. Development builds check Euler's planar-graph identity: one positive-area face alone did not prove that the traced arrangement was planar.</li>
+<li>Resolved short edges constrain endpoint merging: each endpoint's merge radius is below half its incident edge lengths. The radii are shared by coordinate, including separately allocated copies of an input endpoint. Splitting retains cuts down to arithmetic precision, so one curve cannot discard a crossing retained by the other. Polynomial coincidence checks use their evaluation error scale; subdivision resolution remains separate. Approximate arc contacts retain their own cut and merge tolerance. This repairs the dense near-endpoint intersections in <code>commons-48353204/05</code>.</li>
+<li>Exact shared polynomial endpoints are included as roots. The line/Bézier distance calculation also preserves exact endpoint incidence instead of introducing a residual through normalization.</li>
+<li>Nesting uses a boundary vertex of each component. Distinct connected components do not intersect, so this identifies the containing face without searching for an interior sample in a tiny, sampled polygon. Arc subdivision preserves the supplied endpoints and shares the midpoint exactly; rebuilding those points through trigonometry had moved them across containment rays.</li>
+<li>Output restoration preserves signed winding when adding the coordinate offset rounds a thin region enough to reverse its area. The retained polygon reduction from <code>commons-8667810/00</code> changes from a negative face in local coordinates to a positive triangle after restoration. Reversing traversal retains the rounded boundary and relative winding of contours and holes; no face is discarded and no filled-region tolerance changes.</li>
+</ul>
+
+<h2 id="independent-checks-and-references">Independent checks and references</h2>
+
+<p>The test area calculation remains separate from production area code. For short arcs it uses quadrature instead of the production Taylor recurrence. Raster checks retry thin, otherwise unjudgeable regions at higher resolution without changing their boundary band or alpha tolerance. Cases still unjudgeable within the renderer allocation budget remain failures.</p>
+
+<p>Partition visual checks paint fills before strokes on both sides. Otherwise, reordering the same regions changed pixels by painting over a shared boundary. A separate regression verifies order independence and detection of a missing internal boundary. No tolerance was loosened.</p>
+
+<p>The <code>simple-08</code> division and fracture references omitted a real closing region. An independent decimal intersection solve confirms it; the fixture README records the parameters. The corrected references retain that region. The <code>real-02</code> geometry references were not changed.</p>
+
+<p>The new short-edge regression retains the existing area precision. The cubic regression from issue #3 checks the same command structure and bounds coordinate differences by floating-point arithmetic scale. The previous serialized-string comparison rejected a control-point change of about five trillionths caused by splitting and rejoining; it did not describe a changed filled region.</p>
+
+<p>The circle/cubic contact-count test previously required fewer than twenty segment-pair reports. Four shared vertices each belong to two arcs and two cubics, contributing sixteen reports; four quadrant-midpoint contacts bring the exact total to twenty. The test now requires that total as well as the original eight distinct contact positions. Preserving arc endpoints exposed the incorrect bound by restoring the missing endpoint incidences.</p>
+
+<p>Untimed runs snapshot their workers and shared geometry helper, record each job before starting it, and reject stale resume results. A systemd service contains JavaScript and native renderer allocations together without containing the IDE. A deliberate allocation exhaustion test killed only that service.</p>
+
+<p>Large partition rendering then exposed a real resource failure under that limit. Releasing inactive builds and completed oracle caches reduced retained geometry. Native renderer wrappers additionally needed collection and an event loop turn between batches so N-API finalizers could release their canvases. Both large cap-affected artworks completed every check after that repair under the same memory limit, including in the final corpus sweep.</p>
+
+<p>Partition rendering also reuses the SVG frame after removing the original paths. Reparsing a large source drawing for every face had repeated the same work thousands of times. A CPU profile then showed most sampled time in garbage collection. Partition checks now serialize the output and release the graph and segment arrays before rendering; a later operation rebuilds the arrangement if needed. Each face is still rendered and checked at the same size. Dense-artwork partition checks still took roughly ten to thirteen minutes each in the final sweep. No performance bound follows from these repairs.</p>
+
+<h2 id="validation-record">Validation record</h2>
+
+<p>All results below use the final output-restoration repair. Corpus validation ran without deadlines in services capped at 2 GiB with swap disabled. The final runs completed without resource exhaustion. Coverage verification also checked that the recorded workers and shared geometry helper match the final build.</p>
+
+<ul>
+<li>Complete Jest run: 21 suites, 10,138 tests passed.</li>
+<li>Final-build untimed generated corpus: 424 cases, no failures; 12,384 checks passed and 256 existing open-path checks were excluded by fixture metadata. All generated expected-failure entries were removed only after corresponding passing results.</li>
+<li>Complete pinned artwork corpus: 1,857 pairs, 51,996 checks; 45,788 passed, 6,208 existing open-path checks excluded by fixture metadata, no failures or missing jobs. These exclusions preserve inputs whose filled-region contract is not established; they are not new exceptions for repaired cases.</li>
+<li>Corpus tooling: 18 tests passed, including snapshot loading, unfinished-job replay, stale resume rejection and synchronous timeout recovery.</li>
+<li>TypeScript and formatting checks passed. The TypeScript project now excludes generated build declarations, which previously broke type checking after a fuzz build.</li>
+<li>Previously failing representative artworks, including the cow and bee, pass the independent structural, area and raster checks.</li>
+<li>The mammal-tree structural and orientation failures and the previously unjudgeable thin intersection now pass. The artwork expected-failure list is empty; entries were removed from observed final-build results.</li>
+<li>The large cap-affected artworks <code>commons-141391608/00</code> and <code>commons-19544924/01</code> passed every untimed check.</li>
+<li>All 80 existing fuzz seeds passed after repairing the mixed-scale crossing.</li>
+<li>Full and core ESM/UMD bundles and the docs bundle were rebuilt and passed public-API checks for mixed-scale intersections and partitioning; the full bundles also passed a smooth-command parsing check.</li>
+</ul>
+
+<p>Detailed job logs remain in <code>.cache/path-bool/</code>: <code>restored-generated.jsonl</code>, <code>artwork-restored-0.jsonl</code>, <code>artwork-restored-1.jsonl</code>, <code>restored-artwork.jsonl</code> and <code>restored-fuzz.jsonl</code>. <code>restored-validation.log</code> contains the Jest, tooling, type and bundle checks; <code>restored-artwork-final-summary.json</code> records complete artwork coverage. Downloaded artwork and the original report are not committed. Normal tests still retain their timing budgets. A passing correctness check does not establish a performance bound. See <a href="https://github.com/r-flash/PathBool.js/blob/6e24ce4/TESTING.md#untimed-correctness-checks">untimed correctness checks</a> for commands, containment requirements and result interpretation.</p>
+</main></body>
+</html>
