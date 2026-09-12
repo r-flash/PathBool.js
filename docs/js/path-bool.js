@@ -1458,7 +1458,7 @@ function splitArcSegmentAt(seg, t) {
         return splitLinearSegmentAt(["L", seg[1], seg[7]], t);
     }
     const midDeltaTheta = centerParametrization.deltaTheta * t;
-    return [
+    const pieces = [
         arcSegmentFromCenter({
             ...centerParametrization,
             deltaTheta: midDeltaTheta,
@@ -1469,6 +1469,13 @@ function splitArcSegmentAt(seg, t) {
             deltaTheta: centerParametrization.deltaTheta - midDeltaTheta,
         }),
     ];
+    // Endpoints are exact constraints of the SVG segment. Reconstructing them
+    // through trigonometry can move a shared endpoint across a ray or leave
+    // adjacent children with different copies of their junction.
+    pieces[0][1] = seg[1];
+    pieces[1][1] = pieces[0][7];
+    pieces[1][7] = seg[7];
+    return pieces;
 }
 function splitSegmentAt(seg, t) {
     if (isNearlyLinearSegment(seg, 0)) {
@@ -1619,7 +1626,10 @@ function lineBezierIntersection(line, curve, eps) {
     if (length === 0)
         return [];
     const ux = dx / length, uy = dy / length;
-    const values = curve.slice(1).map((p) => ux * (p[1] - line[1][1]) - uy * (p[0] - line[1][0]));
+    const values = curve.slice(1).map((p) => (p[0] === line[1][0] && p[1] === line[1][1]) ||
+        (p[0] === line[2][0] && p[1] === line[2][1])
+        ? 0
+        : ux * (p[1] - line[1][1]) - uy * (p[0] - line[1][0]));
     // A curve lying on the line needs overlap handling, not isolated roots.
     if (values.every((v) => v === 0))
         return null;
@@ -1715,6 +1725,41 @@ function lineSegmentsIntersect(seg1, seg2, eps) {
     return !!lineSegmentIntersection(seg1, seg2, eps);
 }
 
+function hasAtMostOneCrossing(a, b) {
+    const differences = (seg) => {
+        const points = seg.slice(1);
+        return points
+            .slice(1)
+            .map((p, i) => [p[0] - points[i][0], p[1] - points[i][1]])
+            .filter((v) => v[0] !== 0 || v[1] !== 0);
+    };
+    const da = differences(a), db = differences(b);
+    if (!da.length || !db.length)
+        return false;
+    const monotone = (d, axis) => d.every((v) => v[axis] > 0) || d.every((v) => v[axis] < 0);
+    if (![0, 1].some((axis) => monotone(da, axis) && monotone(db, axis)))
+        return false;
+    // Bezier derivatives lie in the convex hull of these control differences.
+    // A shared monotone coordinate makes both curves graphs. Disjoint slope
+    // ranges make their difference monotone, so it has at most one zero.
+    let sign = 0;
+    for (const u of da)
+        for (const v of db) {
+            const p = u[0] * v[1], q = u[1] * v[0], cross = p - q;
+            // Cover the short subtraction/product dependency chain; a determinant
+            // indistinguishable from zero cannot certify separate tangent ranges.
+            if (!Number.isFinite(cross) ||
+                Math.abs(cross) <=
+                    8 * Number.EPSILON * (Math.abs(p) + Math.abs(q)) +
+                        Number.MIN_VALUE)
+                return false;
+            const next = Math.sign(cross);
+            if (sign && sign !== next)
+                return false;
+            sign = next;
+        }
+    return true;
+}
 function subdivideIntersectionSegment(intSeg) {
     const [seg0, seg1] = splitSegmentAt(intSeg.seg, 0.5);
     const midParam = (intSeg.startParam + intSeg.endParam) / 2;
@@ -2287,6 +2332,16 @@ function polynomialHullsOverlap(a, b) {
     return true;
 }
 function pathSegmentIntersection(a, b, eps) {
+    const resolution = eps.point;
+    // Nearby polynomial curves are not necessarily coincident. Bound that
+    // comparison by evaluation error, independently of subdivision resolution.
+    if (a[0] !== "A" && b[0] !== "A")
+        eps = {
+            ...eps,
+            point: Math.min(eps.point, 32 *
+                Number.EPSILON *
+                (segmentCoordinateScale(a) + segmentCoordinateScale(b))),
+        };
     eps = {
         ...eps,
         param: Math.min(parameterTolerance(a, eps), parameterTolerance(b, eps)),
@@ -2296,10 +2351,10 @@ function pathSegmentIntersection(a, b, eps) {
     // correctness: the resulting arrangement still faces independent coverage
     // and area checks, but avoids two answers from rounding-dependent seeds.
     if (JSON.stringify(a) > JSON.stringify(b))
-        return intersectOrdered(b, a, eps).map(([s, t]) => [t, s]);
-    return intersectOrdered(a, b, eps);
+        return intersectOrdered(b, a, eps, resolution).map(([s, t]) => [t, s]);
+    return intersectOrdered(a, b, eps, resolution);
 }
-function intersectOrdered(origSeg0, origSeg1, eps) {
+function intersectOrdered(origSeg0, origSeg1, eps, resolution) {
     const seg0 = origSeg0;
     const seg1 = origSeg1;
     if (seg0[0] === "L" && seg1[0] === "L") {
@@ -2352,6 +2407,17 @@ function intersectOrdered(origSeg0, origSeg1, eps) {
             gap: Math.hypot(p[0] - q[0], p[1] - q[1]),
         });
     }
+    // Connected segments provide exact endpoint roots. Seed them explicitly:
+    // subdivision near a tangent can otherwise report only an approximate
+    // nearby contact and introduce a spurious short edge.
+    for (const t0 of polynomialPair ? [0, 1] : []) {
+        const p = t0 ? segmentEndPoint(seg0) : seg0[1];
+        for (const t1 of [0, 1]) {
+            const q = t1 ? segmentEndPoint(seg1) : seg1[1];
+            if (p[0] === q[0] && p[1] === q[1])
+                pushCandidate(t0, t1);
+        }
+    }
     function pushLineSegmentIntersection(seg0, seg1) {
         const lineSegment0 = pathSegmentToLineSegment(seg0.seg);
         const lineSegment1 = pathSegmentToLineSegment(seg1.seg);
@@ -2363,6 +2429,13 @@ function intersectOrdered(origSeg0, origSeg1, eps) {
     function isLinear(seg) {
         return (isNearlyLinearSegment(seg.seg, Math.min(NEARLY_LINEAR_EPS, eps.point / 4)) ||
             boundingBoxMaxExtent(seg.boundingBox) <= eps.linear ||
+            seg.endParam - seg.startParam < eps.param);
+    }
+    function withinPointResolution(seg) {
+        const box = seg.boundingBox;
+        return (isNearlyLinearSegment(seg.seg, 0) ||
+            Math.hypot(box.right - box.left, box.bottom - box.top) <=
+                resolution ||
             seg.endParam - seg.startParam < eps.param);
     }
     // Depth first traversal keeps pending work proportional to subdivision
@@ -2403,8 +2476,19 @@ function intersectOrdered(origSeg0, origSeg1, eps) {
         }
         if (polynomialPair && !polynomialHullsOverlap(seg0.seg, seg1.seg))
             continue;
-        const isLinear0 = isLinear(seg0);
-        const isLinear1 = isLinear(seg1);
+        let isLinear0 = isLinear(seg0);
+        let isLinear1 = isLinear(seg1);
+        if (polynomialPair &&
+            isLinear0 &&
+            isLinear1 &&
+            !hasAtMostOneCrossing(seg0.seg, seg1.seg)) {
+            // Flatness cannot rule out a shallow excursion with two crossings.
+            // If their tangent ranges do not certify a single crossing, refine
+            // until no two points in either remaining piece can be distinct
+            // vertices at the configured geometric resolution.
+            isLinear0 = withinPointResolution(seg0);
+            isLinear1 = withinPointResolution(seg1);
+        }
         if (isLinear0 && isLinear1) {
             pushLineSegmentIntersection(seg0, seg1);
         }
@@ -2679,10 +2763,10 @@ function splitAtIntersections(edges, eps) {
     }
     const edgeTree = new QuadTree(totalBoundingBox, INTERSECTION_TREE_DEPTH);
     const splitsPerEdge = {};
-    function addSplit(i, t) {
+    function addSplit(i, t, resolved) {
         if (!hasOwn(splitsPerEdge, i))
             splitsPerEdge[i] = [];
-        splitsPerEdge[i].push(t);
+        splitsPerEdge[i].push({ t, resolved });
     }
     for (let i = 0; i < withBoundingBox.length; i++) {
         const edge = withBoundingBox[i];
@@ -2690,9 +2774,10 @@ function splitAtIntersections(edges, eps) {
         for (const j of candidates) {
             const candidate = edges[j];
             const intersection = pathSegmentIntersection(edge.seg, candidate.seg, eps);
+            const resolved = edge.seg[0] !== "A" && candidate.seg[0] !== "A";
             for (const [t0, t1] of intersection) {
-                addSplit(i, t0);
-                addSplit(j, t1);
+                addSplit(i, t0, resolved);
+                addSplit(j, t1, resolved);
             }
         }
         /*
@@ -2701,6 +2786,12 @@ function splitAtIntersections(edges, eps) {
         */
         edgeTree.insert(edge.boundingBox, i);
     }
+    // Geometric merging can be wider than a resolved cut. Use the evaluation
+    // envelope here; local vertex radii below will preserve the resulting edge.
+    const splitEps = {
+        ...eps,
+        point: Math.min(eps.point, Math.max(Number.MIN_VALUE, 64 * Number.EPSILON * boundingBoxMaxExtent(totalBoundingBox))),
+    };
     const newEdges = [];
     for (let i = 0; i < withBoundingBox.length; i++) {
         const edge = withBoundingBox[i];
@@ -2712,14 +2803,15 @@ function splitAtIntersections(edges, eps) {
         // Numeric, not the default lexicographic sort: a parameter small
         // enough to stringify in exponential form ("1e-7") would otherwise
         // sort after "0.9" and the segment would be cut in the wrong order.
-        splits.sort((a, b) => a - b);
+        splits.sort((a, b) => a.t - b.t || Number(b.resolved) - Number(a.resolved));
         let tmpSeg = edge.seg;
-        const param = parameterTolerance(edge.seg, eps);
-        let prevT = 0;
-        for (let j = 0; j < splits.length; j++) {
-            const t = splits[j];
+        const preciseParam = parameterTolerance(edge.seg, splitEps);
+        const contactParam = parameterTolerance(edge.seg, eps);
+        let prevT = 0, resolvedStart = true;
+        for (const { t, resolved } of splits) {
+            const param = resolved ? preciseParam : contactParam;
             if (t >= 1 - param)
-                break;
+                continue;
             if (t <= prevT + param)
                 continue;
             const tt = (t - prevT) / (1 - prevT);
@@ -2731,18 +2823,42 @@ function splitAtIntersections(edges, eps) {
                 seg: seg1,
                 boundingBox: pathSegmentBoundingBox(seg1),
                 parents: edge.parents,
+                resolvedEnds: resolvedStart && resolved,
             });
             tmpSeg = seg2;
+            resolvedStart = resolved;
         }
         newEdges.push({
             seg: tmpSeg,
             boundingBox: pathSegmentBoundingBox(tmpSeg),
             parents: edge.parents,
+            resolvedEnds: resolvedStart,
         });
     }
     return { edges: newEdges, totalBoundingBox };
 }
 function findVertices(edges, boundingBox, eps, inputPoints) {
+    // An already-resolved edge must not disappear when its endpoints merge.
+    // Keep each merge neighborhood below half the incident edge length.
+    // Ignore numerical copies within the curve-evaluation rounding envelope.
+    const roundoff = 64 * Number.EPSILON * boundingBoxMaxExtent(boundingBox);
+    const pointRadii = new Map();
+    const pointRadius = (p) => pointRadii.get(p[0])?.get(p[1]) ?? eps.point;
+    for (const { seg, resolvedEnds } of edges) {
+        if (resolvedEnds === false)
+            continue;
+        const a = getStartPoint(seg), b = getEndPoint(seg);
+        const distance = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        if (distance <= roundoff)
+            continue;
+        for (const p of [a, b]) {
+            let column = pointRadii.get(p[0]);
+            if (!column)
+                pointRadii.set(p[0], (column = new Map()));
+            column.set(p[1], Math.min(pointRadius(p), distance / 2));
+        }
+    }
+    const vertexRadii = new WeakMap();
     // Approximate coincidence must choose one geometric representative in a
     // stable order. Operand visitation order otherwise changes which curve's
     // controls survive a merge and, with them, the incident tangent ordering.
@@ -2753,22 +2869,26 @@ function findVertices(edges, boundingBox, eps, inputPoints) {
     const vertexTree = new QuadTree(boundingBox, POINT_TREE_DEPTH);
     const newVertices = [];
     function getVertex(point) {
-        const box = boundingBoxAroundPoint(point, eps.point);
+        const radius = pointRadius(point);
+        const box = boundingBoxAroundPoint(point, radius);
         const existingVertices = vertexTree.find(box);
         let closest;
-        let distance = eps.point;
+        let distance = radius;
         for (const vertex of existingVertices) {
             const d = Math.hypot(vertex.point[0] - point[0], vertex.point[1] - point[1]);
-            if (d <= distance) {
+            if (d === 0 || d < Math.min(distance, vertexRadii.get(vertex))) {
                 closest = vertex;
                 distance = d;
             }
         }
-        if (closest)
+        if (closest) {
+            vertexRadii.set(closest, Math.min(vertexRadii.get(closest), radius));
             return closest;
+        }
         const vertex = { point, outgoingEdges: [] };
         // Store a point, not another tolerance box (which doubled the radius).
         vertexTree.insert(boundingBoxAroundPoint(point, 0), vertex);
+        vertexRadii.set(vertex, radius);
         newVertices.push(vertex);
         return vertex;
     }
@@ -2804,8 +2924,9 @@ function findVertices(edges, boundingBox, eps, inputPoints) {
     const newEdges = edges.flatMap((edge) => {
         const startPoint = getStartPoint(edge.seg);
         const endPoint = getEndPoint(edge.seg);
+        const pointTolerance = Math.min(pointRadius(startPoint), pointRadius(endPoint));
         // discard zero-length segments before creating vertices
-        if (vectorsEqual(startPoint, endPoint, eps.point)) {
+        if (vectorsEqual(startPoint, endPoint, pointTolerance)) {
             switch (edge.seg[0]) {
                 case "L":
                     return [];
@@ -3327,20 +3448,6 @@ function getNextEdge(edge) {
     const index = edge.twin?.indexInVertex;
     return outgoingEdges[(index + 1) % outgoingEdges.length];
 }
-const faceToPolygon = memoizeWeak((face) => face.incidentEdges.flatMap((edge) => {
-    const points = [];
-    const p = createVector();
-    for (const seg of edge.segments) {
-        const CNT = seg[0] === "L" ? 1 : 64;
-        for (let i = 0; i < CNT; i++) {
-            const t0 = i / CNT;
-            const t = edge.directionFlag ? 1 - t0 : t0;
-            samplePathSegmentAtInto(seg, t, p);
-            points.push([p[0], p[1]]);
-        }
-    }
-    return points;
-}));
 function intervalCrossesPoint(a, b, p) {
     /*
      This deserves its own routine because of the following trick.
@@ -3357,19 +3464,6 @@ function lineSegmentIntersectsHorizontalRay(a, b, point) {
     const x = linMap(point[1], a[1], b[1], a[0], b[0]);
     return x >= point[0];
 }
-function computePointWinding(polygon, testedPoint) {
-    if (polygon.length <= 2)
-        return 0;
-    let prevPoint = polygon[polygon.length - 1];
-    let winding = 0;
-    for (const point of polygon) {
-        if (lineSegmentIntersectsHorizontalRay(prevPoint, point, testedPoint)) {
-            winding += point[1] > prevPoint[1] ? -1 : 1;
-        }
-        prevPoint = point;
-    }
-    return winding;
-}
 // Face orientation must describe the curves, not the polygon used to find an
 // interior point. Integrate about a local origin to avoid cancellation from a
 // large coordinate offset, and compensate the sum across segment boundaries.
@@ -3384,25 +3478,6 @@ const faceSignedArea = memoizeWeak((face) => {
             total = next;
         }
     return total;
-});
-const computeWinding = memoizeWeak((face) => {
-    const polygon = faceToPolygon(face);
-    for (let i = 0; i < polygon.length; i++) {
-        const a = polygon[i];
-        const b = polygon[(i + 1) % polygon.length];
-        const c = polygon[(i + 2) % polygon.length];
-        const testedPoint = [
-            (a[0] + b[0] + c[0]) / 3,
-            (a[1] + b[1] + c[1]) / 3,
-        ];
-        const winding = computePointWinding(polygon, testedPoint);
-        if (winding !== 0) {
-            return {
-                winding,
-                point: testedPoint,
-            };
-        }
-    }
 });
 function computeDual({ edges, cycles }) {
     const newVertices = [];
@@ -3551,13 +3626,14 @@ function pathSegmentHorizontalRayIntersectionCount(origSeg, point, eps, totalBou
     }
     return count;
 }
-const getComponentInteriorPoint = memoizeWeak((component) => {
-    for (const face of component.vertices) {
-        if (face === component.outerFace)
-            continue;
-        return computeWinding(face).point;
-    }
-});
+function getComponentBoundaryPoint(component) {
+    // Different connected components have no intersections. A boundary vertex
+    // therefore lies in exactly the same face of every other component as the
+    // whole component does. No sampled polygon or representable interior of a
+    // potentially tiny face is needed to establish containment.
+    const face = component.outerFace;
+    return getStartPoint(face.incidentEdges[0].segments[0]);
+}
 const getFaceIntersectionSegments = memoizeWeak((face) => face.incidentEdges.flatMap((edge) => edge.segments.map((seg) => ({
     seg,
     boundingBox: pathSegmentBoundingBox(seg),
@@ -3613,13 +3689,13 @@ function computeNestingTree(components, eps) {
     }
     let totalBoundingBox = null;
     const info = components.map((component, index) => {
-        const interiorPoint = getComponentInteriorPoint(component);
+        const boundaryPoint = getComponentBoundaryPoint(component);
         const boundingBox = getComponentBoundingBox(component);
         totalBoundingBox = mergeBoundingBoxes(totalBoundingBox, boundingBox);
         return {
             index,
             component,
-            interiorPoint,
+            boundaryPoint,
             boundingBox,
             area: boundingBoxArea(boundingBox),
         };
@@ -3634,7 +3710,7 @@ function computeNestingTree(components, eps) {
     }
     const roots = [];
     for (const entry of info) {
-        const point = entry.interiorPoint;
+        const point = entry.boundaryPoint;
         const queryBox = boundingBoxAroundPoint(point, eps.point);
         const candidateIds = componentTree.find(queryBox);
         let bestParent = null;
@@ -3866,6 +3942,19 @@ const operationPredicates = {
 function translateSegment(seg, dx, dy) {
     return seg.map((value) => Array.isArray(value) ? [value[0] + dx, value[1] + dy] : value);
 }
+function signedPathArea(path) {
+    if (!path.length)
+        return 0;
+    const origin = getStartPoint(path[0]);
+    let total = 0, correction = 0;
+    for (const seg of path) {
+        const adjusted = segmentArea(seg, origin) - correction;
+        const next = total + adjusted;
+        correction = next - total - adjusted;
+        total = next;
+    }
+    return total;
+}
 /*
  Runs the boolean-operation pipeline up to and including face flagging for a set
  of N input paths in the constructor, then selects faces per operation in `get`.
@@ -3873,7 +3962,17 @@ function translateSegment(seg, dx, dy) {
 */
 class PathBoolean {
     restore(path) {
-        return path.map((seg) => translateSegment(seg, this.origin[0], this.origin[1]));
+        const restored = path.map((seg) => translateSegment(seg, this.origin[0], this.origin[1]));
+        if (this.origin[0] !== 0 || this.origin[1] !== 0) {
+            // Adding the offset rounds coordinates to the output's precision.
+            // For a very thin region that can reverse its signed area. Keep
+            // the traversal convention without changing the rounded boundary
+            // or the relative winding of its contours and holes.
+            const before = Math.sign(signedPathArea(path)), after = Math.sign(signedPathArea(restored));
+            if (before && after && before !== after)
+                return restored.reverse().map(reversePathSegment);
+        }
+        return restored;
     }
     constructor(inputs) {
         this.origin = [0, 0];
